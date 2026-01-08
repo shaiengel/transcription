@@ -9,6 +9,7 @@ dependencies = [
     "botocore[crt]>=1.42.24",
     "faster-whisper>=1.2.1",
     "python-dotenv>=1.2.1",
+    "torch>=2.9.1",
 ]
 
 [project.scripts]

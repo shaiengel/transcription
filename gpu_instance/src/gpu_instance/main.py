@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 import tempfile
+import torch
 
 from gpu_instance.config import config
 from gpu_instance.handlers.s3_handler import S3Handler
@@ -27,6 +28,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+logger.info(f"PyTorch version: {torch.__version__}")
+logger.info(f"CUDA available: {torch.cuda.is_available()}")
+logger.info(f"CUDA version: {torch.version.cuda}")
+logger.info(f"cuDNN : {torch.backends.cudnn.enabled}")
+
 
 def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
     """
@@ -42,7 +48,7 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
     """
     audio_path = None
     vtt_path = None
-
+    text_path = None
     try:
         logger.info(f"Processing: {s3_key}")
 
@@ -78,12 +84,6 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
         logger.error(f"Failed to process {s3_key}: {e}", exc_info=True)
         return False
 
-    finally:
-        # Cleanup local files
-        if audio_path:
-            s3_handler.cleanup_local_file(audio_path)
-        # if vtt_path:
-        #     s3_handler.cleanup_local_file(vtt_path)
 
 
 def run_worker(files: list[str]) -> None:
@@ -114,7 +114,7 @@ def run_worker(files: list[str]) -> None:
     # Create temp directory once for all files
     with tempfile.TemporaryDirectory(
         prefix="transcription_",
-        delete=False,
+        delete=True,
         ignore_cleanup_errors=True,
     ) as temp_dir:
         logger.info(f"Using temp directory: {temp_dir}")
