@@ -46,40 +46,43 @@ class S3Handler:
             logger.error(f"Failed to download {s3_key}: {e}")
             raise
 
-    def upload_transcription(self, local_path: str, original_s3_key: str) -> str:
+    def upload_file(self, local_path: Path, original_s3_key: str) -> str:
         """
-        Upload VTT transcription to S3.
+        Upload a file to S3.
 
         Args:
-            local_path: Path to the local VTT file.
-            original_s3_key: Original audio file S3 key (for deriving output key).
+            local_path: Path to the local file.
+            original_s3_key: Original audio file S3 key (for metadata).
 
         Returns:
-            The S3 key where the transcription was uploaded.
+            The S3 key where the file was uploaded.
 
         Raises:
             ClientError: If upload fails.
         """
-        filename = os.path.basename(original_s3_key)
-        base_name = os.path.splitext(filename)[0]
-        output_key = f"{config.output_prefix}{base_name}.vtt"
+        content_types = {
+            ".vtt": "text/vtt",
+            ".txt": "text/plain",
+        }
+        content_type = content_types.get(local_path.suffix, "application/octet-stream")
+        output_key = f"{config.output_prefix}{local_path.name}"
 
-        logger.info(f"Uploading transcription to s3://{self.bucket}/{output_key}")
+        logger.info(f"Uploading to s3://{self.bucket}/{output_key}")
 
         try:
             self.client.upload_file(
-                local_path,
+                str(local_path),
                 self.bucket,
                 output_key,
                 ExtraArgs={
-                    "ContentType": "text/vtt",
+                    "ContentType": content_type,
                     "Metadata": {"source_audio": original_s3_key},
                 },
             )
             logger.info(f"Successfully uploaded {output_key}")
             return output_key
         except ClientError as e:
-            logger.error(f"Failed to upload transcription: {e}")
+            logger.error(f"Failed to upload {local_path.name}: {e}")
             raise
 
     def cleanup_local_file(self, local_path: str) -> None:

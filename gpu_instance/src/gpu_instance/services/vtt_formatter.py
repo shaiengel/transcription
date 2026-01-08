@@ -1,66 +1,91 @@
-"""Format transcription segments to WebVTT format."""
+"""Format transcription segments to WebVTT and plain text formats."""
 
 import logging
-import os
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterator
 
+from gpu_instance.services.utils import format_timestamp
 
-def format_timestamp(seconds: float) -> str:
+
+@dataclass
+class SegmentData:
+    """Stores relevant data from a transcription segment."""
+    index: int
+    start: float
+    end: float
+    text: str
+
+
+def collect_segments(segments: Iterator[Any]) -> list[SegmentData]:
     """
-    Convert seconds to VTT timestamp format (HH:MM:SS.mmm).
-
-    Args:
-        seconds: Time in seconds.
-
-    Returns:
-        Formatted timestamp string.
-    """
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = seconds % 60
-
-    return f"{hours:02d}:{minutes:02d}:{secs:06.3f}"
-
-
-def segments_to_vtt(segments: Iterator[Any]) -> str:
-    """
-    Convert faster-whisper segments to VTT format.
+    Collect all segments from the iterator into a list.
 
     Args:
         segments: Iterator of segment objects from faster-whisper.
-                  Each segment has: start, end, text attributes.
+
+    Returns:
+        List of SegmentData objects.
+    """
+    collected = []
+    for i, segment in enumerate(segments, start=1):
+        text = segment.text.strip()
+        start = format_timestamp(segment.start)
+        end = format_timestamp(segment.end)
+        logging.info(f"[{i}] {start} - {end}: {text}")
+        collected.append(SegmentData(
+            index=i,
+            start=segment.start,
+            end=segment.end,
+            text=text
+        ))
+    return collected
+
+
+def segments_to_vtt(segments: list[SegmentData]) -> str:
+    """
+    Convert collected segments to VTT format.
+
+    Args:
+        segments: List of SegmentData objects.
 
     Returns:
         Complete VTT file content as string.
     """
-    lines = ["WEBVTT", ""]
-    logging.info("WEBVTT")
-    logging.info("")
+    lines = ["WEBVTT", ""]    
 
-    for i, segment in enumerate(segments, start=1):
+    for segment in segments:
         start_ts = format_timestamp(segment.start)
         end_ts = format_timestamp(segment.end)
-        text = segment.text.strip()
 
-        msg = f"{str(i)}"
-        logging.info(msg)
+        msg = f"{segment.index}"
         lines.append(msg)
 
         msg = f"{start_ts} --> {end_ts}"
-        logging.info(msg)
         lines.append(msg)
 
-        msg = f"{text}"
-        logging.info(msg)
-        lines.append(msg) 
+        msg = f"{segment.text}"
+        lines.append(msg)
 
-        logging.info("")       
         lines.append("")
 
     return "\n".join(lines)
 
 
-def save_vtt(vtt_content: str, audio_path: str, temp_dir: str) -> str:
+def segments_to_text(segments: list[SegmentData]) -> str:
+    """
+    Convert collected segments to plain text format.
+
+    Args:
+        segments: List of SegmentData objects.
+
+    Returns:
+        Plain text content with all segment texts joined.
+    """
+    return "\n".join(segment.text for segment in segments)
+
+
+def save_vtt(vtt_content: str, audio_path: str, temp_dir: str) -> Path:
     """
     Save VTT content to file.
 
@@ -72,10 +97,27 @@ def save_vtt(vtt_content: str, audio_path: str, temp_dir: str) -> str:
     Returns:
         Path to saved VTT file.
     """
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]
-    vtt_path = os.path.join(temp_dir, f"{base_name}.vtt")
+    vtt_path = Path(temp_dir) / Path(audio_path).with_suffix(".vtt").name
 
-    with open(vtt_path, "w", encoding="utf-8") as f:
-        f.write(vtt_content)
+    vtt_path.write_text(vtt_content, encoding="utf-8")
 
     return vtt_path
+
+
+def save_text(text_content: str, audio_path: str, temp_dir: str) -> Path:
+    """
+    Save plain text content to file.
+
+    Args:
+        text_content: The plain text string.
+        audio_path: Path to original audio file (used to derive output path).
+        temp_dir: Directory to save the text file.
+
+    Returns:
+        Path to saved text file.
+    """
+    text_path = Path(temp_dir) / Path(audio_path).with_suffix(".txt").name
+
+    text_path.write_text(text_content, encoding="utf-8")
+
+    return text_path

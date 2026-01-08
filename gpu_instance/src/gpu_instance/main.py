@@ -7,7 +7,15 @@ import tempfile
 
 from gpu_instance.config import config
 from gpu_instance.handlers.s3_handler import S3Handler
-from gpu_instance.services import load_model, transcribe, segments_to_vtt, save_vtt
+from gpu_instance.services import (
+    load_model,
+    transcribe,
+    collect_segments,
+    segments_to_vtt,
+    segments_to_text,
+    save_vtt,
+    save_text,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -42,18 +50,28 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
         audio_path = s3_handler.download_audio(s3_key)
 
         # Transcribe
-        segments, info = transcribe(audio_path)
+        segments_iter, info = transcribe(audio_path)        
 
-        # Convert to VTT (consumes the iterator)
+        # Collect all segments
+        segments = collect_segments(segments_iter)
+
+        # Convert to VTT
         vtt_content = segments_to_vtt(segments)
+
+        # Convert to plain text
+        text_content = segments_to_text(segments)
 
         # Save VTT locally
         vtt_path = save_vtt(vtt_content, audio_path, temp_dir)
 
-        # Upload to S3
-        output_key = s3_handler.upload_transcription(vtt_path, s3_key)
+        # Save text locally for RAG
+        text_path = save_text(text_content, audio_path, temp_dir)
 
-        logger.info(f"Successfully processed {s3_key} -> {output_key}")
+        # Upload to S3
+        vtt_key = s3_handler.upload_file(vtt_path, s3_key)
+        txt_key = s3_handler.upload_file(text_path, s3_key)
+
+        logger.info(f"Successfully processed {s3_key} -> {vtt_key}, {txt_key}")
         return True
 
     except Exception as e:
