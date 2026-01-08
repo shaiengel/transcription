@@ -1,5 +1,6 @@
 """Format transcription segments to WebVTT format."""
 
+import logging
 import os
 from typing import Any, Iterator
 
@@ -33,15 +34,27 @@ def segments_to_vtt(segments: Iterator[Any]) -> str:
         Complete VTT file content as string.
     """
     lines = ["WEBVTT", ""]
+    logging.info("WEBVTT")
+    logging.info("")
 
     for i, segment in enumerate(segments, start=1):
         start_ts = format_timestamp(segment.start)
         end_ts = format_timestamp(segment.end)
         text = segment.text.strip()
 
-        lines.append(str(i))
-        lines.append(f"{start_ts} --> {end_ts}")
-        lines.append(text)
+        msg = f"{str(i)}"
+        logging.info(msg)
+        lines.append(msg)
+
+        msg = f"{start_ts} --> {end_ts}"
+        logging.info(msg)
+        lines.append(msg)
+
+        msg = f"{text}"
+        logging.info(msg)
+        lines.append(msg) 
+
+        logging.info("")       
         lines.append("")
 
     return "\n".join(lines)

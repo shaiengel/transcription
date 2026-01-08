@@ -58,11 +58,7 @@ def transcribe(audio_path: str) -> tuple[Any, Any]:
     segments, info = model.transcribe(
         audio_path,
         language=config.language,
-        beam_size=config.beam_size,
-        vad_filter=True,
-        vad_parameters=dict(
-            min_silence_duration_ms=500,
-        ),
+        beam_size=config.beam_size,        
     )
 
     logger.info(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")

@@ -64,8 +64,8 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
         # Cleanup local files
         if audio_path:
             s3_handler.cleanup_local_file(audio_path)
-        if vtt_path:
-            s3_handler.cleanup_local_file(vtt_path)
+        # if vtt_path:
+        #     s3_handler.cleanup_local_file(vtt_path)
 
 
 def run_worker(files: list[str]) -> None:

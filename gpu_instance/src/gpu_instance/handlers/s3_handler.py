@@ -18,7 +18,7 @@ class S3Handler:
     def __init__(self, temp_dir: str):
         self.client = boto3.client("s3", region_name=config.aws_region)
         self.bucket = config.bucket_name
-        self.temp_dir = temp_dir
+        self.temp_dir = Path(temp_dir)
 
     def download_audio(self, s3_key: str) -> str:
         """
@@ -34,14 +34,14 @@ class S3Handler:
             ClientError: If download fails.
         """
         filename = Path(s3_key).name
-        local_path = os.path.join(self.temp_dir, filename)
+        local_path = self.temp_dir / filename        
 
         logger.info(f"Downloading s3://{self.bucket}/{s3_key} to {local_path}")
 
         try:
-            self.client.download_file(self.bucket, s3_key, local_path)
+            self.client.download_file(self.bucket, s3_key, str(local_path))
             logger.info(f"Successfully downloaded {filename}")
-            return local_path
+            return str(local_path)
         except ClientError as e:
             logger.error(f"Failed to download {s3_key}: {e}")
             raise
