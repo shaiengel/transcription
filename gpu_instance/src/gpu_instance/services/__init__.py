@@ -4,8 +4,10 @@ from .vtt_formatter import (
     collect_segments,
     segments_to_vtt,
     segments_to_text,
+    segments_to_timed_text,
     save_vtt,
     save_text,
+    save_timed_text,
 )
 
 __all__ = [
@@ -15,6 +17,8 @@ __all__ = [
     "collect_segments",
     "segments_to_vtt",
     "segments_to_text",
+    "segments_to_timed_text",
     "save_vtt",
     "save_text",
+    "save_timed_text",
 ]

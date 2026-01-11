@@ -85,6 +85,26 @@ def segments_to_text(segments: list[SegmentData]) -> str:
     return "\n".join(segment.text for segment in segments)
 
 
+def segments_to_timed_text(segments: list[SegmentData]) -> str:
+    """
+    Convert collected segments to timed text format.
+
+    Format: [index] start - end: text
+
+    Args:
+        segments: List of SegmentData objects.
+
+    Returns:
+        Timed text content with timestamps.
+    """
+    lines = []
+    for segment in segments:
+        start = format_timestamp(segment.start)
+        end = format_timestamp(segment.end)
+        lines.append(f"[{segment.index}] {start} - {end}: {segment.text}")
+    return "\n".join(lines)
+
+
 def save_vtt(vtt_content: str, audio_path: str, temp_dir: str) -> Path:
     """
     Save VTT content to file.
@@ -121,3 +141,23 @@ def save_text(text_content: str, audio_path: str, temp_dir: str) -> Path:
     text_path.write_text(text_content, encoding="utf-8")
 
     return text_path
+
+
+def save_timed_text(timed_content: str, audio_path: str, temp_dir: str) -> Path:
+    """
+    Save timed text content to file.
+
+    Args:
+        timed_content: The timed text string.
+        audio_path: Path to original audio file (used to derive output path).
+        temp_dir: Directory to save the file.
+
+    Returns:
+        Path to saved timed text file.
+    """
+    audio_name = Path(audio_path).stem
+    timed_path = Path(temp_dir) / f"{audio_name}.timed.txt"
+
+    timed_path.write_text(timed_content, encoding="utf-8")
+
+    return timed_path

@@ -14,8 +14,10 @@ from gpu_instance.services import (
     collect_segments,
     segments_to_vtt,
     segments_to_text,
+    segments_to_timed_text,
     save_vtt,
     save_text,
+    save_timed_text,
 )
 
 # Configure logging
@@ -67,17 +69,24 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
         # Convert to plain text
         text_content = segments_to_text(segments)
 
+        # Convert to timed text
+        timed_content = segments_to_timed_text(segments)
+
         # Save VTT locally
         vtt_path = save_vtt(vtt_content, audio_path, temp_dir)
 
         # Save text locally for RAG
         text_path = save_text(text_content, audio_path, temp_dir)
 
+        # Save timed text locally
+        timed_path = save_timed_text(timed_content, audio_path, temp_dir)
+
         # Upload to S3
         vtt_key = s3_handler.upload_file(vtt_path, s3_key)
         txt_key = s3_handler.upload_file(text_path, s3_key)
+        timed_key = s3_handler.upload_file(timed_path, s3_key)
 
-        logger.info(f"Successfully processed {s3_key} -> {vtt_key}, {txt_key}")
+        logger.info(f"Successfully processed {s3_key} -> {vtt_key}, {txt_key}, {timed_key}")
         return True
 
     except Exception as e:
