@@ -4,10 +4,21 @@ import argparse
 import logging
 import sys
 import tempfile
+import torch
 
 from gpu_instance.config import config
 from gpu_instance.handlers.s3_handler import S3Handler
-from gpu_instance.services import load_model, transcribe, segments_to_vtt, save_vtt
+from gpu_instance.services import (
+    load_model,
+    transcribe,
+    collect_segments,
+    segments_to_vtt,
+    segments_to_text,
+    segments_to_timed_text,
+    save_vtt,
+    save_text,
+    save_timed_text,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +29,11 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger(__name__)
+
+logger.info(f"PyTorch version: {torch.__version__}")
+logger.info(f"CUDA available: {torch.cuda.is_available()}")
+logger.info(f"CUDA version: {torch.version.cuda}")
+logger.info(f"cuDNN : {torch.backends.cudnn.enabled}")
 
 
 def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
@@ -34,7 +50,7 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
     """
     audio_path = None
     vtt_path = None
-
+    text_path = None
     try:
         logger.info(f"Processing: {s3_key}")
 
@@ -42,30 +58,41 @@ def process_file(s3_key: str, s3_handler: S3Handler, temp_dir: str) -> bool:
         audio_path = s3_handler.download_audio(s3_key)
 
         # Transcribe
-        segments, info = transcribe(audio_path)
+        segments_iter, info = transcribe(audio_path)        
 
-        # Convert to VTT (consumes the iterator)
+        # Collect all segments
+        segments = collect_segments(segments_iter)
+
+        # Convert to VTT
         vtt_content = segments_to_vtt(segments)
+
+        # Convert to plain text
+        text_content = segments_to_text(segments)
+
+        # Convert to timed text
+        timed_content = segments_to_timed_text(segments)
 
         # Save VTT locally
         vtt_path = save_vtt(vtt_content, audio_path, temp_dir)
 
-        # Upload to S3
-        output_key = s3_handler.upload_transcription(vtt_path, s3_key)
+        # Save text locally for RAG
+        text_path = save_text(text_content, audio_path, temp_dir)
 
-        logger.info(f"Successfully processed {s3_key} -> {output_key}")
+        # Save timed text locally
+        timed_path = save_timed_text(timed_content, audio_path, temp_dir)
+
+        # Upload to S3
+        vtt_key = s3_handler.upload_file(vtt_path, s3_key)
+        txt_key = s3_handler.upload_file(text_path, s3_key)
+        timed_key = s3_handler.upload_file(timed_path, s3_key)
+
+        logger.info(f"Successfully processed {s3_key} -> {vtt_key}, {txt_key}, {timed_key}")
         return True
 
     except Exception as e:
         logger.error(f"Failed to process {s3_key}: {e}", exc_info=True)
         return False
 
-    finally:
-        # Cleanup local files
-        if audio_path:
-            s3_handler.cleanup_local_file(audio_path)
-        if vtt_path:
-            s3_handler.cleanup_local_file(vtt_path)
 
 
 def run_worker(files: list[str]) -> None:
@@ -96,7 +123,7 @@ def run_worker(files: list[str]) -> None:
     # Create temp directory once for all files
     with tempfile.TemporaryDirectory(
         prefix="transcription_",
-        delete=False,
+        delete=True,
         ignore_cleanup_errors=True,
     ) as temp_dir:
         logger.info(f"Using temp directory: {temp_dir}")

@@ -5,7 +5,8 @@ from typing import Any
 
 from faster_whisper import WhisperModel
 
-from ..config import config
+from gpu_instance.config import config
+from gpu_instance.services.utils import format_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +59,11 @@ def transcribe(audio_path: str) -> tuple[Any, Any]:
     segments, info = model.transcribe(
         audio_path,
         language=config.language,
-        beam_size=config.beam_size,
-        vad_filter=True,
-        vad_parameters=dict(
-            min_silence_duration_ms=500,
-        ),
+        beam_size=config.beam_size,        
     )
 
     logger.info(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")
     logger.info(f"Audio duration: {info.duration:.2f}s")
+    logger.info(f"Audio duration: {format_timestamp(info.duration)}")
 
     return segments, info
