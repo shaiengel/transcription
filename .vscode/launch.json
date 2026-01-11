@@ -14,6 +14,14 @@
             "args": [
                 "shvuot4-eliyahu.mp3"
             ]
+        },
+        {
+            "name": "Python Debugger: audio manager",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\audio_manager\\src\\audio_manager\\main.py",
+            "console": "integratedTerminal",
+            
         }
     ]
 }

@@ -503,3 +503,64 @@ Output:  final-output/[original-filename].txt
 ```
 
 The filename is preserved through the pipeline for traceability.
+
+---
+
+## Audio Manager (`audio_manager/`)
+
+A CLI tool to fetch and display today's Daf Yomi media links from an MSSQL database.
+
+### Architecture
+
+```
+main.py → handlers/media.py → services/database.py → MSSQL
+```
+
+### Project Structure
+
+```
+audio_manager/
+├── pyproject.toml
+├── .env                        # Database credentials (not committed)
+└── src/audio_manager/
+    ├── __init__.py
+    ├── main.py                 # Entry point
+    ├── handlers/
+    │   ├── __init__.py
+    │   └── media.py            # print_today_media_links()
+    └── services/
+        ├── __init__.py
+        └── database.py         # DB connection, queries
+```
+
+### Database
+
+- **Engine**: MSSQL via SQLAlchemy + pyodbc
+- **Tables**:
+  - `[vps_daf-yomi].[dbo].[Calendar]` - Maps dates to MassechetId/DafId
+  - `[vps_daf-yomi].[dbo].[View_Media]` - Media links by massechet_id/daf_id
+
+### Environment Variables (`.env`)
+
+```
+DB_NAME=vps_daf-yomi
+DB_HOST=127.0.0.1
+DB_PORT=1433
+DB_USER=readonly
+DB_PASSWORD=xxx
+DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
+```
+
+### Commands
+
+```bash
+cd audio_manager
+uv sync              # Install dependencies
+uv run audio-manager # Run CLI
+```
+
+### Adding New Features
+
+1. **New queries**: Add to `services/database.py`
+2. **New handlers**: Create in `handlers/`
+3. **New CLI commands**: Extend `main.py`
