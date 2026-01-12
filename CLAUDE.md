@@ -508,12 +508,13 @@ The filename is preserved through the pipeline for traceability.
 
 ## Audio Manager (`audio_manager/`)
 
-A CLI tool to fetch and display today's Daf Yomi media links from an MSSQL database.
+A CLI tool to fetch, display, and download today's Daf Yomi media links from an MSSQL database.
 
 ### Architecture
 
 ```
 main.py → handlers/media.py → services/database.py → MSSQL
+                            → services/downloader.py → httpx/ffmpeg
 ```
 
 ### Project Structure
@@ -525,13 +526,26 @@ audio_manager/
 └── src/audio_manager/
     ├── __init__.py
     ├── main.py                 # Entry point
+    ├── models/
+    │   ├── __init__.py
+    │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # print_today_media_links()
+    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media()
     └── services/
         ├── __init__.py
-        └── database.py         # DB connection, queries
+        ├── database.py         # DB connection, queries
+        └── downloader.py       # File download, mp4→mp3 extraction
 ```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaEntry` |
+| `handlers/media.py` | Fetch, print, download media |
+| `services/database.py` | SQLAlchemy connection, queries |
+| `services/downloader.py` | httpx download, ffmpeg extraction |
 
 ### Database
 
@@ -556,11 +570,12 @@ DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 ```bash
 cd audio_manager
 uv sync              # Install dependencies
-uv run audio-manager # Run CLI
+uv run audio-manager # Run CLI (fetches, prints, downloads)
 ```
 
 ### Adding New Features
 
-1. **New queries**: Add to `services/database.py`
-2. **New handlers**: Create in `handlers/`
-3. **New CLI commands**: Extend `main.py`
+1. **New Pydantic models**: Add to `models/schemas.py`
+2. **New queries**: Add to `services/database.py`
+3. **New handlers**: Create in `handlers/`
+4. **New CLI commands**: Extend `main.py`

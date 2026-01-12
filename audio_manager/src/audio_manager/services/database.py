@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from sqlalchemy import Connection, create_engine, text
 from sqlalchemy.engine import Engine
 
+from audio_manager.models.schemas import CalendarEntry, MediaEntry
+
 # Module-level engine singleton
 _engine: Engine | None = None
 
@@ -44,7 +46,7 @@ def get_connection() -> Generator[Connection, None, None]:
         yield conn
 
 
-def get_today_calendar_entries(conn: Connection) -> list[tuple[int, int]]:
+def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
     """Get today's MassechetId and DafId from Calendar table."""
     today = date.today().isoformat()
 
@@ -54,10 +56,13 @@ def get_today_calendar_entries(conn: Connection) -> list[tuple[int, int]]:
         WHERE Date = :today
     """)
     result = conn.execute(query, {"today": today}).fetchall()
-    return [(row[0], row[1]) for row in result]
+    return [
+        CalendarEntry(massechet_id=row[0], daf_id=row[1])
+        for row in result
+    ]
 
 
-def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[dict]:
+def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
     query = text("""
         SELECT media_id, media_link, maggid_description, massechet_name,
@@ -70,15 +75,15 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[di
     ).fetchall()
 
     return [
-        {
-            "media_id": row.media_id,
-            "media_link": row.media_link,
-            "maggid_description": row.maggid_description,
-            "massechet_name": row.massechet_name,
-            "daf_name": row.daf_name,
-            "language": row.language_en,
-            "media_duration": row.media_duration,
-            "file_type": row.file_type,
-        }
+        MediaEntry(
+            media_id=row.media_id,
+            media_link=row.media_link,
+            maggid_description=row.maggid_description,
+            massechet_name=row.massechet_name,
+            daf_name=row.daf_name,
+            language=row.language_en,
+            media_duration=row.media_duration,
+            file_type=row.file_type,
+        )
         for row in result
     ]
