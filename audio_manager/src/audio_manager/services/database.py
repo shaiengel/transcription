@@ -49,7 +49,7 @@ def get_today_calendar_entries(conn: Connection) -> list[tuple[int, int]]:
     today = date.today().isoformat()
 
     query = text("""
-        SELECT MassechetId, DafId
+        SELECT DISTINCT MassechetId, DafId
         FROM [vps_daf-yomi].[dbo].[Calendar]
         WHERE Date = :today
     """)
@@ -61,7 +61,7 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[di
     """Get media links for a specific massechet and daf."""
     query = text("""
         SELECT media_id, media_link, maggid_description, massechet_name,
-               daf_name, language_he, media_duration
+               daf_name, language_en, media_duration, file_type
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
     """)
@@ -76,8 +76,9 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[di
             "maggid_description": row.maggid_description,
             "massechet_name": row.massechet_name,
             "daf_name": row.daf_name,
-            "language_he": row.language_he,
+            "language": row.language_en,
             "media_duration": row.media_duration,
+            "file_type": row.file_type,
         }
         for row in result
     ]

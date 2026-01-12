@@ -47,10 +47,13 @@ def print_media_links(media_list: list[dict]) -> None:
     total_duration = 0
     language_counts: Counter[str] = Counter()
     language_durations: Counter[str] = Counter()
+    file_type_counts: Counter[str] = Counter()
+    file_type_durations: Counter[str] = Counter()
 
     for media in media_list:
         logger.info("ID: %s", media["media_id"])
         logger.info("  Link: %s", media["media_link"])
+        logger.info("  File type: %s", media["file_type"])
         logger.info("  Maggid: %s", media["maggid_description"])
         logger.info(
             "  Massechet: %s, Daf: %s",
@@ -59,23 +62,32 @@ def print_media_links(media_list: list[dict]) -> None:
         )
         logger.info(
             "  Language: %s, Duration: %s",
-            media["language_he"],
+            media["language"],
             format_duration(media["media_duration"]),
         )
         logger.info("")
 
         total_count += 1
-        language = media["language_he"] or "Unknown"
-        language_counts[language] += 1
-
         duration = media["media_duration"] or 0
         total_duration += duration
+
+        language = media["language"] or "Unknown"
+        language_counts[language] += 1
         language_durations[language] += duration
+
+        file_type = media["file_type"] or "Unknown"
+        file_type_counts[file_type] += 1
+        file_type_durations[file_type] += duration
 
     # Print summary
     logger.info("=" * 50)
     logger.info("Total: %d media links", total_count)
     logger.info("Total duration: %s", format_duration(total_duration))
+    logger.info("")
+    logger.info("By file type:")
+    for file_type, count in file_type_counts.most_common():
+        duration = file_type_durations[file_type]
+        logger.info("  %s: %d (%s)", file_type, count, format_duration(duration))
     logger.info("")
     logger.info("By language:")
     for language, count in language_counts.most_common():
