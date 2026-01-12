@@ -14,6 +14,7 @@ from audio_manager.services.downloader import (
     download_file,
     extract_audio_from_mp4,
 )
+from audio_manager.services.s3_uploader import S3Uploader
 
 logger = logging.getLogger(__name__)
 
@@ -135,5 +136,18 @@ def download_today_media(media_list: list[MediaEntry]) -> Path:
             if download_file(url, dest_path):
                 media.downloaded_path = dest_path
                 logger.info("Saved: %s", dest_path.name)
+        break
 
     return download_dir
+
+
+def upload_media_to_s3(media_list: list[MediaEntry], s3_uploader: S3Uploader) -> int:
+    """Upload downloaded media files to S3. Returns count of uploaded files."""
+    uploaded = 0
+    for media in media_list:
+        if media.downloaded_path and media.downloaded_path.exists():
+            key = media.downloaded_path.name
+            if s3_uploader.upload_file(media.downloaded_path, key):
+                uploaded += 1
+
+    return uploaded

@@ -508,13 +508,15 @@ The filename is preserved through the pipeline for traceability.
 
 ## Audio Manager (`audio_manager/`)
 
-A CLI tool to fetch, display, and download today's Daf Yomi media links from an MSSQL database.
+A CLI tool to fetch, display, download, and upload today's Daf Yomi media links from an MSSQL database to S3.
 
 ### Architecture
 
 ```
-main.py → handlers/media.py → services/database.py → MSSQL
+main.py → DependenciesContainer (DI)
+        → handlers/media.py → services/database.py → MSSQL
                             → services/downloader.py → httpx/ffmpeg
+                            → S3Uploader (injected) → S3Client → boto3 → S3
 ```
 
 ### Project Structure
@@ -522,20 +524,25 @@ main.py → handlers/media.py → services/database.py → MSSQL
 ```
 audio_manager/
 ├── pyproject.toml
-├── .env                        # Database credentials (not committed)
+├── .env                        # Database/AWS credentials (not committed)
 └── src/audio_manager/
     ├── __init__.py
-    ├── main.py                 # Entry point
+    ├── main.py                 # Entry point, creates DI container
     ├── models/
     │   ├── __init__.py
     │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media()
+    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3()
+    ├── infrastructure/
+    │   ├── __init__.py
+    │   ├── dependency_injection.py  # DependenciesContainer (DI container)
+    │   └── s3_client.py        # S3Client class
     └── services/
         ├── __init__.py
         ├── database.py         # DB connection, queries
-        └── downloader.py       # File download, mp4→mp3 extraction
+        ├── downloader.py       # File download, mp4→mp3 extraction
+        └── s3_uploader.py      # S3Uploader class
 ```
 
 ### Key Components
@@ -543,9 +550,12 @@ audio_manager/
 | File | Purpose |
 |------|---------|
 | `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaEntry` |
-| `handlers/media.py` | Fetch, print, download media |
+| `handlers/media.py` | Fetch, print, download, upload media |
+| `infrastructure/dependency_injection.py` | DI container with singleton providers |
+| `infrastructure/s3_client.py` | S3Client wrapper for boto3 |
 | `services/database.py` | SQLAlchemy connection, queries |
 | `services/downloader.py` | httpx download, ffmpeg extraction |
+| `services/s3_uploader.py` | S3Uploader class (receives S3Client via DI) |
 
 ### Database
 
@@ -563,6 +573,23 @@ DB_PORT=1433
 DB_USER=readonly
 DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
+
+# AWS S3 Upload
+AWS_PROFILE=transcription
+S3_BUCKET=your-bucket-name
+```
+
+### AWS Configuration (`~/.aws/credentials`)
+
+```ini
+[default]
+aws_access_key_id = YOUR_KEY
+aws_secret_access_key = YOUR_SECRET
+
+[transcription]
+role_arn = arn:aws:iam::ACCOUNT:role/ROLE_NAME
+source_profile = default
+region = us-east-1
 ```
 
 ### Commands
@@ -570,7 +597,22 @@ DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 ```bash
 cd audio_manager
 uv sync              # Install dependencies
-uv run audio-manager # Run CLI (fetches, prints, downloads)
+uv run audio-manager # Run CLI (fetches, prints, downloads, uploads to S3)
+```
+
+### Dependency Injection
+
+Uses `dependency-injector` library. Container provides singletons:
+
+```
+session → s3_boto_client → s3_client → s3_uploader
+```
+
+Usage in `main.py`:
+```python
+container = DependenciesContainer()
+s3_uploader = container.s3_uploader()
+upload_media_to_s3(media_links, s3_uploader)
 ```
 
 ### Adding New Features
@@ -578,4 +620,5 @@ uv run audio-manager # Run CLI (fetches, prints, downloads)
 1. **New Pydantic models**: Add to `models/schemas.py`
 2. **New queries**: Add to `services/database.py`
 3. **New handlers**: Create in `handlers/`
-4. **New CLI commands**: Extend `main.py`
+4. **New AWS clients**: Add provider to `infrastructure/dependency_injection.py`
+5. **New CLI commands**: Extend `main.py`

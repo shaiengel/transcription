@@ -5,7 +5,9 @@ from audio_manager.handlers.media import (
     download_today_media,
     get_today_media_links,
     print_media_links,
+    upload_media_to_s3,
 )
+from audio_manager.infrastructure import DependenciesContainer
 from audio_manager.models.schemas import MediaEntry
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,8 @@ def setup_logging() -> None:
 
 def main():
     setup_logging()
+    container = DependenciesContainer()
+
     media_links: list[MediaEntry] = get_today_media_links()
     print_media_links(media_links)
 
@@ -33,6 +37,11 @@ def main():
     logger.info("")
     logger.info("=" * 50)
     logger.info("Downloads complete. Files saved to: %s", download_dir)
+
+    # Upload to S3
+    s3_uploader = container.s3_uploader()
+    uploaded = upload_media_to_s3(media_links, s3_uploader)
+    logger.info("Uploaded %d files to S3", uploaded)
 
 
 if __name__ == "__main__":

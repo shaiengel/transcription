@@ -10,6 +10,8 @@ dependencies = [
     "python-dotenv",
     "httpx",
     "pydantic",
+    "boto3",
+    "dependency-injector",
 ]
 
 [project.scripts]
