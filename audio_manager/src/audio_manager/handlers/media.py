@@ -13,7 +13,6 @@ from audio_manager.services.database import (
     get_today_calendar_entries,
 )
 from audio_manager.services.downloader import (
-    create_download_dir,
     download_file,
     extract_audio_from_mp4,
 )
@@ -114,10 +113,8 @@ def print_media_links(media_list: list[MediaEntry]) -> None:
         logger.info("  %s: %d (%s)", language, count, format_duration(duration))
 
 
-def download_today_media(media_list: list[MediaEntry]) -> Path:
+def download_today_media(media_list: list[MediaEntry], download_dir: Path) -> None:
     """Download ALL media files and set downloaded_path on each."""
-    download_dir = create_download_dir()
-
     logger.info("Downloading %d media files to %s", len(media_list), download_dir)
 
     for media in media_list:
@@ -148,8 +145,6 @@ def download_today_media(media_list: list[MediaEntry]) -> Path:
                 media.downloaded_path = dest_path
                 logger.info("Saved: %s", dest_path.name)
         break
-
-    return download_dir
 
 
 def upload_media_to_s3(

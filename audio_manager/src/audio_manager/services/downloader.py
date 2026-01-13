@@ -1,17 +1,10 @@
 import logging
 import subprocess
-import tempfile
 from pathlib import Path
 
 import httpx
 
 logger = logging.getLogger(__name__)
-
-
-def create_download_dir() -> Path:
-    """Create a temporary directory for downloads."""
-    temp_dir = tempfile.mkdtemp(prefix="transcription_")
-    return Path(temp_dir)
 
 
 def download_file(url: str, dest_path: Path) -> bool:
