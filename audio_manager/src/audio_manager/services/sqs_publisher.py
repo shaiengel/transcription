@@ -20,8 +20,7 @@ class SQSPublisher:
         self,
         s3_key: str,
         language: str | None,
-        massechet_name: str,
-        daf_name: str,
+        details: str,
     ) -> bool:
         """Publish upload notification to SQS."""
         if not self._queue_url:
@@ -31,8 +30,7 @@ class SQSPublisher:
         message = {
             "s3_key": s3_key,
             "language": language or "unknown",
-            "massechet_name": massechet_name,
-            "daf_name": daf_name,
+            "details": details,
         }
         try:
             return self._sqs_client.send_message(self._queue_url, message)

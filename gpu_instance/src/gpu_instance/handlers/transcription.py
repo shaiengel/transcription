@@ -8,6 +8,7 @@ from gpu_instance.models.schemas import SQSMessage, TranscriptionResult
 from gpu_instance.services.s3_downloader import S3Downloader
 from gpu_instance.services.s3_uploader import S3Uploader
 from gpu_instance.services.sqs_receiver import SQSReceiver
+from gpu_instance.services.sqs_publisher import SQSPublisher
 from gpu_instance.services import (
     transcribe,
     collect_segments,
@@ -26,6 +27,7 @@ def process_message(
     message: SQSMessage,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
+    sqs_publisher: SQSPublisher,
     temp_dir: Path,
 ) -> TranscriptionResult:
     """
@@ -35,6 +37,7 @@ def process_message(
         message: SQS message containing file info.
         s3_downloader: S3 downloader service.
         s3_uploader: S3 uploader service.
+        sqs_publisher: SQS publisher for completion messages.
         temp_dir: Temporary directory for file operations.
 
     Returns:
@@ -42,11 +45,10 @@ def process_message(
     """
     s3_key = message.s3_key
     logger.info(
-        "Processing: %s (language=%s, massechet=%s, daf=%s)",
+        "Processing: %s (language=%s, details=%s)",
         s3_key,
         message.language,
-        message.massechet_name,
-        message.daf_name,
+        message.details,
     )
 
     try:
@@ -58,9 +60,13 @@ def process_message(
 
         # Transcribe
         segments_iter, info = transcribe(str(audio_path))
+        if segments_iter is None:
+            return TranscriptionResult(source_key=s3_key, success=False)
 
         # Collect all segments
         segments = collect_segments(segments_iter)
+        if not segments:
+            return TranscriptionResult(source_key=s3_key, success=False)
 
         # Convert to different formats
         vtt_content = segments_to_vtt(segments)
@@ -85,6 +91,13 @@ def process_message(
             timed_key,
         )
 
+        # Publish completion message to SQS
+        sqs_publisher.publish_transcription_complete(
+            timed_key=timed_key,
+            details=message.details,
+            language=message.language,
+        )
+
         return TranscriptionResult(
             source_key=s3_key,
             vtt_key=vtt_key,
@@ -102,6 +115,7 @@ def run_worker_loop(
     sqs_receiver: SQSReceiver,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
+    sqs_publisher: SQSPublisher,
 ) -> None:
     """
     Continuous worker loop that polls SQS and processes messages.
@@ -110,45 +124,44 @@ def run_worker_loop(
         sqs_receiver: SQS receiver service.
         s3_downloader: S3 downloader service.
         s3_uploader: S3 uploader service.
+        sqs_publisher: SQS publisher for completion messages.
     """
     logger.info("Starting continuous worker loop...")
 
     success_count = 0
     fail_count = 0
 
-    while True:
-        # Poll for messages
-        messages = sqs_receiver.receive_messages(max_messages=1, wait_time=20)
+    with tempfile.TemporaryDirectory(
+        prefix="transcription_",
+        ignore_cleanup_errors=True,
+    ) as temp_dir:
+        temp_path = Path(temp_dir)
+        logger.info("Using temp directory: %s", temp_path)
 
-        if not messages:
-            logger.debug("No messages received, continuing to poll...")
-            continue
+        while True:
+            # Poll for messages
+            messages = sqs_receiver.receive_messages(max_messages=1, wait_time=20)
 
-        for message in messages:
-            # Create temp directory for this message
-            with tempfile.TemporaryDirectory(
-                prefix="transcription_",
-                ignore_cleanup_errors=True,
-            ) as temp_dir:
-                temp_path = Path(temp_dir)
+            if not messages:
+                logger.debug("No messages received, continuing to poll...")
+                continue
 
+            for message in messages:
                 result = process_message(
                     message=message,
                     s3_downloader=s3_downloader,
                     s3_uploader=s3_uploader,
+                    sqs_publisher=sqs_publisher,
                     temp_dir=temp_path,
                 )
 
                 if result.success:
                     success_count += 1
-                    # Delete message from queue on success
-                    sqs_receiver.delete_message(message)
                 else:
                     fail_count += 1
-                    # Don't delete message on failure (will return to queue after visibility timeout)
-                    logger.warning(
-                        "Message will return to queue after visibility timeout"
-                    )
+
+                # Always delete message from queue
+                sqs_receiver.delete_message(message)
 
                 logger.info(
                     "Stats: %d success, %d failed", success_count, fail_count

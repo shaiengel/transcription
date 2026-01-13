@@ -80,7 +80,7 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[Me
             media_link=row.media_link,
             maggid_description=row.maggid_description,
             massechet_name=row.massechet_name,
-            daf_name=row.daf_name,
+            daf_name=row.daf_name,            
             language=row.language_en,
             media_duration=row.media_duration,
             file_type=row.file_type,

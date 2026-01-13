@@ -73,3 +73,25 @@ class SQSClient:
         except Exception as e:
             logger.error("Failed to delete message from SQS: %s", e)
             return False
+
+    def send_message(self, queue_url: str, message_body: str) -> bool:
+        """
+        Send a message to SQS queue.
+
+        Args:
+            queue_url: SQS queue URL.
+            message_body: Message body as JSON string.
+
+        Returns:
+            True if send succeeded, False otherwise.
+        """
+        try:
+            self._client.send_message(
+                QueueUrl=queue_url,
+                MessageBody=message_body,
+            )
+            logger.info("Sent message to SQS queue: %s", queue_url)
+            return True
+        except Exception as e:
+            logger.error("Failed to send message to SQS: %s", e)
+            return False

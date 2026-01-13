@@ -56,6 +56,13 @@ def _create_sqs_receiver(sqs_client: SQSClient):
     return SQSReceiver(sqs_client)
 
 
+def _create_sqs_publisher(sqs_client: SQSClient):
+    """Factory for SQSPublisher to avoid circular import."""
+    from gpu_instance.services.sqs_publisher import SQSPublisher
+
+    return SQSPublisher(sqs_client)
+
+
 class DependenciesContainer(DeclarativeContainer):
     """DI container for the application."""
 
@@ -96,5 +103,10 @@ class DependenciesContainer(DeclarativeContainer):
 
     sqs_receiver = providers.Singleton(
         _create_sqs_receiver,
+        sqs_client=sqs_client,
+    )
+
+    sqs_publisher = providers.Singleton(
+        _create_sqs_publisher,
         sqs_client=sqs_client,
     )

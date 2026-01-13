@@ -5,7 +5,6 @@ from pathlib import Path
 
 from audio_manager.handlers.media import (
     download_today_media,
-    get_today_media_links,
     print_media_links,
     publish_uploads_to_sqs,
     upload_media_to_s3,
@@ -32,7 +31,9 @@ def main():
     setup_logging()
     container = DependenciesContainer()
 
-    media_links: list[MediaEntry] = get_today_media_links()
+    # Get media from configured source (see dependency_injection.py to switch)
+    media_source = container.media_source()
+    media_links: list[MediaEntry] = media_source.get_media_entries()
     print_media_links(media_links)
 
     with tempfile.TemporaryDirectory(

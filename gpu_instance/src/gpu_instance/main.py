@@ -53,17 +53,19 @@ def main():
     sqs_receiver = container.sqs_receiver()
     s3_downloader = container.s3_downloader()
     s3_uploader = container.s3_uploader()
+    sqs_publisher = container.sqs_publisher()
 
     logger.info("Source bucket: %s", s3_downloader.source_bucket)
     logger.info("Destination bucket: %s", s3_uploader.dest_bucket)
     logger.info("SQS queue: %s", sqs_receiver.queue_url)
+    logger.info("SQS fix queue: %s", sqs_publisher.queue_url)
 
     logger.info("=" * 60)
     logger.info("Starting SQS worker loop...")
     logger.info("=" * 60)
 
     try:
-        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader)
+        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader, sqs_publisher)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)

@@ -35,6 +35,7 @@ class S3Uploader:
         self,
         local_path: Path,
         original_key: str,
+        overwrite: bool = True,
     ) -> str | None:
         """
         Upload a transcription file to S3.
@@ -42,25 +43,46 @@ class S3Uploader:
         Args:
             local_path: Path to the local file.
             original_key: Original audio file S3 key (for metadata).
+            overwrite: If True, overwrite existing files. If False, skip if exists.
 
         Returns:
             S3 key where file was uploaded, or None if upload failed.
         """
-        content_types = {
-            ".vtt": "text/vtt",
-            ".txt": "text/plain",
-        }
-        content_type = content_types.get(local_path.suffix, "application/octet-stream")
-        output_key = f"{self._output_prefix}{local_path.name}"
+        try:
+            if not local_path.exists():
+                logger.error("Local file does not exist: %s", local_path)
+                return None
 
-        success = self._s3_client.upload_file(
-            local_path=local_path,
-            bucket=self._dest_bucket,
-            key=output_key,
-            content_type=content_type,
-            metadata={"source_audio": original_key},
-        )
+            content_types = {
+                ".vtt": "text/vtt",
+                ".txt": "text/plain",
+            }
+            content_type = content_types.get(local_path.suffix, "application/octet-stream")
+            output_key = f"{self._output_prefix}{local_path.name}"
 
-        if success:
-            return output_key
-        return None
+            # Check if file already exists
+            if not overwrite and self._s3_client.file_exists(self._dest_bucket, output_key):
+                logger.info(
+                    "File already exists, skipping upload: s3://%s/%s",
+                    self._dest_bucket,
+                    output_key,
+                )
+                return output_key
+
+            success = self._s3_client.upload_file(
+                local_path=local_path,
+                bucket=self._dest_bucket,
+                key=output_key,
+                content_type=content_type,
+                metadata={"source_audio": original_key},
+            )
+
+            if success:
+                return output_key
+
+            logger.error("Upload failed for: %s", local_path)
+            return None
+
+        except Exception as e:
+            logger.error("Error uploading transcription %s: %s", local_path, e, exc_info=True)
+            return None
