@@ -528,7 +528,7 @@ audio_manager/
 ├── .env                        # Database/AWS credentials (not committed)
 └── src/audio_manager/
     ├── __init__.py
-    ├── main.py                 # Entry point, creates DI container
+    ├── main.py                 # Entry point, creates DI container, manages temp directory
     ├── models/
     │   ├── __init__.py
     │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
@@ -621,10 +621,16 @@ session → s3_boto_client → s3_client → s3_uploader
 Usage in `main.py`:
 ```python
 container = DependenciesContainer()
-s3_uploader = container.s3_uploader()
-sqs_publisher = container.sqs_publisher()
-upload_media_to_s3(media_links, s3_uploader)
-publish_uploads_to_sqs(media_links, sqs_publisher)
+
+with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cleanup_errors=True) as temp_dir:
+    download_dir = Path(temp_dir)
+    download_today_media(media_links, download_dir)
+
+    s3_uploader = container.s3_uploader()
+    sqs_publisher = container.sqs_publisher()
+    upload_media_to_s3(media_links, s3_uploader)
+    publish_uploads_to_sqs(media_links, sqs_publisher)
+# Temp directory auto-cleaned up here
 ```
 
 ### Adding New Features

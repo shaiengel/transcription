@@ -69,13 +69,16 @@ This will:
 5. Convert mp4 files to mp3 using ffmpeg
 6. Upload files to S3 bucket (filtered by `ALLOWED_LANGUAGES`)
 7. Publish messages to SQS queue (filtered by `ALLOWED_LANGUAGES`)
+8. Auto-cleanup temp directory on exit
 
 ## SQS Message Format
 
 ```json
 {
   "s3_key": "123456.mp3",
-  "language": "hebrew"
+  "language": "hebrew",
+  "massechet_name": "Bava Kamma",
+  "daf_name": "20"
 }
 ```
 
@@ -84,7 +87,7 @@ This will:
 ```
 src/audio_manager/
 ├── __init__.py
-├── main.py                 # Entry point, creates DI container
+├── main.py                 # Entry point, creates DI container, manages temp directory
 ├── models/
 │   ├── __init__.py
 │   └── schemas.py          # Pydantic models (CalendarEntry, MediaEntry)
