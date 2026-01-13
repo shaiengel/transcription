@@ -77,6 +77,8 @@ class LocalDiskMediaSource(MediaSource):
                 media_id=media_id,
                 media_link=file_path.as_uri(),  # file:// URI
                 maggid_description=file_path.stem,  # Use filename as description
+                massechet_name=None,
+                daf_name=None,
                 details=self.details,
                 language=self.language,
                 media_duration=None,
