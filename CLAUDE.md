@@ -503,3 +503,140 @@ Output:  final-output/[original-filename].txt
 ```
 
 The filename is preserved through the pipeline for traceability.
+
+---
+
+## Audio Manager (`audio_manager/`)
+
+A CLI tool to fetch, display, download, upload, and publish today's Daf Yomi media links from an MSSQL database to S3 and SQS.
+
+### Architecture
+
+```
+main.py → DependenciesContainer (DI)
+        → handlers/media.py → services/database.py → MSSQL
+                            → services/downloader.py → httpx/ffmpeg
+                            → S3Uploader (injected) → S3Client → boto3 → S3
+                            → SQSPublisher (injected) → SQSClient → boto3 → SQS
+```
+
+### Project Structure
+
+```
+audio_manager/
+├── pyproject.toml
+├── .env                        # Database/AWS credentials (not committed)
+└── src/audio_manager/
+    ├── __init__.py
+    ├── main.py                 # Entry point, creates DI container, manages temp directory
+    ├── models/
+    │   ├── __init__.py
+    │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
+    ├── handlers/
+    │   ├── __init__.py
+    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
+    ├── infrastructure/
+    │   ├── __init__.py
+    │   ├── dependency_injection.py  # DependenciesContainer (DI container)
+    │   ├── s3_client.py        # S3Client class
+    │   └── sqs_client.py       # SQSClient class
+    └── services/
+        ├── __init__.py
+        ├── database.py         # DB connection, queries
+        ├── downloader.py       # File download, mp4→mp3 extraction
+        ├── s3_uploader.py      # S3Uploader class
+        └── sqs_publisher.py    # SQSPublisher class
+```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaEntry` |
+| `handlers/media.py` | Fetch, print, download, upload, publish media |
+| `infrastructure/dependency_injection.py` | DI container with singleton providers |
+| `infrastructure/s3_client.py` | S3Client wrapper for boto3 |
+| `infrastructure/sqs_client.py` | SQSClient wrapper for boto3 |
+| `services/database.py` | SQLAlchemy connection, queries |
+| `services/downloader.py` | httpx download, ffmpeg extraction |
+| `services/s3_uploader.py` | S3Uploader class (receives S3Client via DI) |
+| `services/sqs_publisher.py` | SQSPublisher class (receives SQSClient via DI) |
+
+### Database
+
+- **Engine**: MSSQL via SQLAlchemy + pyodbc
+- **Tables**:
+  - `[vps_daf-yomi].[dbo].[Calendar]` - Maps dates to MassechetId/DafId
+  - `[vps_daf-yomi].[dbo].[View_Media]` - Media links by massechet_id/daf_id
+
+### Environment Variables (`.env`)
+
+```
+DB_NAME=vps_daf-yomi
+DB_HOST=127.0.0.1
+DB_PORT=1433
+DB_USER=readonly
+DB_PASSWORD=xxx
+DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
+
+# AWS
+AWS_PROFILE=transcription
+S3_BUCKET=your-bucket-name
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/ACCOUNT/queue-name
+
+# Language filter (comma-separated)
+ALLOWED_LANGUAGES=hebrew
+```
+
+### AWS Configuration (`~/.aws/credentials`)
+
+```ini
+[default]
+aws_access_key_id = YOUR_KEY
+aws_secret_access_key = YOUR_SECRET
+
+[transcription]
+role_arn = arn:aws:iam::ACCOUNT:role/ROLE_NAME
+source_profile = default
+region = us-east-1
+```
+
+### Commands
+
+```bash
+cd audio_manager
+uv sync              # Install dependencies
+uv run audio-manager # Run CLI (fetches, prints, downloads, uploads to S3, publishes to SQS)
+```
+
+### Dependency Injection
+
+Uses `dependency-injector` library. Container provides singletons:
+
+```
+session → s3_boto_client → s3_client → s3_uploader
+        → sqs_boto_client → sqs_client → sqs_publisher
+```
+
+Usage in `main.py`:
+```python
+container = DependenciesContainer()
+
+with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cleanup_errors=True) as temp_dir:
+    download_dir = Path(temp_dir)
+    download_today_media(media_links, download_dir)
+
+    s3_uploader = container.s3_uploader()
+    sqs_publisher = container.sqs_publisher()
+    upload_media_to_s3(media_links, s3_uploader)
+    publish_uploads_to_sqs(media_links, sqs_publisher)
+# Temp directory auto-cleaned up here
+```
+
+### Adding New Features
+
+1. **New Pydantic models**: Add to `models/schemas.py`
+2. **New queries**: Add to `services/database.py`
+3. **New handlers**: Create in `handlers/`
+4. **New AWS clients**: Add provider to `infrastructure/dependency_injection.py`
+5. **New CLI commands**: Extend `main.py`

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[oc]
+*.egg-info
+build/
+dist/
+wheels/
+
+# Virtual environments
+.venv/
+
+# Environment variables
+.env
+
+# Claude Code temp files
+tmpclaude-*
+settings.local.json
