@@ -22,6 +22,14 @@
             "program": "C:\\portal\\transcription\\audio_manager\\src\\audio_manager\\main.py",
             "console": "integratedTerminal",
             
+        },
+        {
+            "name": "Python Debugger: transcription_reviewer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\transcription_reviewer\\local_test.py",
+            "console": "integratedTerminal",
+            
         }
     ]
 }

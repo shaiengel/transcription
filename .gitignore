@@ -5,6 +5,7 @@ __pycache__/
 build/
 dist/
 wheels/
+requirements.txt
 
 # Virtual environments
 .venv/

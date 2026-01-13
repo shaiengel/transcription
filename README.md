@@ -174,22 +174,21 @@ This system processes MP3 files uploaded from an on-premises service, transcribe
 
 ### Message Formats
 
-**Audio Queue Message:**
+**Audio Queue Message (from audio_manager to gpu_instance):**
 ```json
 {
-  "bucket": "my-bucket",
-  "key": "audio-input/recording-001.mp3",
-  "timestamp": "2025-01-04T10:00:00Z"
+  "s3_key": "recording-001.mp3",
+  "language": "hebrew",
+  "details": "Bava Kamma 2a"
 }
 ```
 
-**LLM Queue Message:**
+**LLM Queue Message (from gpu_instance to LLM Lambda):**
 ```json
 {
-  "bucket": "my-bucket",
-  "key": "transcriptions/recording-001.txt",
-  "source_audio": "audio-input/recording-001.mp3",
-  "timestamp": "2025-01-04T10:05:00Z"
+  "timed_key": "transcriptions/recording-001.timed.txt",
+  "details": "Bava Kamma 2a",
+  "language": "hebrew"
 }
 ```
 
