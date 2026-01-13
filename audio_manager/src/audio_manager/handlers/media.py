@@ -1,7 +1,10 @@
 import logging
+import os
 from collections import Counter
 from datetime import date
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from audio_manager.models.schemas import MediaEntry
 from audio_manager.services.database import (
@@ -15,8 +18,16 @@ from audio_manager.services.downloader import (
     extract_audio_from_mp4,
 )
 from audio_manager.services.s3_uploader import S3Uploader
+from audio_manager.services.sqs_publisher import SQSPublisher
 
 logger = logging.getLogger(__name__)
+
+
+def get_allowed_languages() -> set[str]:
+    """Get allowed languages from environment."""
+    load_dotenv()
+    languages = os.getenv("ALLOWED_LANGUAGES", "hebrew")
+    return {lang.strip() for lang in languages.split(",")}
 
 
 def format_duration(seconds: int | None) -> str:
@@ -141,13 +152,39 @@ def download_today_media(media_list: list[MediaEntry]) -> Path:
     return download_dir
 
 
-def upload_media_to_s3(media_list: list[MediaEntry], s3_uploader: S3Uploader) -> int:
+def upload_media_to_s3(
+    media_list: list[MediaEntry],
+    s3_uploader: S3Uploader,
+) -> int:
     """Upload downloaded media files to S3. Returns count of uploaded files."""
+    allowed_languages = get_allowed_languages()
     uploaded = 0
     for media in media_list:
+        if media.language not in allowed_languages:
+            continue
         if media.downloaded_path and media.downloaded_path.exists():
             key = media.downloaded_path.name
             if s3_uploader.upload_file(media.downloaded_path, key):
                 uploaded += 1
 
     return uploaded
+
+
+def publish_uploads_to_sqs(
+    media_list: list[MediaEntry],
+    sqs_publisher: SQSPublisher,
+) -> int:
+    """Publish uploaded media to SQS. Returns count of published messages."""
+    allowed_languages = get_allowed_languages()
+    published = 0
+    for media in media_list:
+        if media.language not in allowed_languages:
+            continue
+        if media.downloaded_path and media.downloaded_path.exists():
+            key = media.downloaded_path.name
+            if sqs_publisher.publish_upload(
+                key, media.language, media.massechet_name, media.daf_name
+            ):
+                published += 1
+
+    return published

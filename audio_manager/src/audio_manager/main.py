@@ -5,6 +5,7 @@ from audio_manager.handlers.media import (
     download_today_media,
     get_today_media_links,
     print_media_links,
+    publish_uploads_to_sqs,
     upload_media_to_s3,
 )
 from audio_manager.infrastructure import DependenciesContainer
@@ -42,6 +43,11 @@ def main():
     s3_uploader = container.s3_uploader()
     uploaded = upload_media_to_s3(media_links, s3_uploader)
     logger.info("Uploaded %d files to S3", uploaded)
+
+    # Publish to SQS
+    sqs_publisher = container.sqs_publisher()
+    published = publish_uploads_to_sqs(media_links, sqs_publisher)
+    logger.info("Published %d messages to SQS", published)
 
 
 if __name__ == "__main__":

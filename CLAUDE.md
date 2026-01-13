@@ -508,7 +508,7 @@ The filename is preserved through the pipeline for traceability.
 
 ## Audio Manager (`audio_manager/`)
 
-A CLI tool to fetch, display, download, and upload today's Daf Yomi media links from an MSSQL database to S3.
+A CLI tool to fetch, display, download, upload, and publish today's Daf Yomi media links from an MSSQL database to S3 and SQS.
 
 ### Architecture
 
@@ -517,6 +517,7 @@ main.py → DependenciesContainer (DI)
         → handlers/media.py → services/database.py → MSSQL
                             → services/downloader.py → httpx/ffmpeg
                             → S3Uploader (injected) → S3Client → boto3 → S3
+                            → SQSPublisher (injected) → SQSClient → boto3 → SQS
 ```
 
 ### Project Structure
@@ -533,16 +534,18 @@ audio_manager/
     │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3()
+    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
     ├── infrastructure/
     │   ├── __init__.py
     │   ├── dependency_injection.py  # DependenciesContainer (DI container)
-    │   └── s3_client.py        # S3Client class
+    │   ├── s3_client.py        # S3Client class
+    │   └── sqs_client.py       # SQSClient class
     └── services/
         ├── __init__.py
         ├── database.py         # DB connection, queries
         ├── downloader.py       # File download, mp4→mp3 extraction
-        └── s3_uploader.py      # S3Uploader class
+        ├── s3_uploader.py      # S3Uploader class
+        └── sqs_publisher.py    # SQSPublisher class
 ```
 
 ### Key Components
@@ -550,12 +553,14 @@ audio_manager/
 | File | Purpose |
 |------|---------|
 | `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaEntry` |
-| `handlers/media.py` | Fetch, print, download, upload media |
+| `handlers/media.py` | Fetch, print, download, upload, publish media |
 | `infrastructure/dependency_injection.py` | DI container with singleton providers |
 | `infrastructure/s3_client.py` | S3Client wrapper for boto3 |
+| `infrastructure/sqs_client.py` | SQSClient wrapper for boto3 |
 | `services/database.py` | SQLAlchemy connection, queries |
 | `services/downloader.py` | httpx download, ffmpeg extraction |
 | `services/s3_uploader.py` | S3Uploader class (receives S3Client via DI) |
+| `services/sqs_publisher.py` | SQSPublisher class (receives SQSClient via DI) |
 
 ### Database
 
@@ -574,9 +579,13 @@ DB_USER=readonly
 DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 
-# AWS S3 Upload
+# AWS
 AWS_PROFILE=transcription
 S3_BUCKET=your-bucket-name
+SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/ACCOUNT/queue-name
+
+# Language filter (comma-separated)
+ALLOWED_LANGUAGES=hebrew
 ```
 
 ### AWS Configuration (`~/.aws/credentials`)
@@ -597,7 +606,7 @@ region = us-east-1
 ```bash
 cd audio_manager
 uv sync              # Install dependencies
-uv run audio-manager # Run CLI (fetches, prints, downloads, uploads to S3)
+uv run audio-manager # Run CLI (fetches, prints, downloads, uploads to S3, publishes to SQS)
 ```
 
 ### Dependency Injection
@@ -606,13 +615,16 @@ Uses `dependency-injector` library. Container provides singletons:
 
 ```
 session → s3_boto_client → s3_client → s3_uploader
+        → sqs_boto_client → sqs_client → sqs_publisher
 ```
 
 Usage in `main.py`:
 ```python
 container = DependenciesContainer()
 s3_uploader = container.s3_uploader()
+sqs_publisher = container.sqs_publisher()
 upload_media_to_s3(media_links, s3_uploader)
+publish_uploads_to_sqs(media_links, sqs_publisher)
 ```
 
 ### Adding New Features
