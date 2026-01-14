@@ -508,14 +508,15 @@ The filename is preserved through the pipeline for traceability.
 
 ## Audio Manager (`audio_manager/`)
 
-A CLI tool to fetch, display, download, upload, and publish today's Daf Yomi media links from an MSSQL database to S3 and SQS.
+A CLI tool to fetch, display, download, upload, and publish today's Daf Yomi media links to S3 and SQS. Supports multiple media sources via abstract class pattern.
 
 ### Architecture
 
 ```
 main.py → DependenciesContainer (DI)
-        → handlers/media.py → services/database.py → MSSQL
-                            → services/downloader.py → httpx/ffmpeg
+        → MediaSource (abstract) ─┬→ DatabaseMediaSource → services/database.py → MSSQL
+                                  └→ LocalDiskMediaSource → local filesystem
+        → handlers/media.py → services/downloader.py → httpx/ffmpeg
                             → S3Uploader (injected) → S3Client → boto3 → S3
                             → SQSPublisher (injected) → SQSClient → boto3 → SQS
 ```
@@ -531,13 +532,16 @@ audio_manager/
     ├── main.py                 # Entry point, creates DI container, manages temp directory
     ├── models/
     │   ├── __init__.py
-    │   └── schemas.py          # Pydantic: CalendarEntry, MediaEntry
+    │   ├── schemas.py          # Pydantic: CalendarEntry, MediaEntry
+    │   └── media_source.py     # Abstract MediaSource class
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
+    │   └── media.py            # print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
     ├── infrastructure/
     │   ├── __init__.py
     │   ├── dependency_injection.py  # DependenciesContainer (DI container)
+    │   ├── database_media_source.py # DatabaseMediaSource (fetches from MSSQL)
+    │   ├── local_disk_media_source.py # LocalDiskMediaSource (reads from local dir)
     │   ├── s3_client.py        # S3Client class
     │   └── sqs_client.py       # SQSClient class
     └── services/
@@ -553,14 +557,27 @@ audio_manager/
 | File | Purpose |
 |------|---------|
 | `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaEntry` |
-| `handlers/media.py` | Fetch, print, download, upload, publish media |
+| `models/media_source.py` | Abstract `MediaSource` class |
+| `handlers/media.py` | Print, download, upload, publish media |
 | `infrastructure/dependency_injection.py` | DI container with singleton providers |
+| `infrastructure/database_media_source.py` | `DatabaseMediaSource` - fetches from MSSQL |
+| `infrastructure/local_disk_media_source.py` | `LocalDiskMediaSource` - reads from local directory |
 | `infrastructure/s3_client.py` | S3Client wrapper for boto3 |
 | `infrastructure/sqs_client.py` | SQSClient wrapper for boto3 |
 | `services/database.py` | SQLAlchemy connection, queries |
 | `services/downloader.py` | httpx download, ffmpeg extraction |
 | `services/s3_uploader.py` | S3Uploader class (receives S3Client via DI) |
 | `services/sqs_publisher.py` | SQSPublisher class (receives SQSClient via DI) |
+
+### Media Source Selection
+
+The media source is configured in `infrastructure/dependency_injection.py`. Comment/uncomment to switch:
+
+```python
+# In DependenciesContainer class:
+media_source = providers.Singleton(_create_database_media_source)  # From MSSQL DB
+# media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
+```
 
 ### Database
 
@@ -572,12 +589,18 @@ audio_manager/
 ### Environment Variables (`.env`)
 
 ```
+# Database (for DatabaseMediaSource)
 DB_NAME=vps_daf-yomi
 DB_HOST=127.0.0.1
 DB_PORT=1433
 DB_USER=readonly
 DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
+
+# Local Disk (for LocalDiskMediaSource)
+LOCAL_MEDIA_DIR=./media
+LOCAL_MEDIA_LANGUAGE=hebrew
+LOCAL_DETAILS=Bava Kamma 2a
 
 # AWS
 AWS_PROFILE=transcription
@@ -614,6 +637,7 @@ uv run audio-manager # Run CLI (fetches, prints, downloads, uploads to S3, publi
 Uses `dependency-injector` library. Container provides singletons:
 
 ```
+media_source (DatabaseMediaSource or LocalDiskMediaSource)
 session → s3_boto_client → s3_client → s3_uploader
         → sqs_boto_client → sqs_client → sqs_publisher
 ```
@@ -622,9 +646,13 @@ Usage in `main.py`:
 ```python
 container = DependenciesContainer()
 
+# Get media from configured source (see dependency_injection.py to switch)
+media_source = container.media_source()
+media_links = media_source.get_media_entries()
+
 with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cleanup_errors=True) as temp_dir:
     download_dir = Path(temp_dir)
-    download_today_media(media_links, download_dir)
+    download_today_media(media_links, download_dir)  # Skips if already local
 
     s3_uploader = container.s3_uploader()
     sqs_publisher = container.sqs_publisher()
@@ -640,3 +668,4 @@ with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cl
 3. **New handlers**: Create in `handlers/`
 4. **New AWS clients**: Add provider to `infrastructure/dependency_injection.py`
 5. **New CLI commands**: Extend `main.py`
+6. **New media source**: Implement `MediaSource` abstract class in `infrastructure/`

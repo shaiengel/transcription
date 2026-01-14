@@ -8,8 +8,7 @@ class SQSMessage(BaseModel):
 
     s3_key: str
     language: str
-    massechet_name: str
-    daf_name: str
+    details: str
     receipt_handle: str | None = None
 
 
@@ -17,7 +16,4 @@ class TranscriptionResult(BaseModel):
     """Result of a transcription operation."""
 
     source_key: str
-    vtt_key: str | None = None
-    text_key: str | None = None
-    timed_key: str | None = None
     success: bool

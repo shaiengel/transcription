@@ -63,8 +63,7 @@ class SQSReceiver:
                 message = SQSMessage(
                     s3_key=body.get("s3_key", ""),
                     language=body.get("language", ""),
-                    massechet_name=body.get("massechet_name", ""),
-                    daf_name=body.get("daf_name", ""),
+                    details=body.get("details", ""),
                     receipt_handle=raw.get("ReceiptHandle"),
                 )
                 messages.append(message)

@@ -5,13 +5,14 @@ __pycache__/
 build/
 dist/
 wheels/
+requirements.txt
 
 # Virtual environments
 .venv/
 
-# Environment variables
-.env
-
 # Claude Code temp files
 tmpclaude-*
 settings.local.json
+
+# Windows null device artifact
+nul

@@ -16,6 +16,20 @@ def _create_session() -> boto3.Session:
     return boto3.Session(profile_name=profile)
 
 
+def _create_database_media_source():
+    """Factory for DatabaseMediaSource."""
+    from audio_manager.infrastructure.database_media_source import DatabaseMediaSource
+
+    return DatabaseMediaSource()
+
+
+def _create_local_disk_media_source():
+    """Factory for LocalDiskMediaSource."""
+    from audio_manager.infrastructure.local_disk_media_source import LocalDiskMediaSource
+
+    return LocalDiskMediaSource()
+
+
 def _create_s3_uploader(s3_client: S3Client):
     """Factory for S3Uploader to avoid circular import."""
     from audio_manager.services.s3_uploader import S3Uploader
@@ -32,6 +46,12 @@ def _create_sqs_publisher(sqs_client: SQSClient):
 
 class DependenciesContainer(DeclarativeContainer):
     """DI container for the application."""
+
+    # =========================================================================
+    # Media Source - Comment out one of the following two lines:
+    # =========================================================================
+    media_source = providers.Singleton(_create_database_media_source)  # From MSSQL DB
+    # media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
 
     session = providers.Singleton(_create_session)
 

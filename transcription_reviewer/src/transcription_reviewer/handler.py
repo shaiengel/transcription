@@ -1,0 +1,64 @@
+"""AWS Lambda handler for transcription review.
+
+Triggered by CloudWatch Alarm when ASG scales to 0.
+Reads all *.timed.txt files from S3 and prints the count.
+"""
+
+import json
+import logging
+
+from transcription_reviewer.config import config
+from transcription_reviewer.handlers.review import process_transcriptions
+from transcription_reviewer.infrastructure.dependency_injection import (
+    DependenciesContainer,
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+def lambda_handler(event: dict, context) -> dict:
+    """
+    Lambda handler function triggered by CloudWatch Alarm.
+
+    Args:
+        event: CloudWatch Alarm event data.
+        context: Lambda context object.
+
+    Returns:
+        Response dict with statusCode and body.
+    """
+    logger.info("Received CloudWatch Alarm event: %s", json.dumps(event))
+
+    try:
+        # Initialize DI container
+        container = DependenciesContainer()
+
+        # Get services from container
+        s3_reader = container.s3_reader()
+
+        # Process transcriptions
+        result = process_transcriptions(
+            s3_reader=s3_reader,
+            bucket=config.transcription_bucket,
+            prefix=config.transcription_prefix,
+        )
+
+        response_body = {
+            "message": "Transcription review completed",
+            "total_found": result.total_found,
+        }
+
+        logger.info("Review completed: %s", response_body)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps(response_body),
+        }
+
+    except Exception as e:
+        logger.exception("Failed to process transcriptions: %s", e)
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)}),
+        }

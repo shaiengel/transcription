@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 
 from gpu_instance.infrastructure.s3_client import S3Client
 from gpu_instance.infrastructure.sqs_client import SQSClient
+from gpu_instance.infrastructure.vtt_formatter import VttFormatter
+from gpu_instance.infrastructure.text_formatter import TextFormatter
+from gpu_instance.infrastructure.timed_text_formatter import TimedTextFormatter
 
 # Load .env file from project root
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
@@ -97,4 +100,11 @@ class DependenciesContainer(DeclarativeContainer):
     sqs_receiver = providers.Singleton(
         _create_sqs_receiver,
         sqs_client=sqs_client,
+    )
+
+    # Formatters
+    formatters = providers.List(
+        # providers.Singleton(VttFormatter),
+        # providers.Singleton(TextFormatter),
+        providers.Singleton(TimedTextFormatter),
     )

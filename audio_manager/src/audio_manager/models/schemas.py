@@ -12,8 +12,9 @@ class MediaEntry(BaseModel):
     media_id: int
     media_link: str
     maggid_description: str | None
-    massechet_name: str
-    daf_name: str
+    massechet_name: str | None
+    daf_name: str | None
+    details: str | None
     language: str | None
     media_duration: int | None
     file_type: str | None

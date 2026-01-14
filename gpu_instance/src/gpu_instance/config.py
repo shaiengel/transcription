@@ -28,6 +28,10 @@ class Config:
 
     # SQS
     sqs_queue_url: str = os.getenv("SQS_QUEUE_URL", "")
+    sqs_fix_queue_url: str = os.getenv(
+        "SQS_FIX_QUEUE_URL",
+        "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
+    )
 
     # Whisper model
     model_name: str = os.getenv("WHISPER_MODEL", "ivrit-ai/whisper-large-v3-ct2")

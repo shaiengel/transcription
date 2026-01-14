@@ -37,8 +37,6 @@ def main():
     if torch.cuda.is_available():
         logger.info("CUDA version: %s", torch.version.cuda)
         logger.info("cuDNN enabled: %s", torch.backends.cudnn.enabled)
-    #else:
-    #    exit("No CUDA-capable device found. Exiting.")
 
     # Initialize DI container
     logger.info("Initializing dependency injection container...")
@@ -53,17 +51,19 @@ def main():
     sqs_receiver = container.sqs_receiver()
     s3_downloader = container.s3_downloader()
     s3_uploader = container.s3_uploader()
+    formatters = container.formatters()
 
     logger.info("Source bucket: %s", s3_downloader.source_bucket)
     logger.info("Destination bucket: %s", s3_uploader.dest_bucket)
     logger.info("SQS queue: %s", sqs_receiver.queue_url)
+    logger.info("Formatters: %d loaded", len(formatters))
 
     logger.info("=" * 60)
     logger.info("Starting SQS worker loop...")
     logger.info("=" * 60)
 
     try:
-        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader)
+        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader, formatters)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)

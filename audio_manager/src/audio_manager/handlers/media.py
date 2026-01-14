@@ -73,11 +73,7 @@ def print_media_links(media_list: list[MediaEntry]) -> None:
         logger.info("  Link: %s", media.media_link)
         logger.info("  File type: %s", media.file_type)
         logger.info("  Maggid: %s", media.maggid_description)
-        logger.info(
-            "  Massechet: %s, Daf: %s",
-            media.massechet_name,
-            media.daf_name,
-        )
+        logger.info("  Details: %s", media.details)
         logger.info(
             "  Language: %s, Duration: %s",
             media.language,
@@ -114,10 +110,20 @@ def print_media_links(media_list: list[MediaEntry]) -> None:
 
 
 def download_today_media(media_list: list[MediaEntry], download_dir: Path) -> None:
-    """Download ALL media files and set downloaded_path on each."""
-    logger.info("Downloading %d media files to %s", len(media_list), download_dir)
+    """Download ALL media files and set downloaded_path on each.
 
-    for media in media_list:
+    Files that already have downloaded_path set (e.g., from LocalDiskMediaSource)
+    are skipped.
+    """
+    # Count files that need downloading
+    to_download = [m for m in media_list if m.downloaded_path is None]
+    if not to_download:
+        logger.info("All %d media files already have local paths", len(media_list))
+        return
+
+    logger.info("Downloading %d media files to %s", len(to_download), download_dir)
+
+    for media in to_download:
         media_id = media.media_id
         file_type = media.file_type
         url = media.media_link
@@ -177,9 +183,7 @@ def publish_uploads_to_sqs(
             continue
         if media.downloaded_path and media.downloaded_path.exists():
             key = media.downloaded_path.name
-            if sqs_publisher.publish_upload(
-                key, media.language, media.massechet_name, media.daf_name
-            ):
+            if sqs_publisher.publish_upload(key, media.language, media.details):
                 published += 1
 
     return published

@@ -41,7 +41,7 @@ def load_model() -> WhisperModel:
     return _model
 
 
-def transcribe(audio_path: str) -> tuple[Any, Any]:
+def transcribe(audio_path: str) -> tuple[Any, Any] | tuple[None, None]:
     """
     Transcribe an audio file.
 
@@ -49,21 +49,26 @@ def transcribe(audio_path: str) -> tuple[Any, Any]:
         audio_path: Path to the audio file.
 
     Returns:
-        Tuple of (segments iterator, transcription info).
+        Tuple of (segments iterator, transcription info), or (None, None) on failure.
     """
-    model = load_model()
+    try:
+        model = load_model()
 
-    logger.info(f"Transcribing: {audio_path}")
-    logger.info(f"Language: {config.language}, Beam size: {config.beam_size}")
+        logger.info(f"Transcribing: {audio_path}")
+        logger.info(f"Language: {config.language}, Beam size: {config.beam_size}")
 
-    segments, info = model.transcribe(
-        audio_path,
-        language=config.language,
-        beam_size=config.beam_size,        
-    )
+        segments, info = model.transcribe(
+            audio_path,
+            language=config.language,
+            beam_size=config.beam_size,
+        )
 
-    logger.info(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")
-    logger.info(f"Audio duration: {info.duration:.2f}s")
-    logger.info(f"Audio duration: {format_timestamp(info.duration)}")
+        logger.info(f"Detected language: {info.language} (probability: {info.language_probability:.2f})")
+        logger.info(f"Audio duration: {info.duration:.2f}s")
+        logger.info(f"Audio duration: {format_timestamp(info.duration)}")
 
-    return segments, info
+        return segments, info
+
+    except Exception as e:
+        logger.error(f"Transcription failed for {audio_path}: {e}", exc_info=True)
+        return None, None
