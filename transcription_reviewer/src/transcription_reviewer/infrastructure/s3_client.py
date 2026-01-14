@@ -44,7 +44,7 @@ class S3Client:
             for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
-                    if not suffix or key.endswith(suffix):
+                    if key.endswith(suffix):
                         objects.append(obj)
 
             logger.info(

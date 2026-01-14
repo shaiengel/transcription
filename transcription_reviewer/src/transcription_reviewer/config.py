@@ -2,13 +2,11 @@
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env file from project root
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+# Load .env if exists (local dev only, no-op in Lambda)
+load_dotenv()
 
 
 @dataclass

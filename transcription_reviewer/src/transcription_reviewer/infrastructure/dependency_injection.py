@@ -1,18 +1,12 @@
 """Dependency injection container for the application."""
 
 import os
-from pathlib import Path
 
 import boto3
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
-from dotenv import load_dotenv
 
 from transcription_reviewer.infrastructure.s3_client import S3Client
-
-# Load .env file from project root
-env_path = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(env_path)
 
 
 def _create_session() -> boto3.Session:
