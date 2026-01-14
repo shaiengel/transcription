@@ -1,0 +1,26 @@
+"""Pydantic models for transcription reviewer."""
+
+from pydantic import BaseModel
+
+
+class CloudWatchAlarmEvent(BaseModel):
+    """CloudWatch Alarm event when ASG hits 0."""
+
+    alarm_name: str
+    alarm_description: str | None = None
+    new_state_value: str
+    old_state_value: str
+    reason: str | None = None
+
+
+class TimedTranscription(BaseModel):
+    """Represents a timed transcription file in S3."""
+
+    bucket: str
+    key: str
+    filename: str
+
+    @property
+    def s3_uri(self) -> str:
+        """Return full S3 URI."""
+        return f"s3://{self.bucket}/{self.key}"

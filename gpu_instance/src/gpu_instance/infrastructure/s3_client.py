@@ -101,3 +101,39 @@ class S3Client:
         except Exception as e:
             logger.error("Failed to upload %s: %s", local_path, e)
             return False
+
+    def put_object(
+        self,
+        bucket: str,
+        key: str,
+        body: bytes,
+        content_type: str | None = None,
+        metadata: dict | None = None,
+    ) -> bool:
+        """
+        Upload content directly to S3.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            body: Content bytes to upload.
+            content_type: Optional content type.
+            metadata: Optional metadata dict.
+
+        Returns:
+            True if upload succeeded, False otherwise.
+        """
+        try:
+            extra_args = {"Body": body}
+            if content_type:
+                extra_args["ContentType"] = content_type
+            if metadata:
+                extra_args["Metadata"] = metadata
+
+            logger.info("Uploading content to s3://%s/%s", bucket, key)
+            self._client.put_object(Bucket=bucket, Key=key, **extra_args)
+            logger.info("Uploaded: s3://%s/%s", bucket, key)
+            return True
+        except Exception as e:
+            logger.error("Failed to put object %s: %s", key, e)
+            return False

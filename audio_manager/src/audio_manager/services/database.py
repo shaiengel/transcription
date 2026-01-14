@@ -64,11 +64,20 @@ def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
 
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
+    # query = text("""
+    #     SELECT media_id, media_link, maggid_description, massechet_name,
+    #            daf_name, language_en, media_duration, file_type
+    #     FROM [vps_daf-yomi].[dbo].[View_Media]
+    #     WHERE massechet_id = :massechet_id AND daf_id = :daf_id
+    #       AND media_duration IS NOT NULL AND media_duration > 0
+    # """)
     query = text("""
         SELECT media_id, media_link, maggid_description, massechet_name,
                daf_name, language_en, media_duration, file_type
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
+          AND media_duration IS NOT NULL AND media_duration > 0
+          AND language_en = 'hebrew'
     """)
     result = conn.execute(
         query, {"massechet_id": massechet_id, "daf_id": daf_id}
@@ -80,7 +89,8 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[Me
             media_link=row.media_link,
             maggid_description=row.maggid_description,
             massechet_name=row.massechet_name,
-            daf_name=row.daf_name,            
+            daf_name=row.daf_name,
+            details="",
             language=row.language_en,
             media_duration=row.media_duration,
             file_type=row.file_type,

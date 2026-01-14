@@ -86,3 +86,48 @@ class S3Uploader:
         except Exception as e:
             logger.error("Error uploading transcription %s: %s", local_path, e, exc_info=True)
             return None
+
+    def upload_content(
+        self,
+        content: str,
+        filename: str,
+        original_key: str,
+    ) -> str | None:
+        """
+        Upload string content directly to S3.
+
+        Args:
+            content: Text content to upload.
+            filename: Output filename (with extension).
+            original_key: Original audio file S3 key (for metadata).
+
+        Returns:
+            S3 key where content was uploaded, or None if upload failed.
+        """
+        try:
+            # Determine content type from extension
+            ext = Path(filename).suffix
+            content_types = {
+                ".vtt": "text/vtt",
+                ".txt": "text/plain",
+            }
+            content_type = content_types.get(ext, "text/plain")
+            output_key = f"{self._output_prefix}{filename}"
+
+            success = self._s3_client.put_object(
+                bucket=self._dest_bucket,
+                key=output_key,
+                body=content.encode("utf-8"),
+                content_type=content_type,
+                metadata={"source_audio": original_key},
+            )
+
+            if success:
+                return output_key
+
+            logger.error("Upload failed for content: %s", filename)
+            return None
+
+        except Exception as e:
+            logger.error("Error uploading content %s: %s", filename, e, exc_info=True)
+            return None

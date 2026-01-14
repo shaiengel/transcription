@@ -13,10 +13,20 @@ logging.basicConfig(
 
 def main():
     """Run a local test of the Lambda handler."""
-    # Sample event
+    # Sample CloudWatch Alarm event (when ASG scales to 0)
     event = {
-        "test": "data",
-        "message": "Hello from local test",
+        "source": "aws.cloudwatch",
+        "alarmArn": "arn:aws:cloudwatch:us-east-1:123456789:alarm:asg-scale-to-zero",
+        "alarmData": {
+            "alarmName": "asg-scale-to-zero",
+            "state": {
+                "value": "ALARM",
+                "reason": "ASG instances count reached 0",
+            },
+            "previousState": {
+                "value": "OK",
+            },
+        },
     }
 
     # Mock context (Lambda context object)

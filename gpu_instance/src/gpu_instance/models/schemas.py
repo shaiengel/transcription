@@ -16,7 +16,4 @@ class TranscriptionResult(BaseModel):
     """Result of a transcription operation."""
 
     source_key: str
-    vtt_key: str | None = None
-    text_key: str | None = None
-    timed_key: str | None = None
     success: bool
