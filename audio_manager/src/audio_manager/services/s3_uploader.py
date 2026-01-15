@@ -23,3 +23,10 @@ class S3Uploader:
             logger.error("S3_BUCKET not set in environment")
             return False
         return self._s3_client.upload_file(file_path, self._bucket, key)
+
+    def upload_content(self, content: str, key: str) -> bool:
+        """Upload string content to S3."""
+        if not self._bucket:
+            logger.error("S3_BUCKET not set in environment")
+            return False
+        return self._s3_client.upload_content(content, self._bucket, key)

@@ -36,3 +36,17 @@ class S3Client:
         except Exception as e:
             logger.error("Failed to upload %s: %s", file_path, e)
             return False
+
+    def upload_content(self, content: str, bucket: str, key: str) -> bool:
+        """Upload string content to S3. Skips if file already exists."""
+        try:
+            if self.file_exists(bucket, key):
+                logger.info("Already exists: s3://%s/%s", bucket, key)
+                return True
+
+            self._client.put_object(Bucket=bucket, Key=key, Body=content.encode("utf-8"))
+            logger.info("Uploaded: s3://%s/%s", bucket, key)
+            return True
+        except Exception as e:
+            logger.error("Failed to upload content to %s: %s", key, e)
+            return False

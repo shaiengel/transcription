@@ -2,6 +2,7 @@ import logging
 import os
 from collections import Counter
 from datetime import date
+from importlib import resources
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -20,6 +21,24 @@ from audio_manager.services.s3_uploader import S3Uploader
 from audio_manager.services.sqs_publisher import SQSPublisher
 
 logger = logging.getLogger(__name__)
+
+# Load system prompt template once at module level
+_SYSTEM_PROMPT_TEMPLATE: str | None = None
+
+
+def _get_system_prompt_template() -> str:
+    """Load the system prompt template from package resources."""
+    global _SYSTEM_PROMPT_TEMPLATE
+    if _SYSTEM_PROMPT_TEMPLATE is None:
+        template_path = resources.files("audio_manager") / "system_prompt.template.txt"
+        _SYSTEM_PROMPT_TEMPLATE = template_path.read_text(encoding="utf-8")
+    return _SYSTEM_PROMPT_TEMPLATE
+
+
+def _render_system_prompt(details: str) -> str:
+    """Render the system prompt template with the given details."""
+    template = _get_system_prompt_template()
+    return template.format(details)
 
 
 def get_allowed_languages() -> set[str]:
@@ -157,16 +176,26 @@ def upload_media_to_s3(
     media_list: list[MediaEntry],
     s3_uploader: S3Uploader,
 ) -> int:
-    """Upload downloaded media files to S3. Returns count of uploaded files."""
+    """Upload downloaded media files and system prompt templates to S3.
+
+    Returns count of uploaded files.
+    """
     allowed_languages = get_allowed_languages()
     uploaded = 0
     for media in media_list:
         if media.language not in allowed_languages:
             continue
         if media.downloaded_path and media.downloaded_path.exists():
+            # Upload audio file
             key = media.downloaded_path.name
             if s3_uploader.upload_file(media.downloaded_path, key):
                 uploaded += 1
+
+            # Upload system prompt template with same stem
+            if media.details:
+                template_content = _render_system_prompt(media.details)
+                template_key = media.downloaded_path.stem + ".template.txt"
+                s3_uploader.upload_content(template_content, template_key)
 
     return uploaded
 
