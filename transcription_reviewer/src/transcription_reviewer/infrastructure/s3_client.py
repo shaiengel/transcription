@@ -1,6 +1,7 @@
 """S3 client wrapper for AWS operations."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -116,4 +117,24 @@ class S3Client:
             return True
         except ClientError as e:
             logger.error("Failed to upload to s3://%s/%s: %s", bucket, key, e)
+            return False
+
+    def upload_file(self, file_path: Path, bucket: str, key: str) -> bool:
+        """
+        Upload a local file to S3.
+
+        Args:
+            file_path: Path to local file.
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.upload_file(str(file_path), bucket, key)
+            logger.info("Uploaded file to s3://%s/%s", bucket, key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to upload file to s3://%s/%s: %s", bucket, key, e)
             return False

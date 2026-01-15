@@ -47,6 +47,26 @@ class TranscriptionFixer:
         stem = path.stem.replace(".timed", "")
         return f"{stem}.vtt"
 
+    def _get_stem(self, transcription_key: str) -> str:
+        """Get stem from transcription key.
+
+        'prefix/output1.timed.txt' -> 'output1'
+        """
+        path = Path(transcription_key)
+        return path.stem.replace(".timed", "")
+
+    def get_system_prompt(self, transcription_key: str) -> str | None:
+        """Get system prompt for a transcription.
+
+        Args:
+            transcription_key: S3 key of the transcription file.
+
+        Returns:
+            System prompt content, or None if failed.
+        """
+        template_key = self._get_template_key(transcription_key)
+        return self._s3_client.get_object_content(TEMPLATE_BUCKET, template_key)
+
     def fix_transcription(self, content: str, transcription_key: str) -> str | None:
         """
         Fix a transcription using Bedrock and save as VTT.

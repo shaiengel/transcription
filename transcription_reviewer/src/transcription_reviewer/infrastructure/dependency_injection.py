@@ -8,6 +8,7 @@ from dependency_injector.containers import DeclarativeContainer
 
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
+from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
 
 
 def _create_session() -> boto3.Session:
@@ -38,7 +39,7 @@ def _create_transcription_fixer(bedrock_client: BedrockClient, s3_client: S3Clie
     """Factory for TranscriptionFixer to avoid circular import."""
     from transcription_reviewer.services.transcription_fixer import TranscriptionFixer
 
-    model_id = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-20250514-v1:0")
+    model_id = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0")
     return TranscriptionFixer(bedrock_client, s3_client, model_id)
 
 
@@ -79,4 +80,15 @@ class DependenciesContainer(DeclarativeContainer):
         _create_transcription_fixer,
         bedrock_client=bedrock_client,
         s3_client=s3_client,
+    )
+
+    # Bedrock batch client (uses "bedrock" not "bedrock-runtime")
+    bedrock_batch_boto_client = providers.Singleton(
+        lambda session: session.client("bedrock"),
+        session=session,
+    )
+
+    bedrock_batch_client = providers.Singleton(
+        BedrockBatchClient,
+        client=bedrock_batch_boto_client,
     )
