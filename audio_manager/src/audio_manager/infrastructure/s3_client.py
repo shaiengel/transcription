@@ -40,9 +40,9 @@ class S3Client:
     def upload_content(self, content: str, bucket: str, key: str) -> bool:
         """Upload string content to S3. Skips if file already exists."""
         try:
-            if self.file_exists(bucket, key):
-                logger.info("Already exists: s3://%s/%s", bucket, key)
-                return True
+            # if self.file_exists(bucket, key):
+            #     logger.info("Already exists: s3://%s/%s", bucket, key)
+            #     return True
 
             self._client.put_object(Bucket=bucket, Key=key, Body=content.encode("utf-8"))
             logger.info("Uploaded: s3://%s/%s", bucket, key)
