@@ -97,3 +97,23 @@ class S3Client:
             if e.response["Error"]["Code"] == "404":
                 return False
             raise
+
+    def put_object_content(self, bucket: str, key: str, content: str) -> bool:
+        """
+        Upload string content to S3.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            content: String content to upload.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.put_object(Bucket=bucket, Key=key, Body=content.encode("utf-8"))
+            logger.info("Uploaded content to s3://%s/%s", bucket, key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to upload to s3://%s/%s: %s", bucket, key, e)
+            return False

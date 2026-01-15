@@ -5,10 +5,12 @@ from pathlib import Path
 
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.s3_client import S3Client
+from transcription_reviewer.utils.vtt_converter import convert_to_vtt, has_valid_timeline
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_BUCKET = "portal-daf-yomi-audio"
+OUTPUT_BUCKET = "final-transcription"
 
 
 class TranscriptionFixer:
@@ -36,16 +38,25 @@ class TranscriptionFixer:
         stem = path.stem.replace(".timed", "")
         return f"{stem}.template.txt"
 
+    def _get_vtt_key(self, transcription_key: str) -> str:
+        """Get VTT output key from transcription key.
+
+        'prefix/output1.timed.txt' -> 'output1.vtt'
+        """
+        path = Path(transcription_key)
+        stem = path.stem.replace(".timed", "")
+        return f"{stem}.vtt"
+
     def fix_transcription(self, content: str, transcription_key: str) -> str | None:
         """
-        Fix a transcription using Bedrock.
+        Fix a transcription using Bedrock and save as VTT.
 
         Args:
             content: Raw transcription content.
             transcription_key: S3 key of the transcription file.
 
         Returns:
-            Fixed transcription, or None if failed.
+            VTT content, or None if failed.
         """
         # Read system prompt from S3 template
         template_key = self._get_template_key(transcription_key)
@@ -63,9 +74,26 @@ class TranscriptionFixer:
             user_message=content,
         )
 
-        if result:
-            logger.info("Transcription fixed, output length: %d chars", len(result))
-        else:
+        if not result:
             logger.error("Failed to fix transcription")
+            return None
 
-        return result
+        logger.info("Transcription fixed, output length: %d chars", len(result))
+
+        # Check if Bedrock preserved the timeline format
+        if has_valid_timeline(result):
+            logger.info("Bedrock output has valid timeline, using fixed content")
+            vtt_content = convert_to_vtt(result)
+        else:
+            logger.warning("Bedrock changed timeline format, using original content")
+            vtt_content = convert_to_vtt(content)
+
+        # Upload VTT to output bucket
+        vtt_key = self._get_vtt_key(transcription_key)
+        if self._s3_client.put_object_content(OUTPUT_BUCKET, vtt_key, vtt_content):
+            logger.info("Saved VTT to s3://%s/%s", OUTPUT_BUCKET, vtt_key)
+        else:
+            logger.error("Failed to save VTT to s3://%s/%s", OUTPUT_BUCKET, vtt_key)
+            return None
+
+        return vtt_content

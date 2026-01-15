@@ -67,12 +67,11 @@ def process_transcriptions(
             failed_count += 1
             continue
 
-        # Fix using Bedrock
+        # Fix using Bedrock and save VTT to S3
         fixed_content = transcription_fixer.fix_transcription(content, transcription.key)
         if fixed_content:
-            logger.info("Fixed: %s", transcription.key)
+            logger.info("Fixed and saved VTT: %s", transcription.key)
             fixed_count += 1
-            # TODO: Save fixed content back to S3
         else:
             logger.error("Failed to fix: %s", transcription.key)
             failed_count += 1
