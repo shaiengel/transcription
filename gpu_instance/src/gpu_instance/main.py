@@ -3,8 +3,6 @@
 import logging
 import sys
 
-import torch
-
 from gpu_instance.infrastructure import DependenciesContainer
 from gpu_instance.handlers import run_worker_loop
 from gpu_instance.services import load_model
@@ -29,14 +27,7 @@ def main():
 
     logger.info("=" * 60)
     logger.info("Starting GPU Transcription Worker")
-    logger.info("=" * 60)
-
-    # Log GPU info
-    logger.info("PyTorch version: %s", torch.__version__)
-    logger.info("CUDA available: %s", torch.cuda.is_available())
-    if torch.cuda.is_available():
-        logger.info("CUDA version: %s", torch.version.cuda)
-        logger.info("cuDNN enabled: %s", torch.backends.cudnn.enabled)
+    logger.info("=" * 60)    
 
     # Initialize DI container
     logger.info("Initializing dependency injection container...")
