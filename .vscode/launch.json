@@ -27,6 +27,14 @@
             "program": "C:\\portal\\transcription\\transcription_reviewer\\local_test.py",
             "console": "integratedTerminal",
             
+        },
+        {
+            "name": "Python Debugger: lambda_metric",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\lambda_metric\\local_test.py",
+            "console": "integratedTerminal",
+            
         }
     ]
 }
