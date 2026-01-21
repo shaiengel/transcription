@@ -8,7 +8,7 @@ cloudwatch = boto3.client('cloudwatch')
 def handler(event, context):
     # Get queue state
     attrs = sqs.get_queue_attributes(
-        QueueUrl=os.environ['QUEUE_URL'],
+        QueueUrl=os.environ['SQS_QUEUE_URL'],
         AttributeNames=[
             'ApproximateNumberOfMessages',
             'ApproximateNumberOfMessagesNotVisible'

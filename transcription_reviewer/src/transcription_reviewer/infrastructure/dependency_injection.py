@@ -15,7 +15,7 @@ def _create_session() -> boto3.Session:
     """Create boto3 session.
 
     In Lambda: Uses execution role automatically.
-    Locally: Uses AWS_PROFILE from environment.
+    Locally: Uses AWS_PROFILE_REVIEWER from environment.
     """
     region = os.getenv("AWS_REGION", "us-east-1")
 
@@ -24,7 +24,7 @@ def _create_session() -> boto3.Session:
         return boto3.Session(region_name=region)
 
     # For local testing, use AWS profile
-    profile = os.getenv("AWS_PROFILE", "default")
+    profile = os.getenv("AWS_PROFILE_REVIEWER", "default")
     return boto3.Session(profile_name=profile)
 
 
