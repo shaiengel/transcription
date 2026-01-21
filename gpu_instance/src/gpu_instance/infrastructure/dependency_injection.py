@@ -104,7 +104,7 @@ class DependenciesContainer(DeclarativeContainer):
 
     # Formatters
     formatters = providers.List(
-        # providers.Singleton(VttFormatter),
-        # providers.Singleton(TextFormatter),
+        providers.Singleton(VttFormatter),
+        providers.Singleton(TextFormatter),
         providers.Singleton(TimedTextFormatter),
     )

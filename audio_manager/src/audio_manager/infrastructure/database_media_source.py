@@ -25,5 +25,5 @@ class DatabaseMediaSource(MediaSource):
                 all_media.extend(media_list)
 
             for media in all_media:
-                media.details = f"a Talmud Massechet:{media.massechet_name} of daf: {media.daf_name}"
+                media.details = f"a Talmud Massechet:{media.massechet_name} of Daf: {media.daf_name}"
             return all_media

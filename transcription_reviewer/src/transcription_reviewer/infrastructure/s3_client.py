@@ -1,6 +1,7 @@
 """S3 client wrapper for AWS operations."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -44,7 +45,7 @@ class S3Client:
             for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
-                    if not suffix or key.endswith(suffix):
+                    if key.endswith(suffix):
                         objects.append(obj)
 
             logger.info(
@@ -97,3 +98,43 @@ class S3Client:
             if e.response["Error"]["Code"] == "404":
                 return False
             raise
+
+    def put_object_content(self, bucket: str, key: str, content: str) -> bool:
+        """
+        Upload string content to S3.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            content: String content to upload.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.put_object(Bucket=bucket, Key=key, Body=content.encode("utf-8"))
+            logger.info("Uploaded content to s3://%s/%s", bucket, key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to upload to s3://%s/%s: %s", bucket, key, e)
+            return False
+
+    def upload_file(self, file_path: Path, bucket: str, key: str) -> bool:
+        """
+        Upload a local file to S3.
+
+        Args:
+            file_path: Path to local file.
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.upload_file(str(file_path), bucket, key)
+            logger.info("Uploaded file to s3://%s/%s", bucket, key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to upload file to s3://%s/%s: %s", bucket, key, e)
+            return False

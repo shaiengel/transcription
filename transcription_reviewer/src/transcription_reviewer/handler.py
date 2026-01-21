@@ -1,7 +1,7 @@
 """AWS Lambda handler for transcription review.
 
 Triggered by CloudWatch Alarm when ASG scales to 0.
-Reads all *.timed.txt files from S3 and prints the count.
+Reads all *.timed.txt files from S3 and fixes them using Bedrock.
 """
 
 import json
@@ -36,10 +36,12 @@ def lambda_handler(event: dict, context) -> dict:
 
         # Get services from container
         s3_reader = container.s3_reader()
+        transcription_fixer = container.transcription_fixer()
 
         # Process transcriptions
         result = process_transcriptions(
             s3_reader=s3_reader,
+            transcription_fixer=transcription_fixer,
             bucket=config.transcription_bucket,
             prefix=config.transcription_prefix,
         )
@@ -47,6 +49,8 @@ def lambda_handler(event: dict, context) -> dict:
         response_body = {
             "message": "Transcription review completed",
             "total_found": result.total_found,
+            "fixed": result.fixed,
+            "failed": result.failed,
         }
 
         logger.info("Review completed: %s", response_body)

@@ -51,7 +51,9 @@ class DependenciesContainer(DeclarativeContainer):
     # Media Source - Comment out one of the following two lines:
     # =========================================================================
     media_source = providers.Singleton(_create_database_media_source)  # From MSSQL DB
-    # media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
+    #
+    # 
+    # 'media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
 
     session = providers.Singleton(_create_session)
 

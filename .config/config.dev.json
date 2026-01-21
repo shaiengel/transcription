@@ -1,0 +1,45 @@
+{
+  "db": {
+    "engine": "mssql",
+    "name": "vps_daf-yomi",
+    "host": "127.0.0.1",
+    "port": "1433",
+    "user": "readonly",
+    "password": "",
+    "driver_windows": "ODBC Driver 17 for SQL Server"
+  },
+  "aws": {
+    "region": "us-east-1",
+    "profile": "transcription",
+    "profile_reviewer": "reviewer",
+    "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role"
+  },
+  "s3": {
+    "audio_bucket": "portal-daf-yomi-audio",
+    "transcription_bucket": "portal-daf-yomi-transcription",
+    "output_prefix": ""
+  },
+  "sqs": {
+    "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription"
+  },
+  "whisper": {
+    "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2",
+    "device": "cuda",
+    "compute_type": "float16",
+    "language": "he",
+    "beam_size": "7"
+  },
+  "bedrock": {
+    "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
+  },
+  "ecs": {
+    "cluster_name": "your-ecs-cluster-name",
+    "service_name": "your-ecs-service-name"
+  },
+  "local": {
+    "media_dir": "C:\\portal\\transcription\\media",
+    "details": "a Talmud Massechet: שבועות of Daf:  4",
+    "allowed_languages": "hebrew"
+  }
+}

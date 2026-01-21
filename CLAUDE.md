@@ -434,7 +434,7 @@ AUDIO_QUEUE_URL=https://sqs.[region].amazonaws.com/[account]/audio-queue
 ```
 BUCKET_NAME=[bucket-name]
 RESULTS_QUEUE_URL=https://sqs.[region].amazonaws.com/[account]/results-queue
-BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0
+BEDROCK_MODEL_ID=anthropic.claude-opus-4-5-20251101-v1:0
 ```
 
 ### EC2 Worker
