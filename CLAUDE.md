@@ -669,3 +669,128 @@ with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cl
 4. **New AWS clients**: Add provider to `infrastructure/dependency_injection.py`
 5. **New CLI commands**: Extend `main.py`
 6. **New media source**: Implement `MediaSource` abstract class in `infrastructure/`
+
+---
+
+## GPU Instance (`gpu_instance/`)
+
+Dockerized GPU transcription worker using faster-whisper for Hebrew audio transcription.
+
+### Architecture
+
+```
+SQS Queue → Docker Container → S3
+              ├── SQSReceiver (polls messages)
+              ├── S3Downloader (fetches audio)
+              ├── WhisperModel (transcribes)
+              ├── Formatters (VTT, TXT, TimedText)
+              └── S3Uploader (saves transcriptions)
+```
+
+### Project Structure
+
+```
+gpu_instance/
+├── Dockerfile              # CUDA 12.4 + Ubuntu 22.04 + Python 3.12
+├── .dockerignore
+├── pyproject.toml
+├── .env
+└── src/gpu_instance/
+    ├── main.py             # Entry point
+    ├── config.py           # Environment configuration
+    ├── models/
+    │   ├── schemas.py      # SQSMessage, TranscriptionResult
+    │   └── formatter.py    # Abstract Formatter, SegmentData
+    ├── handlers/
+    │   └── transcription.py # Worker loop, message processing
+    ├── services/
+    │   ├── transcriber.py  # Whisper model loading/inference
+    │   ├── s3_downloader.py
+    │   ├── s3_uploader.py
+    │   └── sqs_receiver.py
+    └── infrastructure/
+        ├── dependency_injection.py
+        ├── s3_client.py
+        ├── sqs_client.py
+        ├── vtt_formatter.py
+        ├── text_formatter.py
+        └── timed_text_formatter.py
+```
+
+### Docker Build & Push
+
+```bash
+# Build
+cd gpu_instance
+docker build -t gpu-transcriber .
+
+# Push to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
+docker tag gpu-transcriber:latest 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+docker push 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+```
+
+### EC2 User Data (cloud-config)
+
+```yaml
+#cloud-config
+runcmd:
+  - cp -r /opt/models /opt/dlami/nvme/
+  - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
+  - docker pull 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+  - docker run -d --gpus all -v /opt/dlami/nvme/models:/opt/models:ro 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+```
+
+**Critical Notes:**
+- Use `#cloud-config` format (not `#!/bin/bash`)
+- Use `-d` flag for detached mode (or cloud-init blocks forever)
+- Copy model to NVMe for fast loading (EBS is slow)
+- Run `sudo cloud-init clean` before creating AMI
+
+### AMI Requirements
+
+- Ubuntu 22.04 with NVIDIA drivers + CUDA 12.4
+- Docker + NVIDIA Container Toolkit
+- Whisper model at `/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/<hash>/`
+
+### IAM Permissions for EC2 Instance Profile
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["ecr:GetAuthorizationToken"],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+            "Resource": "arn:aws:ecr:us-east-1:707072965202:repository/portal-daf-yomi/whisper-transcribe"
+        }
+    ]
+}
+```
+
+Plus S3 and SQS permissions for the transcription buckets/queues.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `SOURCE_BUCKET` | `portal-daf-yomi-audio` | S3 bucket for audio |
+| `DEST_BUCKET` | `portal-daf-yomi-transcription` | S3 bucket for output |
+| `SQS_QUEUE_URL` | - | SQS queue URL |
+| `WHISPER_MODEL` | `/opt/models/...` | Model path |
+| `DEVICE` | `cuda` | `cuda` or `cpu` |
+| `COMPUTE_TYPE` | `float16` | Quantization type |
+| `LANGUAGE` | `he` | Language code |
+| `BEAM_SIZE` | `5` | Beam search width |
+
+### Credential Handling
+
+Uses boto3 default credential chain (no assume_role):
+- **EC2**: Instance profile credentials (automatic)
+- **Local**: `~/.aws/credentials` file

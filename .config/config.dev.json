@@ -23,7 +23,7 @@
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription"
   },
   "whisper": {
-    "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2",
+    "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66",
     "device": "cuda",
     "compute_type": "float16",
     "language": "he",
