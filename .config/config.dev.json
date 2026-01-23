@@ -41,5 +41,11 @@
     "media_dir": "C:\\portal\\transcription\\media",
     "details": "a Talmud Massechet: שבועות of Daf:  4",
     "allowed_languages": "hebrew"
+  },
+  "gitlab": {
+    "url": "https://gitlab.com",
+    "project_id": "llm241203/dy6",
+    "private_token": "",
+    "branch": "main"
   }
 }
