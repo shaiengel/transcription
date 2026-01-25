@@ -19,3 +19,4 @@ class MediaEntry(BaseModel):
     media_duration: int | None
     file_type: str | None
     downloaded_path: Path | None = None  # Set after download
+    steinsaltz: str | None = None  # Steinsaltz commentary from Sefaria

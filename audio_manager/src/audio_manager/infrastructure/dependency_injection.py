@@ -5,6 +5,7 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
 
+from audio_manager.infrastructure.gitlab_client import GitLabClient
 from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.infrastructure.sqs_client import SQSClient
 
@@ -44,6 +45,19 @@ def _create_sqs_publisher(sqs_client: SQSClient):
     return SQSPublisher(sqs_client)
 
 
+def _create_gitlab_client() -> GitLabClient | None:
+    """Factory for GitLabClient."""
+    load_dotenv()
+    url = os.getenv("GITLAB_URL", "https://gitlab.com")
+    project_id = os.getenv("GITLAB_PROJECT_ID", "")
+    private_token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
+
+    if not private_token or not project_id:
+        return None
+
+    return GitLabClient(url, private_token, project_id)
+
+
 class DependenciesContainer(DeclarativeContainer):
     """DI container for the application."""
 
@@ -51,9 +65,7 @@ class DependenciesContainer(DeclarativeContainer):
     # Media Source - Comment out one of the following two lines:
     # =========================================================================
     media_source = providers.Singleton(_create_database_media_source)  # From MSSQL DB
-    #
-    # 
-    # 'media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
+    #media_source = providers.Singleton(_create_local_disk_media_source)  # From local disk
 
     session = providers.Singleton(_create_session)
 
@@ -88,3 +100,6 @@ class DependenciesContainer(DeclarativeContainer):
         _create_sqs_publisher,
         sqs_client=sqs_client,
     )
+
+    # GitLab
+    gitlab_client = providers.Singleton(_create_gitlab_client)
