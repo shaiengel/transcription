@@ -22,11 +22,25 @@ This directory contains configuration files for the transcription pipeline.
 
 3. Generate .env files:
    ```bash
-   uv run render_env.py dev
+   # Windows (easiest)
+   render_env.bat dev --skip-validation
+
+   # Or with uv directly
+   uv run render_env.py dev --skip-validation
    ```
 
 ## Usage
 
+**Easy Method (Windows Batch File):**
+```bash
+# From anywhere in the repo
+.config\render_env.bat dev --skip-validation
+
+# From .config directory
+render_env.bat dev --skip-validation
+```
+
+**Direct Method (Works on all platforms):**
 ```bash
 # Render .env files for dev environment (default)
 uv run render_env.py
@@ -40,6 +54,8 @@ uv run render_env.py dev --require-secrets
 # Skip secret validation (use with caution)
 uv run render_env.py dev --skip-validation
 ```
+
+**Note:** No need to run `uv sync` or activate a virtual environment! The script uses inline dependencies that `uv` automatically manages in an isolated cache.
 
 ## Adding New Secrets
 
