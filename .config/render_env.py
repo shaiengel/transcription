@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "jinja2",
+# ]
+# ///
 """
 Render .env files from .env.jinja templates using global JSON config.
 
@@ -14,6 +19,9 @@ Usage:
     environment: dev (default), prod, etc.
     --require-secrets: Fail if secrets file is missing
     --skip-validation: Skip validation of required secrets
+
+Note: Uses inline script dependencies (PEP 723). Dependencies are installed
+in an isolated cache by uv - NOT in your global environment or any virtualenv.
 """
 
 import argparse
