@@ -37,6 +37,9 @@
     "cluster_name": "your-ecs-cluster-name",
     "service_name": "your-ecs-service-name"
   },
+  "asg": {
+    "name": "portal-transcription-asg"
+  },
   "local": {
     "media_dir": "C:\\portal\\transcription\\media",
     "details": "a Talmud Massechet: שבועות of Daf:  4",
