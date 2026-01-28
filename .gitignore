@@ -24,3 +24,5 @@ nul
 # Environment files (generated from templates)
 .env
 **/.env
+
+lambda_function.zip
