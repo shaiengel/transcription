@@ -17,6 +17,8 @@
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",
     "transcription_bucket": "portal-daf-yomi-transcription",
+    "template_bucket": "portal-daf-yomi-audio",
+    "output_bucket": "final-transcription",
     "output_prefix": ""
   },
   "sqs": {
@@ -32,6 +34,12 @@
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
     "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
+  },
+  "batch": {
+    "min_entries": "100",
+    "min_words_to_split": "4000",
+    "chunk_target_words": "4000",
+    "min_remainder_words": "3000"
   },
   "ecs": {
     "cluster_name": "your-ecs-cluster-name",

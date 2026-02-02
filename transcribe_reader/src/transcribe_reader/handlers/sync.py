@@ -40,6 +40,10 @@ def build_vtt_files(media_list: list[MediaInfo]) -> list[VttFile]:
         VttFile(
             media_id=media.media_id,
             s3_key=f"{media.media_id}.vtt",
+            maggid_description=media.maggid_description,
+            massechet_name=media.massechet_name,
+            daf_name=media.daf_name,
+            language=media.language,
         )
         for media in media_list
     ]

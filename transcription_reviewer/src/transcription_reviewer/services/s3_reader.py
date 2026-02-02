@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class S3Reader:
     """Reads timed transcription files from S3."""
 
-    TIMED_SUFFIX = ".timed.txt"
+    # TIMED_SUFFIX = ".timed.txt"
 
     def __init__(self, s3_client: S3Client):
         """
@@ -22,17 +22,19 @@ class S3Reader:
         """
         self._s3_client = s3_client
 
-    def list_timed_transcriptions(
+    def list_transcriptions(
         self,
         bucket: str,
         prefix: str = "",
+        suffix: str = "",
     ) -> list[TimedTranscription]:
         """
-        List all timed transcription files in S3.
+        List all transcription files in S3.
 
         Args:
             bucket: S3 bucket name.
             prefix: Optional prefix to filter objects.
+            suffix: Optional suffix to filter objects.
 
         Returns:
             List of TimedTranscription objects.
@@ -40,7 +42,7 @@ class S3Reader:
         objects = self._s3_client.list_objects(
             bucket=bucket,
             prefix=prefix,
-            suffix=self.TIMED_SUFFIX,
+            suffix=suffix,
         )
 
         transcriptions = []
@@ -56,10 +58,7 @@ class S3Reader:
             )
 
         logger.info(
-            "Found %d timed transcription files in s3://%s/%s",
-            len(transcriptions),
-            bucket,
-            prefix,
+            f"Found {len(transcriptions)} transcription files in s3://{bucket}/{prefix}***{suffix}"            
         )
         return transcriptions
 

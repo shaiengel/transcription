@@ -25,6 +25,10 @@ BATCH_BUCKET = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription"
 BATCH_ROLE_ARN = os.getenv("BATCH_ROLE_ARN", "")
 BATCH_MODEL_ID = os.getenv("BATCH_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0")
 
+# Buckets for cleanup
+AUDIO_BUCKET = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")
+TRANSCRIPTION_BUCKET = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
+
 
 @dataclass
 class ReviewResult:
@@ -34,6 +38,26 @@ class ReviewResult:
     fixed: int
     failed: int
     batch_job_arn: str | None = None
+
+
+def _cleanup_source_files(s3_client: S3Client, stem: str) -> None:
+    """
+    Remove source files after processing.
+
+    Deletes from AUDIO_BUCKET: {stem}.*
+    Deletes from TRANSCRIPTION_BUCKET: {stem}.*
+
+    Args:
+        s3_client: S3Client for delete operations.
+        stem: File stem (filename without extension).
+    """
+    # Delete all files matching stem.* from audio bucket
+    s3_client.delete_objects_by_prefix(AUDIO_BUCKET, f"{stem}.")
+
+    # Delete all files matching stem.* from transcription bucket
+    s3_client.delete_objects_by_prefix(TRANSCRIPTION_BUCKET, f"{stem}.")
+
+    logger.info("Cleaned up source files for: %s", stem)
 
 
 def _submit_batch_job(
@@ -129,10 +153,10 @@ def process_transcriptions(
         prefix,
     )
 
-    # Find all timed transcription files
-    transcriptions = s3_reader.list_timed_transcriptions(
+    # Find all transcription files
+    transcriptions = s3_reader.list_transcriptions(
         bucket=bucket,
-        prefix=prefix,
+        suffix=".txt",
     )
 
     total = len(transcriptions)
@@ -160,6 +184,7 @@ def process_transcriptions(
 
         stem = transcription_fixer._get_stem(transcription.key)
         line_count = len(content.strip().split("\n"))
+        word_count = len(content.split())
 
         transcription_files.append(
             TranscriptionFile(
@@ -167,6 +192,7 @@ def process_transcriptions(
                 content=content,
                 system_prompt=system_prompt,
                 line_count=line_count,
+                word_count=word_count,
             )
         )
 
@@ -209,6 +235,10 @@ def process_transcriptions(
         else:
             logger.error("Failed to fix: %s", transcription.key)
             failed_count += 1
+
+        # Cleanup: remove source files after processing
+        stem = transcription_fixer._get_stem(transcription.key)
+        _cleanup_source_files(s3_client, stem)
 
     logger.info(
         "Processing complete: %d found, %d fixed, %d failed",

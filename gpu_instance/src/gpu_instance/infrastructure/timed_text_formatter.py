@@ -9,7 +9,7 @@ class TimedTextFormatter(Formatter):
 
     @property
     def extension(self) -> str:
-        return ".timed.txt"
+        return ".time"
 
     def format(self, segments: list[SegmentData]) -> str:
         lines = []

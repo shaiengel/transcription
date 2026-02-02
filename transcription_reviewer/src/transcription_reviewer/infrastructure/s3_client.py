@@ -138,3 +138,55 @@ class S3Client:
         except ClientError as e:
             logger.error("Failed to upload file to s3://%s/%s: %s", bucket, key, e)
             return False
+
+    def delete_object(self, bucket: str, key: str) -> bool:
+        """
+        Delete a single object from S3.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.delete_object(Bucket=bucket, Key=key)
+            logger.info("Deleted s3://%s/%s", bucket, key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to delete s3://%s/%s: %s", bucket, key, e)
+            return False
+
+    def delete_objects_by_prefix(self, bucket: str, prefix: str) -> int:
+        """
+        Delete all objects matching a prefix from S3.
+
+        Args:
+            bucket: S3 bucket name.
+            prefix: Prefix to match (e.g., 'filename.' to delete filename.*).
+
+        Returns:
+            Number of objects deleted.
+        """
+        try:
+            objects = self.list_objects(bucket=bucket, prefix=prefix)
+            if not objects:
+                return 0
+
+            delete_keys = [{"Key": obj["Key"]} for obj in objects]
+            response = self._client.delete_objects(
+                Bucket=bucket,
+                Delete={"Objects": delete_keys},
+            )
+            deleted_count = len(response.get("Deleted", []))
+            logger.info(
+                "Deleted %d objects from s3://%s/%s*",
+                deleted_count,
+                bucket,
+                prefix,
+            )
+            return deleted_count
+        except ClientError as e:
+            logger.error("Failed to delete objects from s3://%s/%s*: %s", bucket, prefix, e)
+            return 0

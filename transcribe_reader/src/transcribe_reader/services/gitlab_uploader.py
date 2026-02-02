@@ -31,7 +31,7 @@ class GitLabUploader:
         gitlab_path = f"{GITLAB_TARGET_PATH}/{vtt_file.s3_key}"
         vtt_file.gitlab_path = gitlab_path
 
-        commit_message = f"Add transcription {vtt_file.s3_key} - {date.today().isoformat()}"
+        commit_message = f"Add transcription {vtt_file.s3_key}: {vtt_file.description}"
 
         return self._gitlab_client.upload_file(
             path=gitlab_path,
@@ -54,6 +54,7 @@ class GitLabUploader:
 
         # Build actions for batch commit
         actions = []
+        descriptions = []
         for vtt_file in files_to_upload:
             gitlab_path = f"{GITLAB_TARGET_PATH}/{vtt_file.s3_key}"
             vtt_file.gitlab_path = gitlab_path
@@ -66,8 +67,11 @@ class GitLabUploader:
                 "file_path": gitlab_path,
                 "content": vtt_file.content,
             })
+            descriptions.append(f"- {vtt_file.s3_key}: {vtt_file.description}")
 
-        commit_message = f"Sync {len(actions)} transcription(s) - {date.today().isoformat()}"
+        # Build commit message with file descriptions
+        commit_message = f"Sync {len(actions)} transcription(s) - {date.today().isoformat()}\n\n"
+        commit_message += "\n".join(descriptions)
 
         if self._gitlab_client.batch_commit(actions, commit_message, self._branch):
             return len(actions)

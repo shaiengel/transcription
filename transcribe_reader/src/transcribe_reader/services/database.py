@@ -2,7 +2,7 @@
 
 import os
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from typing import Generator
 from urllib.parse import quote_plus
 
@@ -50,14 +50,14 @@ def get_connection() -> Generator[Connection, None, None]:
 
 def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
     """Get today's MassechetId and DafId from Calendar table."""
-    today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
 
     query = text("""
         SELECT DISTINCT MassechetId, DafId
         FROM [vps_daf-yomi].[dbo].[Calendar]
-        WHERE Date = :today
+        WHERE Date = :yesterday
     """)
-    result = conn.execute(query, {"today": today}).fetchall()
+    result = conn.execute(query, {"yesterday": yesterday}).fetchall()
     return [
         CalendarEntry(massechet_id=row[0], daf_id=row[1])
         for row in result
@@ -67,7 +67,7 @@ def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
 def get_media_ids(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaInfo]:
     """Get media_ids for a specific massechet and daf."""
     query = text("""
-        SELECT media_id, massechet_name, daf_name
+        SELECT media_id, maggid_description, massechet_name, daf_name, language_en
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
     """)
@@ -78,8 +78,10 @@ def get_media_ids(conn: Connection, massechet_id: int, daf_id: int) -> list[Medi
     return [
         MediaInfo(
             media_id=row.media_id,
+            maggid_description=row.maggid_description,
             massechet_name=row.massechet_name,
             daf_name=row.daf_name,
+            language=row.language_en,
         )
         for row in result
     ]
