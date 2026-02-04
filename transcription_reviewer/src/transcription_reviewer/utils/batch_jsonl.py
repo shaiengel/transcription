@@ -70,10 +70,22 @@ def prepare_batch_entries(files: list[TranscriptionFile]) -> list[BatchEntry]:
     Prepare batch entries from transcription files.
 
     Algorithm:
-    1. Separate small files (< MIN_WORDS_TO_SPLIT words) from big files
-    2. Add all small files as single entries
-    3. Split big files based on word count thresholds
+    1. If file count >= MIN_ENTRIES, use all files as-is (no splitting needed)
+    2. Otherwise, separate small files (< MIN_WORDS_TO_SPLIT words) from big files
+    3. Add all small files as single entries
+    4. Split big files based on word count thresholds
     """
+    # If we already have enough files, no need to split anything
+    if len(files) >= MIN_ENTRIES:
+        return [
+            BatchEntry(
+                record_id=f.stem,
+                system_prompt=f.system_prompt,
+                content=f.content,
+            )
+            for f in files
+        ]
+
     entries: list[BatchEntry] = []
 
     # Separate small and big files based on word count
