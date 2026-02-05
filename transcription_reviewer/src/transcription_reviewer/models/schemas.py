@@ -33,3 +33,4 @@ class TranscriptionFile(BaseModel):
     content: str
     system_prompt: str
     line_count: int
+    word_count: int

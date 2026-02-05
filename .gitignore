@@ -16,3 +16,13 @@ settings.local.json
 
 # Windows null device artifact
 nul
+
+# Secrets (never commit)
+.config/config.secrets.*.json
+!.config/config.secrets.example.json
+
+# Environment files (generated from templates)
+.env
+**/.env
+
+lambda_function.zip

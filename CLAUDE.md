@@ -669,3 +669,252 @@ with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cl
 4. **New AWS clients**: Add provider to `infrastructure/dependency_injection.py`
 5. **New CLI commands**: Extend `main.py`
 6. **New media source**: Implement `MediaSource` abstract class in `infrastructure/`
+
+---
+
+## GPU Instance (`gpu_instance/`)
+
+Dockerized GPU transcription worker using faster-whisper for Hebrew audio transcription.
+
+### Architecture
+
+```
+SQS Queue → Docker Container → S3
+              ├── SQSReceiver (polls messages)
+              ├── S3Downloader (fetches audio)
+              ├── WhisperModel (transcribes)
+              ├── Formatters (VTT, TXT, TimedText)
+              └── S3Uploader (saves transcriptions)
+```
+
+### Project Structure
+
+```
+gpu_instance/
+├── Dockerfile              # CUDA 12.4 + Ubuntu 22.04 + Python 3.12
+├── .dockerignore
+├── pyproject.toml
+├── .env
+└── src/gpu_instance/
+    ├── main.py             # Entry point
+    ├── config.py           # Environment configuration
+    ├── models/
+    │   ├── schemas.py      # SQSMessage, TranscriptionResult
+    │   └── formatter.py    # Abstract Formatter, SegmentData
+    ├── handlers/
+    │   └── transcription.py # Worker loop, message processing
+    ├── services/
+    │   ├── transcriber.py  # Whisper model loading/inference
+    │   ├── s3_downloader.py
+    │   ├── s3_uploader.py
+    │   └── sqs_receiver.py
+    └── infrastructure/
+        ├── dependency_injection.py
+        ├── s3_client.py
+        ├── sqs_client.py
+        ├── vtt_formatter.py
+        ├── text_formatter.py
+        └── timed_text_formatter.py
+```
+
+### Docker Build & Push
+
+```bash
+# Build
+cd gpu_instance
+docker build -t gpu-transcriber .
+
+# Push to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
+docker tag gpu-transcriber:latest 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+docker push 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+```
+
+### EC2 User Data (cloud-config)
+
+```yaml
+#cloud-config
+runcmd:
+  - cp -r /opt/models /opt/dlami/nvme/
+  - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
+  - docker pull 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+  - docker run -d --gpus all -v /opt/dlami/nvme/models:/opt/models:ro 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+```
+
+**Critical Notes:**
+- Use `#cloud-config` format (not `#!/bin/bash`)
+- Use `-d` flag for detached mode (or cloud-init blocks forever)
+- Copy model to NVMe for fast loading (EBS is slow)
+- Run `sudo cloud-init clean` before creating AMI
+
+### AMI Requirements
+
+- Ubuntu 22.04 with NVIDIA drivers + CUDA 12.4
+- Docker + NVIDIA Container Toolkit
+- Whisper model at `/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/<hash>/`
+
+### IAM Permissions for EC2 Instance Profile
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["ecr:GetAuthorizationToken"],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+            "Resource": "arn:aws:ecr:us-east-1:707072965202:repository/portal-daf-yomi/whisper-transcribe"
+        }
+    ]
+}
+```
+
+Plus S3 and SQS permissions for the transcription buckets/queues.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `SOURCE_BUCKET` | `portal-daf-yomi-audio` | S3 bucket for audio |
+| `DEST_BUCKET` | `portal-daf-yomi-transcription` | S3 bucket for output |
+| `SQS_QUEUE_URL` | - | SQS queue URL |
+| `WHISPER_MODEL` | `/opt/models/...` | Model path |
+| `DEVICE` | `cuda` | `cuda` or `cpu` |
+| `COMPUTE_TYPE` | `float16` | Quantization type |
+| `LANGUAGE` | `he` | Language code |
+| `BEAM_SIZE` | `5` | Beam search width |
+
+### Credential Handling
+
+Uses boto3 default credential chain (no assume_role):
+- **EC2**: Instance profile credentials (automatic)
+- **Local**: `~/.aws/credentials` file
+
+---
+
+## Transcribe Reader (`transcribe_reader/`)
+
+CLI tool to sync VTT transcription files from S3 to GitLab. Reads today's media IDs from the database, fetches corresponding VTT files from S3, and uploads them to a GitLab repository.
+
+### Architecture
+
+```
+Database (Calendar + View_Media)
+         ↓
+    Get today's media_ids
+         ↓
+S3 (portal-daf-yomi-transcription)
+         ↓
+    Download {media_id}.vtt files
+         ↓
+GitLab API (python-gitlab)
+         ↓
+    Upload to backend/data/portal_transcriptions/
+```
+
+### Project Structure
+
+```
+transcribe_reader/
+├── pyproject.toml
+├── .env                        # Database/AWS/GitLab credentials
+└── src/transcribe_reader/
+    ├── __init__.py
+    ├── main.py                 # Entry point
+    ├── models/
+    │   ├── __init__.py
+    │   └── schemas.py          # CalendarEntry, MediaInfo, VttFile
+    ├── handlers/
+    │   ├── __init__.py
+    │   └── sync.py             # Main sync orchestration
+    ├── services/
+    │   ├── __init__.py
+    │   ├── database.py         # DB connection, queries
+    │   ├── s3_downloader.py    # S3Downloader class
+    │   └── gitlab_uploader.py  # GitLabUploader class
+    └── infrastructure/
+        ├── __init__.py
+        ├── dependency_injection.py
+        ├── s3_client.py        # S3Client wrapper
+        └── gitlab_client.py    # GitLabClient wrapper
+```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaInfo`, `VttFile` |
+| `handlers/sync.py` | Main sync orchestration: `sync_transcriptions()` |
+| `services/database.py` | DB queries: `get_today_calendar_entries()`, `get_media_ids()` |
+| `services/s3_downloader.py` | `S3Downloader` - check and download VTT files |
+| `services/gitlab_uploader.py` | `GitLabUploader` - upload files to GitLab |
+| `infrastructure/gitlab_client.py` | `GitLabClient` - python-gitlab wrapper |
+| `infrastructure/dependency_injection.py` | DI container with singleton providers |
+
+### Environment Variables (`.env`)
+
+```bash
+# Database (same as audio_manager)
+DB_NAME=vps_daf-yomi
+DB_HOST=127.0.0.1
+DB_PORT=1433
+DB_USER=readonly
+DB_PASSWORD=xxx
+DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
+
+# AWS
+AWS_PROFILE=default
+S3_TRANSCRIPTION_BUCKET=portal-daf-yomi-transcription
+
+# GitLab
+GITLAB_URL=https://gitlab.com
+GITLAB_PROJECT_ID=llm241203/dy6
+GITLAB_PRIVATE_TOKEN=glpat-xxxxxxxxxxxx
+GITLAB_BRANCH=main
+```
+
+### GitLab Authentication
+
+1. Go to GitLab > User Settings > Access Tokens
+2. Create token with scopes: `api`, `write_repository`
+3. Set as `GITLAB_PRIVATE_TOKEN` in `.env`
+
+### Commands
+
+```bash
+cd transcribe_reader
+uv sync                  # Install dependencies
+uv run transcribe-reader # Run sync
+```
+
+### Workflow
+
+1. **Query Database**: Gets today's `MassechetId`/`DafId` from `Calendar` table
+2. **Get Media IDs**: Queries `View_Media` for all `media_id` values
+3. **Check S3**: Looks for `{media_id}.vtt` files in transcription bucket
+4. **Download**: Downloads VTT content from S3 into memory
+5. **Upload to GitLab**: Batch commits all files to `backend/data/portal_transcriptions/`
+
+### Dependency Injection
+
+Uses `dependency-injector` library. Container provides singletons:
+
+```
+session → s3_boto_client → s3_client → s3_downloader
+gitlab_client → gitlab_uploader
+```
+
+Usage in `main.py`:
+```python
+container = DependenciesContainer()
+
+s3_downloader = container.s3_downloader()
+gitlab_uploader = container.gitlab_uploader()
+
+result = sync_transcriptions(s3_downloader, gitlab_uploader)
+```

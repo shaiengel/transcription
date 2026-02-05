@@ -62,6 +62,21 @@ def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
     ]
 
 
+def get_massechet_sefaria_name(conn: Connection, massechet_id: int) -> str | None:
+    """Get the Sefaria folder name for a massechet from massechet_stein table.
+
+    The massechet_stein table uses the same IDs as the Calendar table (283-322)
+    and contains names that match Sefaria folder names when lowercased.
+    """
+    query = text("""
+        SELECT name
+        FROM [vps_daf-yomi].[dbo].[massechet_stein]
+        WHERE massechetId = :massechet_id
+    """)
+    result = conn.execute(query, {"massechet_id": massechet_id}).fetchone()
+    return result[0].lower() if result else None
+
+
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
     # query = text("""

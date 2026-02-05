@@ -12,6 +12,7 @@ dependencies = [
     "pydantic",
     "boto3",
     "dependency-injector",
+    "python-gitlab",
 ]
 
 [project.scripts]

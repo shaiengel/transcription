@@ -17,13 +17,15 @@
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",
     "transcription_bucket": "portal-daf-yomi-transcription",
+    "template_bucket": "portal-daf-yomi-audio",
+    "output_bucket": "final-transcription",
     "output_prefix": ""
   },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription"
   },
   "whisper": {
-    "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2",
+    "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66",
     "device": "cuda",
     "compute_type": "float16",
     "language": "he",
@@ -31,15 +33,30 @@
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
+    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "batch_role_arn": "arn:aws:iam::707072965202:role/portal-bedrock-batch"
+  },
+  "batch": {
+    "min_entries": "100",
+    "max_tokens": "60000",
+    "temperature": "0.4"
   },
   "ecs": {
     "cluster_name": "your-ecs-cluster-name",
     "service_name": "your-ecs-service-name"
   },
+  "asg": {
+    "name": "portal-transcription-asg"
+  },
   "local": {
     "media_dir": "C:\\portal\\transcription\\media",
     "details": "a Talmud Massechet: שבועות of Daf:  4",
     "allowed_languages": "hebrew"
+  },
+  "gitlab": {
+    "url": "https://gitlab.com",
+    "project_id": "llm241203/dy6",
+    "private_token": "",
+    "branch": "main"
   }
 }

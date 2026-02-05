@@ -35,6 +35,14 @@
             "program": "C:\\portal\\transcription\\lambda_metric\\local_test.py",
             "console": "integratedTerminal",
             
+        },
+        {
+            "name": "Python Debugger: transcribe_reader",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\transcribe_reader\\src\\transcribe_reader\\main.py",
+            "console": "integratedTerminal",
+            
         }
     ]
 }

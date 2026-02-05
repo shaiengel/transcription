@@ -37,11 +37,17 @@ def lambda_handler(event: dict, context) -> dict:
         # Get services from container
         s3_reader = container.s3_reader()
         transcription_fixer = container.transcription_fixer()
+        s3_client = container.s3_client()
+        bedrock_batch_client = container.bedrock_batch_client()
+        token_counter = container.token_counter()
 
         # Process transcriptions
         result = process_transcriptions(
             s3_reader=s3_reader,
             transcription_fixer=transcription_fixer,
+            s3_client=s3_client,
+            bedrock_batch_client=bedrock_batch_client,
+            token_counter=token_counter,
             bucket=config.transcription_bucket,
             prefix=config.transcription_prefix,
         )

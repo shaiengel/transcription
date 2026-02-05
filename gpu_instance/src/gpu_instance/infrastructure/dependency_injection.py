@@ -20,22 +20,13 @@ load_dotenv(env_path)
 
 
 def _create_session() -> boto3.Session:
-    """Create boto3 session with assumed role."""
+    """Create boto3 session using default credential chain.
+
+    - On EC2: uses instance profile
+    - Locally: uses ~/.aws/credentials
+    """
     region = os.getenv("AWS_REGION", "us-east-1")
-    role_arn = os.getenv(
-        "AWS_ROLE_ARN", "arn:aws:iam::707072965202:role/gpu-transcription-role"
-    )
-
-    sts = boto3.client("sts", region_name=region)
-    assumed = sts.assume_role(RoleArn=role_arn, RoleSessionName="gpu-worker")
-    credentials = assumed["Credentials"]
-
-    return boto3.Session(
-        aws_access_key_id=credentials["AccessKeyId"],
-        aws_secret_access_key=credentials["SecretAccessKey"],
-        aws_session_token=credentials["SessionToken"],
-        region_name=region,
-    )
+    return boto3.Session(region_name=region)
 
 
 def _create_s3_downloader(s3_client: S3Client):

@@ -7,12 +7,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from audio_manager.models.schemas import MediaEntry
+from audio_manager.models.schemas import CalendarEntry, MediaEntry
+from audio_manager.infrastructure.gitlab_client import GitLabClient
 from audio_manager.services.database import (
     get_connection,
+    get_massechet_sefaria_name,
     get_media_links,
     get_today_calendar_entries,
 )
+from audio_manager.services.sefaria_fetcher import fetch_steinsaltz_for_daf
 from audio_manager.services.downloader import (
     download_file,
     extract_audio_from_mp4,
@@ -35,10 +38,10 @@ def _get_system_prompt_template() -> str:
     return _SYSTEM_PROMPT_TEMPLATE
 
 
-def _render_system_prompt(details: str) -> str:
-    """Render the system prompt template with the given details."""
+def _render_system_prompt(details: str, steinsaltz: str) -> str:
+    """Render the system prompt template with details and Steinsaltz commentary."""
     template = _get_system_prompt_template()
-    return template.format(details)
+    return template.format(details, steinsaltz)
 
 
 def get_allowed_languages() -> set[str]:
@@ -70,6 +73,91 @@ def get_today_media_links() -> list[MediaEntry]:
             all_media.extend(media_list)
 
         return all_media
+
+
+def get_today_calendar() -> list[CalendarEntry]:
+    """Fetch today's calendar entries from the database."""
+    with get_connection() as conn:
+        return get_today_calendar_entries(conn)
+
+
+def enrich_with_steinsaltz(
+    media_list: list[MediaEntry],
+    calendar_entries: list[CalendarEntry],
+    gitlab_client: GitLabClient | None,
+) -> None:
+    """Enrich media entries with Steinsaltz commentary from GitLab.
+
+    Updates the 'details' field of each media entry with the Steinsaltz
+    commentary fetched from GitLab Sefaria pages.
+
+    Args:
+        media_list: List of media entries to enrich.
+        calendar_entries: Today's calendar entries with massechet_id and daf_id.
+        gitlab_client: GitLab client instance, or None if not configured.
+    """
+    if not gitlab_client:
+        logger.warning(
+            "GitLab client not configured. "
+            "Set GITLAB_PRIVATE_TOKEN and GITLAB_PROJECT_ID in .env"
+        )
+        return
+
+    if not calendar_entries:
+        logger.warning("No calendar entries to fetch Steinsaltz for")
+        return
+
+    # Cache Steinsaltz commentary per (massechet_id, daf_id)
+    steinsaltz_cache: dict[tuple[int, int], str | None] = {}
+
+    with get_connection() as conn:
+        for entry in calendar_entries:
+            cache_key = (entry.massechet_id, entry.daf_id)
+
+            # Get Sefaria folder name directly from massechet_stein table
+            sefaria_name = get_massechet_sefaria_name(conn, entry.massechet_id)
+            if not sefaria_name:
+                logger.warning(
+                    "No Sefaria name found for massechet_id %d", entry.massechet_id
+                )
+                steinsaltz_cache[cache_key] = None
+                continue
+
+            # Fetch Steinsaltz commentary from GitLab
+            branch = os.getenv("GITLAB_BRANCH", "main")
+            steinsaltz = fetch_steinsaltz_for_daf(
+                gitlab_client, sefaria_name, entry.daf_id, branch
+            )
+
+            if steinsaltz:
+                logger.info(
+                    "Fetched Steinsaltz for %s daf %d (%d chars)",
+                    sefaria_name,
+                    entry.daf_id,
+                    len(steinsaltz),
+                )
+            else:
+                logger.warning(
+                    "No Steinsaltz found for %s daf %d",
+                    sefaria_name,
+                    entry.daf_id,
+                )
+
+            steinsaltz_cache[cache_key] = steinsaltz
+
+    # Update media entries with Steinsaltz commentary
+    for media in media_list:
+        # Set basic details
+        media.details = f"Talmud Massechet: {media.massechet_name}, Daf: {media.daf_name}"
+
+        # Find the calendar entry this media belongs to and set steinsaltz
+        for entry in calendar_entries:
+            cache_key = (entry.massechet_id, entry.daf_id)
+            steinsaltz_text = steinsaltz_cache.get(cache_key)
+
+            if steinsaltz_text:
+                media.steinsaltz = steinsaltz_text
+            break  # Only need to match one calendar entry
 
 
 def print_media_links(media_list: list[MediaEntry]) -> None:
@@ -169,7 +257,7 @@ def download_today_media(media_list: list[MediaEntry], download_dir: Path) -> No
             if download_file(url, dest_path):
                 media.downloaded_path = dest_path
                 logger.info("Saved: %s", dest_path.name)
-        break
+        # break
 
 
 def upload_media_to_s3(
@@ -192,8 +280,8 @@ def upload_media_to_s3(
                 uploaded += 1
 
             # Upload system prompt template with same stem
-            if media.details:
-                template_content = _render_system_prompt(media.details)
+            if media.details and media.steinsaltz:
+                template_content = _render_system_prompt(media.details, media.steinsaltz)
                 template_key = media.downloaded_path.stem + ".template.txt"
                 s3_uploader.upload_content(template_content, template_key)
 
