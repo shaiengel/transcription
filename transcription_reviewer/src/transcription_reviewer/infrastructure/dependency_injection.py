@@ -9,6 +9,7 @@ from dependency_injector.containers import DeclarativeContainer
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
+from transcription_reviewer.services.token_counter import TokenCounter
 
 
 def _create_session() -> boto3.Session:
@@ -91,4 +92,11 @@ class DependenciesContainer(DeclarativeContainer):
     bedrock_batch_client = providers.Singleton(
         BedrockBatchClient,
         client=bedrock_batch_boto_client,
+    )
+
+    # Token counter (uses Anthropic SDK with Bedrock)
+    token_counter = providers.Singleton(
+        TokenCounter,
+        model_id=os.getenv("BATCH_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0"),
+        region=os.getenv("AWS_REGION", "us-east-1"),
     )

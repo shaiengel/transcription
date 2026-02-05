@@ -33,13 +33,13 @@
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
+    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "batch_role_arn": "arn:aws:iam::707072965202:role/portal-bedrock-batch"
   },
   "batch": {
     "min_entries": "100",
-    "min_words_to_split": "4000",
-    "chunk_target_words": "4000",
-    "min_remainder_words": "3000"
+    "max_tokens": "60000",
+    "temperature": "0.4"
   },
   "ecs": {
     "cluster_name": "your-ecs-cluster-name",

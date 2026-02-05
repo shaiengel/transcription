@@ -11,9 +11,9 @@ from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBa
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.models.schemas import TranscriptionFile
 from transcription_reviewer.services.s3_reader import S3Reader
+from transcription_reviewer.services.token_counter import TokenCounter
 from transcription_reviewer.services.transcription_fixer import TranscriptionFixer
 from transcription_reviewer.utils.batch_jsonl import (
-    MIN_ENTRIES,
     create_jsonl,
     prepare_batch_entries,
 )
@@ -81,31 +81,31 @@ def _submit_batch_job(
     input_key = f"batch-input/{job_name}.jsonl"
     output_prefix = f"batch-output/{job_name}/"
 
-    # Create JSONL file locally
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
-    ) as tmp_file:
-        tmp_path = Path(tmp_file.name)
-
-    if not create_jsonl(entries, tmp_path):
-        logger.error("Failed to create batch JSONL file")
-        tmp_path.unlink(missing_ok=True)
-        return None
-
-    # Upload to S3
-    if not s3_client.upload_file(tmp_path, BATCH_BUCKET, input_key):
-        logger.error("Failed to upload batch input to S3")
-        tmp_path.unlink(missing_ok=True)
-        return None
-
-    tmp_path.unlink(missing_ok=True)
-    logger.info("Uploaded batch input to s3://%s/%s", BATCH_BUCKET, input_key)
-
-    # Create batch job
+    # Check role before doing any work
     if not BATCH_ROLE_ARN:
         logger.error("BATCH_ROLE_ARN environment variable not set")
         return None
 
+    # Create JSONL file and upload to S3
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / f"{job_name}.jsonl"
+
+        stats = create_jsonl(entries, tmp_path)
+        logger.info(
+            "Batch stats: %d real entries, %d dummy entries, %d tokens",
+            stats["real_entries"],
+            stats["dummy_entries"],
+            stats["real_tokens"],
+        )
+
+        # Upload to S3
+        if not s3_client.upload_file(tmp_path, BATCH_BUCKET, input_key):
+            logger.error("Failed to upload batch input to S3")
+            return None
+
+    logger.info("Uploaded batch input to s3://%s/%s", BATCH_BUCKET, input_key)
+
+    # Create batch job
     job_arn = bedrock_batch_client.create_batch_job(
         job_name=job_name,
         model_id=BATCH_MODEL_ID,
@@ -127,20 +127,22 @@ def process_transcriptions(
     transcription_fixer: TranscriptionFixer,
     s3_client: S3Client,
     bedrock_batch_client: BedrockBatchClient,
+    token_counter: TokenCounter,
     bucket: str,
     prefix: str,
 ) -> ReviewResult:
     """
-    Find all timed transcriptions and fix them using Bedrock.
+    Find all timed transcriptions and fix them using Bedrock batch inference.
 
-    If there are >= 100 entries (after splitting), creates a batch job.
-    Otherwise, processes each file individually using invoke_model.
+    Always uses batch processing (padded to 100 entries for batch pricing).
+    Files exceeding token limits are automatically split.
 
     Args:
         s3_reader: S3Reader service for listing/reading transcriptions.
         transcription_fixer: TranscriptionFixer service for fixing with Bedrock.
         s3_client: S3Client for uploading batch input.
         bedrock_batch_client: BedrockBatchClient for batch job creation.
+        token_counter: TokenCounter service for counting tokens.
         bucket: S3 bucket containing transcriptions.
         prefix: S3 prefix to filter transcriptions.
 
@@ -202,53 +204,30 @@ def process_transcriptions(
         failed_to_load,
     )
 
-    # Prepare batch entries
-    entries = prepare_batch_entries(transcription_files)
-    logger.info("Prepared %d batch entries", len(entries))
-
-    # If we have enough entries for batch processing, create and submit batch job
-    if len(entries) >= MIN_ENTRIES:
-        job_arn = _submit_batch_job(entries, s3_client, bedrock_batch_client)
-        if job_arn:
-            return ReviewResult(
-                total_found=total,
-                fixed=0,
-                failed=failed_to_load,
-                batch_job_arn=job_arn,
-            )
-
-    # Fall back to individual processing
-    logger.info("Not enough entries for batch processing, using individual invoke_model")
-
-    fixed_count = 0
-    failed_count = failed_to_load
-
-    for transcription in transcriptions:
-        content = s3_reader.get_transcription_content(transcription)
-        if not content:
-            continue  # Already counted in failed_to_load
-
-        fixed_content = transcription_fixer.fix_transcription(content, transcription.key)
-        if fixed_content:
-            logger.info("Fixed and saved VTT: %s", transcription.key)
-            fixed_count += 1
-        else:
-            logger.error("Failed to fix: %s", transcription.key)
-            failed_count += 1
-
-        # Cleanup: remove source files after processing
-        stem = transcription_fixer._get_stem(transcription.key)
-        _cleanup_source_files(s3_client, stem)
-
+    # Prepare batch entries (always pads to 100 for batch pricing)
+    entries = prepare_batch_entries(transcription_files, token_counter)
+    real_entries = [e for e in entries if not e.record_id.startswith("dummy_")]
     logger.info(
-        "Processing complete: %d found, %d fixed, %d failed",
-        total,
-        fixed_count,
-        failed_count,
+        "Prepared %d batch entries (%d real, %d padding)",
+        len(entries),
+        len(real_entries),
+        len(entries) - len(real_entries),
     )
 
+    # Always use batch processing (entries are padded to 100)
+    job_arn = _submit_batch_job(entries, s3_client, bedrock_batch_client)
+    if job_arn:
+        return ReviewResult(
+            total_found=total,
+            fixed=0,
+            failed=failed_to_load,
+            batch_job_arn=job_arn,
+        )
+
+    # Batch job creation failed
+    logger.error("Failed to create batch job")
     return ReviewResult(
         total_found=total,
-        fixed=fixed_count,
-        failed=failed_count,
+        fixed=0,
+        failed=total,
     )
