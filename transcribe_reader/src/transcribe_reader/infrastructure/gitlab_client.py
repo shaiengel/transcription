@@ -77,4 +77,5 @@ class GitLabClient:
             return True
         except Exception as e:
             logger.error("Batch commit failed: %s", e)
+            logger.error("Actions: %s", [a["action"] + " " + a["file_path"] for a in actions])
             return False

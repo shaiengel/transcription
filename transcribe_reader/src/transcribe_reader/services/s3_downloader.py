@@ -17,7 +17,7 @@ class S3Downloader:
     def __init__(self, s3_client: S3Client):
         self._s3_client = s3_client
         load_dotenv()
-        self._bucket = os.getenv("S3_TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
+        self._bucket = os.getenv("S3_TRANSCRIPTION_BUCKET", "final-transcription")
 
     def check_exists(self, vtt_file: VttFile) -> bool:
         """Check if VTT file exists in S3."""

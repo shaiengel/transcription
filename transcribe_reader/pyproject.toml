@@ -5,8 +5,6 @@ description = "Sync VTT transcription files from S3 to GitLab"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "sqlalchemy>=2.0",
-    "pyodbc",
     "python-dotenv",
     "pydantic",
     "boto3",
