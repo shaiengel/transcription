@@ -12,6 +12,7 @@
     "region": "us-east-1",
     "profile": "transcription",
     "profile_reviewer": "reviewer",
+    "profile_post_reviewer": "post_reviewer",
     "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role"
   },
   "s3": {
@@ -22,7 +23,8 @@
     "output_prefix": ""
   },
   "sqs": {
-    "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription"
+    "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
+    "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes"
   },
   "whisper": {
     "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66",

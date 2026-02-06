@@ -797,6 +797,135 @@ Uses boto3 default credential chain (no assume_role):
 
 ---
 
+## Post Inference (`post_inference/`)
+
+Lambda function triggered by EventBridge when a Bedrock batch inference job completes. Processes the batch output, matches results with original `.time` files, creates VTT subtitles, and notifies downstream via SQS.
+
+### Architecture
+
+```
+EventBridge (Bedrock job completed)
+         ↓
+    Lambda handler
+         ↓
+    Bedrock API (get job output location)
+         ↓
+    S3 (read batch-output/*.jsonl.out)
+         ↓
+    Parse JSONL → group split records by stem
+         ↓
+    For each stem:
+      ├── Read {stem}.time from portal-daf-yomi-transcription
+      ├── Inject timestamps into LLM-fixed text
+      ├── Upload {stem}.vtt to final-transcription
+      ├── Upload {stem}.txt to final-transcription (for RAG)
+      ├── Upload {stem}.no_timing.txt (only on line count mismatch)
+      ├── Copy {stem}.time as {stem}.pre-fix.time to final-transcription
+      └── Send SQS message with VTT filename
+```
+
+### Project Structure
+
+```
+post_inference/
+├── pyproject.toml
+├── local_test.py
+├── .env.jinja
+└── src/post_inference/
+    ├── __init__.py
+    ├── handler.py                  # Lambda entry point
+    ├── config.py                   # Environment config
+    ├── models/
+    │   ├── __init__.py
+    │   └── schemas.py              # BatchOutputRecord, ProcessResult
+    ├── handlers/
+    │   ├── __init__.py
+    │   └── process.py              # Main orchestration
+    ├── services/
+    │   ├── __init__.py
+    │   └── batch_result_processor.py  # Parse JSONL, inject timestamps, create VTT
+    ├── infrastructure/
+    │   ├── __init__.py
+    │   ├── dependency_injection.py
+    │   ├── s3_client.py
+    │   └── sqs_client.py
+    └── utils/
+        ├── __init__.py
+        └── vtt_converter.py
+```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `handler.py` | Lambda entry point, extracts `batchJobArn` from EventBridge event |
+| `handlers/process.py` | Orchestration: get batch output URI, parse, process each stem |
+| `services/batch_result_processor.py` | Parse JSONL, inject timestamps, convert to VTT, upload |
+| `infrastructure/s3_client.py` | S3 wrapper (get, put, list, copy, delete) |
+| `infrastructure/sqs_client.py` | SQS wrapper (send message) |
+| `utils/vtt_converter.py` | Timed text → VTT format conversion |
+
+### Trigger
+
+**EventBridge** rule with filter:
+```json
+{
+  "source": ["aws.bedrock"],
+  "detail-type": ["Batch Inference Job State Change"],
+  "detail": {
+    "status": ["Completed"]
+  }
+}
+```
+
+### Processing Logic
+
+For each record in the batch output:
+
+1. **Parse**: Read `.jsonl.out`, skip `dummy_*` records
+2. **Merge splits**: Group `stem_1`, `stem_2` back into single `stem`
+3. **Inject timestamps**: Match LLM-fixed lines with original `.time` file timestamps
+4. **Timestamps match**: Create VTT from fixed text with timestamps
+5. **Timestamps mismatch**: Create VTT from original `.time` file, also save `{stem}.no_timing.txt`
+6. **Always**: Save `{stem}.txt` (LLM-fixed text for RAG), copy `.time` as `.pre-fix.time`
+7. **Notify**: Send `{"filename": "{stem}.vtt"}` to SQS
+
+### Output Files (in `final-transcription` bucket)
+
+| File | Description |
+|------|-------------|
+| `{stem}.vtt` | VTT subtitles (from fixed text or original .time fallback) |
+| `{stem}.txt` | LLM-fixed plain text (for RAG) |
+| `{stem}.pre-fix.time` | Original transcription before LLM fix |
+| `{stem}.no_timing.txt` | LLM-fixed text when line count mismatched (diagnostic) |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `AWS_PROFILE_POST_REVIEWER` | `default` | AWS profile (local dev only) |
+| `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket (.time files + batch output) |
+| `OUTPUT_BUCKET` | `final-transcription` | Destination bucket for output files |
+| `AUDIO_BUCKET` | `portal-daf-yomi-audio` | Audio bucket (for cleanup) |
+| `SQS_QUEUE_URL` | - | SQS queue URL for VTT notifications |
+
+### IAM Role: `portal-post-reviewer-role`
+
+**Permissions**: `bedrock:GetModelInvocationJob`, `s3:GetObject`, `s3:PutObject`, `s3:ListBucket`, `s3:CopyObject`, `s3:DeleteObject`, `sqs:SendMessage`, CloudWatch Logs.
+
+**Trust**: `lambda.amazonaws.com`
+
+### Commands
+
+```bash
+cd post_inference
+uv sync
+uv run python local_test.py  # Replace job ARN in local_test.py first
+```
+
+---
+
 ## Transcribe Reader (`transcribe_reader/`)
 
 CLI tool to sync VTT transcription files from S3 to GitLab. Reads today's media IDs from the database, fetches corresponding VTT files from S3, and uploads them to a GitLab repository.

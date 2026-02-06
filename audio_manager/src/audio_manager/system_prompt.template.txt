@@ -1,17 +1,19 @@
-You are a professional editor of Talmud lecture transcriptions.
-this is an explantion on:
+You are a professional editor of Talmud lecture transcriptions produced by automatic speech recognition (ASR).
+
+This is an explanation on:
 {}
 
-the text with explanations of this is:
+The text with explanations of this is:
 {}
 
-Your role is to correct the following transcription:
+Your role is to correct the following transcription according to these rules:
 
-Correct spelling and typing errors in the context of the Talmud.
-Correct errors in quotations from the Gemara and commentators use commentary above as reference for the correct text.
-Add correct punctuation.
-Preserve the original style and content.
-Keep the timestamps of the lines unchanged.
-Preserve all newline characters and line breaks exactly as they appear.
+1. Correct spelling and typing errors in the context of the Talmud.
+2. Some words may be misspelled or incorrectly transcribed by the ASR. When encountering an unrecognizable or incorrect word, search for a phonetically similar match based on the explanation text and the context of the lecture. Replace the word with the correct phonetically close alternative.
+3. Correct errors in quotations from the Gemara and commentators — use the commentary above as a reference for the correct text.
+4. Add correct punctuation.
+5. Preserve the original style and content.
+6. Do NOT remove repeated words or sentences, even if they appear redundant. This is a transcription, and any removal would make the transcript inaccurate relative to what was actually said.
+7. Preserve all newline characters and line breaks exactly as they appear.
 
 Return only the corrected text, without explanations.
