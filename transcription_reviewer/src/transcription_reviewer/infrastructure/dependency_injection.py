@@ -6,10 +6,15 @@ import boto3
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 
+from transcription_reviewer.config import Config
 from transcription_reviewer.infrastructure.s3_client import S3Client
+from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
 from transcription_reviewer.services.token_counter import TokenCounter
+from transcription_reviewer.models.llm_pipeline import LLMPipeline
+from transcription_reviewer.services.bedrock_batch_pipeline import BedrockBatchPipeline
+from transcription_reviewer.services.gemini_pipeline import GeminiPipeline
 
 
 def _create_session() -> boto3.Session:
@@ -42,6 +47,45 @@ def _create_transcription_fixer(bedrock_client: BedrockClient, s3_client: S3Clie
 
     model_id = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0")
     return TranscriptionFixer(bedrock_client, s3_client, model_id)
+
+
+def _create_bedrock_pipeline(
+    s3_client: S3Client,
+    bedrock_batch_client: BedrockBatchClient,
+    token_counter: TokenCounter,
+) -> LLMPipeline:
+    """Create Bedrock batch pipeline."""
+    config = Config()
+    return BedrockBatchPipeline(
+        s3_client=s3_client,
+        bedrock_batch_client=bedrock_batch_client,
+        token_counter=token_counter,
+        bucket=config.transcription_bucket,
+        batch_model_id=config.batch_model_id,
+        batch_role_arn=config.batch_role_arn,
+        min_entries=config.min_entries,
+        max_tokens=config.max_tokens,
+        temperature=config.temperature,
+    )
+
+
+def _create_gemini_pipeline(
+    s3_client: S3Client,
+    sqs_client: SQSClient,
+) -> LLMPipeline:
+    """Create Gemini pipeline."""
+    config = Config()
+    return GeminiPipeline(
+        s3_client=s3_client,
+        sqs_client=sqs_client,
+        api_key=config.google_api_key,
+        transcription_bucket=config.transcription_bucket,
+        output_bucket=config.output_bucket,
+        sqs_queue_url=config.sqs_queue_url,
+        model_name=config.gemini_model,
+        temperature=config.temperature,
+        max_tokens=config.max_tokens,
+    )
 
 
 class DependenciesContainer(DeclarativeContainer):
@@ -99,4 +143,32 @@ class DependenciesContainer(DeclarativeContainer):
         TokenCounter,
         model_id=os.getenv("BATCH_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0"),
         region=os.getenv("AWS_REGION", "us-east-1"),
+    )
+
+    # SQS dependency chain
+    sqs_boto_client = providers.Singleton(
+        lambda session: session.client("sqs"),
+        session=session,
+    )
+
+    sqs_client = providers.Singleton(
+        SQSClient,
+        client=sqs_boto_client,
+    )
+
+    # LLM Pipeline - Choose one by commenting/uncommenting:
+
+    # Option 1: AWS Bedrock Batch (AWS_OPUS4.5)
+    # llm_pipeline = providers.Singleton(
+    #     _create_bedrock_pipeline,
+    #     s3_client=s3_client,
+    #     bedrock_batch_client=bedrock_batch_client,
+    #     token_counter=token_counter,
+    # )
+
+    # Option 2: Google Gemini (GEMINI2.5)
+    llm_pipeline = providers.Singleton(
+        _create_gemini_pipeline,
+        s3_client=s3_client,
+        sqs_client=sqs_client,
     )

@@ -1047,3 +1047,292 @@ gitlab_uploader = container.gitlab_uploader()
 
 result = sync_transcriptions(s3_downloader, gitlab_uploader)
 ```
+
+---
+
+## Transcription Reviewer (`transcription_reviewer/`)
+
+Lambda function that reviews and fixes transcriptions using LLM (AWS Bedrock or Google Gemini). Supports multiple backends via pluggable architecture with per-file custom system prompts from S3 templates.
+
+### Architecture
+
+```
+CloudWatch Alarm (ASG scaled to 0)
+         ↓
+    Lambda handler
+         ↓
+    S3Reader → list .txt files
+         ↓
+    TranscriptionFixer → fetch per-file system prompts from templates
+         ↓
+    LLMPipeline (abstract)
+         ├── BedrockBatchPipeline → AWS Bedrock batch inference (async)
+         └── GeminiPipeline → Google Gemini API (sync + immediate results)
+         ↓
+    Output to S3 + SQS notifications
+```
+
+### Project Structure
+
+```
+transcription_reviewer/
+├── pyproject.toml
+├── .env                        # Rendered from .env.jinja
+├── .env.jinja                  # Template for environment variables
+├── local_test.py               # Local testing script
+└── src/transcription_reviewer/
+    ├── __init__.py
+    ├── handler.py              # Lambda entry point
+    ├── config.py               # Configuration management (JSON + env vars)
+    ├── models/
+    │   ├── __init__.py
+    │   ├── schemas.py          # TranscriptionFile, ReviewResult
+    │   └── llm_pipeline.py     # Abstract LLMPipeline base class
+    ├── handlers/
+    │   ├── __init__.py
+    │   └── review.py           # Main orchestration: process_transcriptions()
+    ├── services/
+    │   ├── __init__.py
+    │   ├── s3_reader.py        # List and read transcription files
+    │   ├── transcription_fixer.py  # System prompt fetching, stem extraction
+    │   ├── token_counter.py    # Token counting for splitting
+    │   ├── bedrock_batch_pipeline.py  # AWS Bedrock batch implementation
+    │   └── gemini_pipeline.py  # Google Gemini implementation
+    ├── infrastructure/
+    │   ├── __init__.py
+    │   ├── dependency_injection.py  # DI container
+    │   ├── s3_client.py        # S3 wrapper
+    │   ├── sqs_client.py       # SQS wrapper
+    │   ├── bedrock_client.py   # Bedrock runtime wrapper
+    │   └── bedrock_batch_client.py  # Bedrock batch wrapper
+    └── utils/
+        ├── __init__.py
+        └── vtt_converter.py    # Timed text → VTT conversion
+```
+
+### Key Components
+
+| File | Purpose |
+|------|---------|
+| `handler.py` | Lambda entry point, initializes DI container |
+| `handlers/review.py` | Main orchestration: list files, fetch prompts, invoke pipeline |
+| `models/llm_pipeline.py` | Abstract base class: prepare_data(), invoke(), post_process() |
+| `services/transcription_fixer.py` | Fetches per-file system prompts from S3 templates |
+| `services/bedrock_batch_pipeline.py` | AWS Bedrock batch implementation (async) |
+| `services/gemini_pipeline.py` | Google Gemini implementation (sync + VTT creation) |
+| `infrastructure/dependency_injection.py` | DI container with comment/uncomment pattern |
+
+### Configuration
+
+**Priority**: Environment Variables > `config.secrets.dev.json` > `config.dev.json` > Defaults
+
+Configuration files location: `C:\portal\transcription\.config\`
+
+**`config.dev.json`**:
+```json
+{
+  "llm_backend": "AWS_OPUS4.5",
+  "gemini_model": "gemini-2.5-flash-lite",
+  "aws_region": "us-east-1",
+  "s3": {
+    "transcription_bucket": "portal-daf-yomi-transcription",
+    "template_bucket": "portal-daf-yomi-audio",
+    "output_bucket": "final-transcription"
+  },
+  "bedrock": {
+    "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "batch_role_arn": "arn:aws:iam::707072965202:role/portal-bedrock-batch"
+  }
+}
+```
+
+**`config.secrets.dev.json`**:
+```json
+{
+  "google_api_key": "your-api-key-here"
+}
+```
+
+### LLM Backends
+
+Configured via `LLM_BACKEND` environment variable or `llm_backend` in config.
+
+| Backend | Implementation | Processing | Output |
+|---------|---------------|-----------|--------|
+| `AWS_OPUS4.5` | BedrockBatchPipeline | Async batch (100+ entries) | Job ARN, post_inference processes results |
+| `GEMINI2.5` | GeminiPipeline | Sync one-by-one | Immediate VTT + TXT + SQS |
+
+**Switching backends** in `infrastructure/dependency_injection.py`:
+```python
+# Option 1: AWS Bedrock Batch (AWS_OPUS4.5)
+llm_pipeline = providers.Singleton(
+    _create_bedrock_pipeline,
+    s3_client=s3_client,
+    bedrock_batch_client=bedrock_batch_client,
+    token_counter=token_counter,
+)
+
+# Option 2: Google Gemini (GEMINI2.5)
+# llm_pipeline = providers.Singleton(
+#     _create_gemini_pipeline,
+#     s3_client=s3_client,
+#     sqs_client=sqs_client,
+# )
+```
+
+### System Prompt Management
+
+**Critical Feature**: Each transcription file has its own custom system prompt from S3.
+
+**Template Location**: `s3://portal-daf-yomi-audio/{stem}.template.txt`
+
+**Example** for `151415.txt`:
+- Transcription: `s3://portal-daf-yomi-transcription/151415.txt`
+- Template: `s3://portal-daf-yomi-audio/151415.template.txt`
+- Content:
+  ```
+  Fix any spelling errors and transcription mistakes in this Hebrew text from Tractate Bava Kamma.
+  Only return the corrected text, nothing else.
+  Preserve the exact number of lines - do not add or remove lines.
+  Ensure proper Hebrew grammar and spelling.
+  ```
+
+**Implementation** (`handlers/review.py`):
+```python
+for trans in transcriptions:
+    content = s3_reader.get_transcription_content(trans)
+
+    # Fetch system prompt from S3 template (per-file)
+    system_prompt = transcription_fixer.get_system_prompt(trans.key)
+    if not system_prompt:
+        logger.error("Failed to get system prompt for: %s", trans.key)
+        failed_to_load += 1
+        continue
+
+    # Extract stem using Path (robust)
+    stem = transcription_fixer._get_stem(trans.key)
+
+    transcription_files.append(TranscriptionFile(
+        stem=stem,
+        content=content,
+        system_prompt=system_prompt,  # Per-file prompt
+        line_count=len(content.strip().split("\n")),
+        word_count=len(content.split()),
+    ))
+```
+
+### Workflow
+
+#### AWS Bedrock Batch Backend
+
+1. **List files**: Find all `.txt` files in transcription bucket
+2. **Fetch prompts**: Load per-file system prompt from S3 template
+3. **Prepare data**: Count tokens, split large files, pad to 100 entries
+4. **Invoke**: Upload JSONL to S3, submit batch job to Bedrock
+5. **Post-process**: Return job ARN (async - post_inference handles results)
+
+#### Gemini Backend
+
+1. **List files**: Find all `.txt` files in transcription bucket
+2. **Fetch prompts**: Load per-file system prompt from S3 template
+3. **Prepare data**: Pass-through (no splitting)
+4. **Invoke**: Call Gemini API sequentially for each file
+5. **Post-process**: For each file:
+   - Read `.time` file with timestamps
+   - Inject timestamps into fixed text
+   - Create VTT from timed result (or original if mismatch)
+   - Upload `{stem}.txt`, `{stem}.vtt`, `{stem}.pre-fix.time` to output bucket
+   - Send SQS notification
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `AWS_PROFILE_REVIEWER` | `reviewer` | AWS profile (local dev) |
+| `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket |
+| `TEMPLATE_BUCKET` | `portal-daf-yomi-audio` | System prompt templates |
+| `OUTPUT_BUCKET` | `final-transcription` | Output bucket (Gemini) |
+| `LLM_BACKEND` | `AWS_OPUS4.5` | Backend selection |
+| `BATCH_MODEL_ID` | `us.anthropic.claude-opus-4-5-20251101-v1:0` | Bedrock model |
+| `BATCH_ROLE_ARN` | - | Bedrock batch IAM role |
+| `GOOGLE_API_KEY` | - | Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model |
+| `SQS_QUEUE_URL` | - | Results queue (Gemini) |
+| `MIN_ENTRIES` | `100` | Batch padding size |
+| `MAX_TOKENS` | `60000` | Token limit per entry |
+| `TEMPERATURE` | `0.4` | LLM temperature |
+
+### Commands
+
+**Render .env from template**:
+```bash
+cd transcription_reviewer
+cmd /c ..\.config\render_env.bat dev --require-secrets
+```
+
+**Run local test**:
+```bash
+cd transcription_reviewer
+python local_test.py
+```
+
+**Deploy to Lambda**:
+```bash
+cd transcription_reviewer
+uv build
+# Upload to Lambda via AWS Console or Terraform
+```
+
+### Dependency Injection
+
+Uses `dependency-injector` library. Key providers:
+
+```python
+# Core AWS services
+session → s3_boto_client → s3_client → s3_reader
+       → bedrock_boto_client → bedrock_client → transcription_fixer
+       → bedrock_batch_boto_client → bedrock_batch_client
+       → sqs_boto_client → sqs_client
+
+# LLM Pipeline (comment/uncomment to switch)
+llm_pipeline → BedrockBatchPipeline OR GeminiPipeline
+```
+
+### IAM Role: `portal-reviewer-role`
+
+**Permissions**:
+- `s3:GetObject`, `s3:PutObject`, `s3:ListBucket` (transcription, template, output buckets)
+- `bedrock:InvokeModel` (Bedrock runtime)
+- `bedrock:CreateModelInvocationJob`, `bedrock:GetModelInvocationJob` (Bedrock batch)
+- `sqs:SendMessage` (results queue)
+- CloudWatch Logs
+
+**Trust**: `lambda.amazonaws.com`
+
+### Error Handling
+
+1. **Missing template**: File skipped, logged as error, counted in `failed_to_load`
+2. **Failed transcription read**: File skipped, logged as error
+3. **Gemini API error**: File counted as failed, processing continues
+4. **Line count mismatch** (Gemini): Uses original `.time` file for VTT, saves `{stem}.no_timing.txt`
+
+### Output Files (Gemini Only)
+
+For each transcription `{stem}.txt`:
+
+| File | Description |
+|------|-------------|
+| `{stem}.txt` | LLM-fixed plain text (for RAG) |
+| `{stem}.vtt` | VTT subtitles (from fixed text or original .time) |
+| `{stem}.pre-fix.time` | Original transcription before LLM fix |
+| `{stem}.no_timing.txt` | LLM-fixed text when line count mismatched (diagnostic) |
+
+### Benefits
+
+1. **Per-file System Prompts**: Each transcription can have custom prompt from S3 template
+2. **Robust Stem Extraction**: Uses `pathlib.Path.stem` instead of string replacement
+3. **Backend Flexibility**: Easy to switch between AWS Bedrock batch and Gemini
+4. **S3-based Configuration**: Templates can be updated without code deployment
+5. **Better Error Handling**: Tracks files with missing templates separately
+6. **Cost Optimization**: Bedrock batch saves ~50%, can switch to Gemini for faster turnaround

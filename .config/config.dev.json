@@ -1,4 +1,6 @@
 {
+  "llm_backend": "AWS_OPUS4.5",
+  "gemini_model": "gemini-2.5-flash-lite",
   "db": {
     "engine": "mssql",
     "name": "vps_daf-yomi",
