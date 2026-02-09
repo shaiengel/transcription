@@ -36,27 +36,31 @@ def lambda_handler(event: dict, context) -> dict:
 
         # Get services from container
         s3_reader = container.s3_reader()
+        pipeline = container.llm_pipeline()
         transcription_fixer = container.transcription_fixer()
-        s3_client = container.s3_client()
-        bedrock_batch_client = container.bedrock_batch_client()
-        token_counter = container.token_counter()
 
-        # Process transcriptions
+        # Validate configuration
+        config.validate()
+
+        pipeline_name = type(pipeline).__name__
+        logger.info(f"Using pipeline: {pipeline_name}")
+
+        # Process transcriptions using three-step pipeline
         result = process_transcriptions(
             s3_reader=s3_reader,
+            pipeline=pipeline,
             transcription_fixer=transcription_fixer,
-            s3_client=s3_client,
-            bedrock_batch_client=bedrock_batch_client,
-            token_counter=token_counter,
             bucket=config.transcription_bucket,
             prefix=config.transcription_prefix,
         )
 
         response_body = {
             "message": "Transcription review completed",
+            "backend": config.llm_backend,
             "total_found": result.total_found,
             "fixed": result.fixed,
             "failed": result.failed,
+            "batch_job_arn": result.batch_job_arn,
         }
 
         logger.info("Review completed: %s", response_body)

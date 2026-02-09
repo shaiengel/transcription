@@ -1,5 +1,5 @@
 """Models package."""
 
-from transcribe_reader.models.schemas import CalendarEntry, MediaInfo, VttFile
+from transcribe_reader.models.schemas import VttFile
 
-__all__ = ["CalendarEntry", "MediaInfo", "VttFile"]
+__all__ = ["VttFile"]

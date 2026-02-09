@@ -8,6 +8,7 @@ from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
 
 from transcribe_reader.infrastructure.s3_client import S3Client
+from transcribe_reader.infrastructure.sqs_client import SQSClient
 from transcribe_reader.infrastructure.gitlab_client import GitLabClient
 
 
@@ -67,6 +68,17 @@ class DependenciesContainer(DeclarativeContainer):
     s3_downloader = providers.Singleton(
         _create_s3_downloader,
         s3_client=s3_client,
+    )
+
+    # SQS
+    sqs_boto_client = providers.Singleton(
+        lambda session: session.client("sqs"),
+        session=session,
+    )
+
+    sqs_client = providers.Singleton(
+        SQSClient,
+        client=sqs_boto_client,
     )
 
     # GitLab

@@ -31,24 +31,19 @@ def main():
 
         s3_downloader = container.s3_downloader()
         gitlab_uploader = container.gitlab_uploader()
+        sqs_client = container.sqs_client()
 
-        result = sync_transcriptions(s3_downloader, gitlab_uploader)
+        result = sync_transcriptions(s3_downloader, gitlab_uploader, sqs_client)
 
         logger.info("=" * 50)
         logger.info("Sync complete:")
-        logger.info("  Media entries found: %d", result["media_count"])
-        logger.info("  VTT files in S3: %d", result["available"])
+        logger.info("  SQS messages: %d", result["messages"])
         logger.info("  Downloaded: %d", result["downloaded"])
         logger.info("  Uploaded to GitLab: %d", result["uploaded"])
+        logger.info("  Deleted from SQS: %d", result["deleted"])
 
     except Exception as e:
         logger.error("Sync failed: %s", e)
-        if "403" in str(e) or "Forbidden" in str(e):
-            logger.error(
-                "This is likely an IAM permissions issue. "
-                "Ensure your AWS profile has s3:GetObject and s3:HeadObject permissions "
-                "on the portal-daf-yomi-transcription bucket."
-            )
         sys.exit(1)
 
 

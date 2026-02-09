@@ -34,3 +34,12 @@ class TranscriptionFile(BaseModel):
     system_prompt: str
     line_count: int
     word_count: int
+
+
+class ReviewResult(BaseModel):
+    """Result of the transcription review process."""
+
+    total_found: int
+    fixed: int
+    failed: int
+    batch_job_arn: str | None = None
