@@ -56,6 +56,7 @@ class Config:
     )
     transcription_prefix: str = _get_config("TRANSCRIPTION_PREFIX", "")
     template_bucket: str = _get_config("TEMPLATE_BUCKET", "portal-daf-yomi-audio")
+    audio_bucket: str = _get_config("AUDIO_BUCKET", "portal-daf-yomi-audio")
     output_bucket: str = _get_config("OUTPUT_BUCKET", "final-transcription")
 
     # LLM Backend Selection

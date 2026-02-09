@@ -80,6 +80,7 @@ def _create_gemini_pipeline(
         sqs_client=sqs_client,
         api_key=config.google_api_key,
         transcription_bucket=config.transcription_bucket,
+        audio_bucket=config.audio_bucket,
         output_bucket=config.output_bucket,
         sqs_queue_url=config.sqs_queue_url,
         model_name=config.gemini_model,

@@ -31,6 +31,7 @@ class GeminiPipeline(LLMPipeline):
         sqs_client: SQSClient,
         api_key: str,
         transcription_bucket: str,
+        audio_bucket: str,
         output_bucket: str,
         sqs_queue_url: str,
         model_name: str = "gemini-2.5-flash-latest",
@@ -40,6 +41,7 @@ class GeminiPipeline(LLMPipeline):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
         self._transcription_bucket = transcription_bucket
+        self._audio_bucket = audio_bucket
         self._output_bucket = output_bucket
         self._sqs_queue_url = sqs_queue_url
         self._model_name = model_name
@@ -97,6 +99,9 @@ class GeminiPipeline(LLMPipeline):
                         temperature=self._temperature,
                         max_output_tokens=self._max_tokens,
                         cached_content=cache_name,
+                        thinking_config=types.ThinkingConfig(
+                            thinking_budget=1024  # number of thinking tokens (0 = off)
+                        )
                     )
                 else:
                     # Fallback: no cache, use system_instruction directly
@@ -185,6 +190,11 @@ class GeminiPipeline(LLMPipeline):
                     )
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")
+
+                # Cleanup source files
+                self._s3_client.delete_objects_by_prefix(self._audio_bucket, f"{stem}.")
+                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
+                logger.info(f"Cleaned up source files for: {stem}")
 
                 fixed_count += 1
                 logger.info(f"Successfully post-processed {stem}")

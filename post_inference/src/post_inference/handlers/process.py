@@ -130,8 +130,8 @@ def process_batch_output(
             s3_client.copy_object(transcription_bucket, time_key, output_bucket, pre_fix_key)
 
             # Cleanup source files
-            #s3_client.delete_objects_by_prefix(audio_bucket, f"{stem}.")
-            #s3_client.delete_objects_by_prefix(transcription_bucket, f"{stem}.")
+            s3_client.delete_objects_by_prefix(audio_bucket, f"{stem}.")
+            s3_client.delete_objects_by_prefix(transcription_bucket, f"{stem}.")
             cleaned_up += 1
             logger.info("Cleaned up source files for: %s", stem)
         else:

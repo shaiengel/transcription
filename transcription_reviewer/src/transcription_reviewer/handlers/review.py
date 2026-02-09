@@ -109,7 +109,7 @@ def process_transcriptions(
                 line_count=line_count,
                 word_count=word_count,
             )
-        )
+        )        
 
     if not transcription_files:
         logger.error("No transcription files could be loaded")
