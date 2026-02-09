@@ -31,6 +31,7 @@ class GitLabUploader:
         gitlab_path = f"{GITLAB_TARGET_PATH}/{vtt_file.s3_key}"
         vtt_file.gitlab_path = gitlab_path
 
+        #commit_message = f"Add transcription {vtt_file.s3_key}"
         commit_message = f"Add transcription {vtt_file.s3_key}"
 
         return self._gitlab_client.upload_file(

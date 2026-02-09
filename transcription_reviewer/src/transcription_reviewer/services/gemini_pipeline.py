@@ -101,6 +101,9 @@ class GeminiPipeline(LLMPipeline):
                         cached_content=cache_name,
                         thinking_config=types.ThinkingConfig(
                             thinking_budget=1024  # number of thinking tokens (0 = off)
+                        ),
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                            disable=True  # or max_remote_calls=5
                         )
                     )
                 else:
@@ -109,6 +112,12 @@ class GeminiPipeline(LLMPipeline):
                         temperature=self._temperature,
                         max_output_tokens=self._max_tokens,
                         system_instruction=entry.system_prompt,
+                        thinking_config=types.ThinkingConfig(
+                            thinking_budget=1024  # number of thinking tokens (0 = off)
+                        ),
+                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                            disable=True  # or max_remote_calls=5
+                        )
                     )
 
                 # Generate with model name (not cache name)
