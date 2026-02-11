@@ -176,10 +176,7 @@ class GeminiPipeline(LLMPipeline):
                     vtt_content = convert_to_vtt(timed_result)
                 else:
                     logger.warning(f"Line mismatch for {stem}, using original times")
-                    vtt_content = convert_to_vtt(timed_content)
-                    self._s3_client.put_object_content(
-                        self._output_bucket, f"{stem}.no_timing.txt", fixed_text
-                    )
+                    vtt_content = convert_to_vtt(timed_content)                    
 
                 if not self._s3_client.put_object_content(
                     self._output_bucket, f"{stem}.vtt", vtt_content
@@ -201,7 +198,7 @@ class GeminiPipeline(LLMPipeline):
                     logger.error(f"SQS notification failed: {e}")
 
                 # Cleanup source files
-                self._s3_client.delete_objects_by_prefix(self._audio_bucket, f"{stem}.")
+                #self._s3_client.delete_objects_by_prefix(self._audio_bucket, f"{stem}.")
                 self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
                 logger.info(f"Cleaned up source files for: {stem}")
 
@@ -258,15 +255,18 @@ class GeminiPipeline(LLMPipeline):
 
         Returns the cache name to pass to cached_content, or None if caching failed.
         """
+        # Normalize prompt for cache key (strip whitespace, normalize line endings)
+        normalized_prompt = "\n".join(line.strip() for line in system_prompt.strip().splitlines())
+
         # Check if we have a valid cache for this prompt
-        if system_prompt in self._prompt_caches:
-            cached_name, expiry = self._prompt_caches[system_prompt]
+        if normalized_prompt in self._prompt_caches:
+            cached_name, expiry = self._prompt_caches[normalized_prompt]
             # Check if cache is still valid (5 min buffer before expiry)
             if time.time() < (expiry - 300):
-                logger.debug(f"Using existing cache for prompt: {system_prompt[:50]}...")
+                logger.debug(f"Reusing existing cache: {cached_name}")
                 return cached_name
             else:
-                logger.info(f"Cache expired for prompt: {system_prompt[:50]}...")
+                logger.info(f"Cache expired: {cached_name}")
 
         # Create new cache
         try:
@@ -286,9 +286,9 @@ class GeminiPipeline(LLMPipeline):
 
             cached_name = cache_response.name
             expiry = time.time() + 3600
-            self._prompt_caches[system_prompt] = (cached_name, expiry)
+            self._prompt_caches[normalized_prompt] = (cached_name, expiry)
 
-            logger.info(f"Cache created: {cached_name}, expires at {expiry}")
+            logger.info(f"Cache created: {cached_name}")
             return cached_name
 
         except Exception as e:
