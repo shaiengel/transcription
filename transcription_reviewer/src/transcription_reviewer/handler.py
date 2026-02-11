@@ -12,6 +12,7 @@ from transcription_reviewer.handlers.review import process_transcriptions
 from transcription_reviewer.infrastructure.dependency_injection import (
     DependenciesContainer,
 )
+from transcription_reviewer.services.aligner import is_model_loaded, load_model
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -31,6 +32,11 @@ def lambda_handler(event: dict, context) -> dict:
     logger.info("Received CloudWatch Alarm event: %s", json.dumps(event))
 
     try:
+        # Load stable_whisper model once (for audio-text alignment)
+        if not is_model_loaded():
+            logger.info("Loading stable_whisper model...")
+            load_model(config.stable_whisper_model, config.stable_whisper_device)
+
         # Initialize DI container
         container = DependenciesContainer()
 

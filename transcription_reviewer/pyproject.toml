@@ -10,6 +10,9 @@ dependencies = [
     "dependency-injector>=4.41.0",
     "tiktoken>=0.8.0",
     "google-genai>=1.0.0",
+    "stable-ts>=2.17.0",
+    "numba>=0.60.0",
+    "llvmlite>=0.43.0",
 ]
 
 [build-system]
@@ -18,4 +21,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/transcription_reviewer"]
+
+[tool.uv]
+# Override old numba/llvmlite versions from openai-whisper for Python 3.12 compatibility
+override-dependencies = [
+    "numba>=0.60.0",
+    "llvmlite>=0.43.0",
+]
 
