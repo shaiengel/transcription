@@ -30,11 +30,3 @@ override-dependencies = [
     "llvmlite>=0.43.0",
 ]
 
-# Use CPU-only PyTorch index
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-
