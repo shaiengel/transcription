@@ -162,7 +162,7 @@ class GeminiPipeline(LLMPipeline):
                     continue
 
                 # Inject timestamps
-                timed_result = self._inject_timestamps(fixed_text, timed_content)
+                #timed_result = self._inject_timestamps(fixed_text, timed_content)
 
                 # Upload TXT
                 if not self._s3_client.put_object_content(
@@ -172,17 +172,17 @@ class GeminiPipeline(LLMPipeline):
                     continue
 
                 # Create and upload VTT
-                if timed_result:
-                    vtt_content = convert_to_vtt(timed_result)
-                else:
-                    logger.warning(f"Line mismatch for {stem}, using original times")
-                    vtt_content = convert_to_vtt(timed_content)                    
+                # if timed_result:
+                #     vtt_content = convert_to_vtt(timed_result)
+                # else:
+                #     logger.warning(f"Line mismatch for {stem}, using original times")
+                #     vtt_content = convert_to_vtt(timed_content)                    
 
-                if not self._s3_client.put_object_content(
-                    self._output_bucket, f"{stem}.vtt", vtt_content
-                ):
-                    failed_count += 1
-                    continue
+                # if not self._s3_client.put_object_content(
+                #     self._output_bucket, f"{stem}.vtt", vtt_content
+                # ):
+                #     failed_count += 1
+                #     continue
 
                 # Copy .time as .pre-fix.time
                 self._s3_client.put_object_content(
@@ -192,14 +192,14 @@ class GeminiPipeline(LLMPipeline):
                 # Send SQS notification
                 try:
                     self._sqs_client.send_message(
-                        self._sqs_queue_url, {"filename": f"{stem}.vtt"}
+                        self._sqs_queue_url, {"filename": f"{stem}"}
                     )
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")
 
                 # Cleanup source files
                 #self._s3_client.delete_objects_by_prefix(self._audio_bucket, f"{stem}.")
-                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
+                #self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
                 logger.info(f"Cleaned up source files for: {stem}")
 
                 fixed_count += 1
