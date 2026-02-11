@@ -29,3 +29,14 @@ override-dependencies = [
     "llvmlite>=0.43.0",
 ]
 
+# Use CPU-only PyTorch (much smaller download, no CUDA)
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
