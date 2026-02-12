@@ -78,10 +78,6 @@ class Config:
     # SQS
     sqs_queue_url: str = _get_config("SQS_QUEUE_URL", "")
 
-    # stable_whisper configuration
-    stable_whisper_model: str = _get_config("STABLE_WHISPER_MODEL", "base")
-    stable_whisper_device: str = _get_config("STABLE_WHISPER_DEVICE", "cuda")
-
     def validate(self) -> None:
         """Validate required configuration."""
         if not self.transcription_bucket:

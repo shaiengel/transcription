@@ -3,7 +3,6 @@
 import hashlib
 import logging
 import re
-import tempfile
 import time
 from typing import Optional
 
@@ -11,7 +10,6 @@ from google import genai
 from google.genai import types
 
 from transcription_reviewer.infrastructure.s3_client import S3Client
-from transcription_reviewer.services.aligner import align_audio, get_json_content, get_vtt_content
 from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFile
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
@@ -34,7 +32,6 @@ class GeminiPipeline(LLMPipeline):
         sqs_client: SQSClient,
         api_key: str,
         transcription_bucket: str,
-        audio_bucket: str,
         output_bucket: str,
         sqs_queue_url: str,
         model_name: str = "gemini-2.5-flash",
@@ -44,7 +41,6 @@ class GeminiPipeline(LLMPipeline):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
         self._transcription_bucket = transcription_bucket
-        self._audio_bucket = audio_bucket
         self._output_bucket = output_bucket
         self._sqs_queue_url = sqs_queue_url
         self._model_name = model_name
@@ -148,73 +144,66 @@ class GeminiPipeline(LLMPipeline):
         # Group split records back together (stem_1, stem_2 -> stem)
         grouped_results = self._group_split_records(llm_response)
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            for stem, fixed_text, success in grouped_results:
-                if not success:
+        for stem, fixed_text, success in grouped_results:
+            if not success:
+                failed_count += 1
+                continue
+
+            try:
+                # 1. Upload TXT file (fixed text for RAG)
+                if not self._s3_client.put_object_content(
+                    self._output_bucket, f"{stem}.txt", fixed_text
+                ):
                     failed_count += 1
                     continue
 
-                try:
-                    # 1. Upload TXT file (fixed text for RAG)
-                    if not self._s3_client.put_object_content(
-                        self._output_bucket, f"{stem}.txt", fixed_text
-                    ):
-                        failed_count += 1
-                        continue
+                # 2. Read .time file with timestamps
+                time_key = f"{stem}.time"
+                timed_content = self._s3_client.get_object_content(
+                    self._transcription_bucket, time_key
+                )
 
-                    # 2. Download audio to temp directory
-                    audio_path = f"{tmp_dir}/{stem}.mp3"
-                    if not self._s3_client.download_file(
-                        self._audio_bucket, f"{stem}.mp3", audio_path
-                    ):
-                        logger.error(f"Failed to download audio for {stem}")
-                        failed_count += 1
-                        continue
+                if timed_content:
+                    # 3. Inject timestamps into fixed text
+                    timed_fixed = self._inject_timestamps(fixed_text, timed_content)
 
-                    # 3. Align with stable_whisper
-                    result = align_audio(audio_path, fixed_text, language="he")
-
-                    # 4. Get VTT content and upload
-                    vtt_path = f"{tmp_dir}/{stem}.vtt"
-                    vtt_content = get_vtt_content(result, vtt_path)
-                    if not self._s3_client.put_object_content(
-                        self._output_bucket, f"{stem}.vtt", vtt_content
-                    ):
-                        failed_count += 1
-                        continue
-
-                    # 5. Get JSON content and upload
-                    json_content = get_json_content(result)
-                    if not self._s3_client.put_object_content(
-                        self._output_bucket, f"{stem}.json", json_content
-                    ):
-                        failed_count += 1
-                        continue
-
-                    # 6. Copy .time as .pre-fix.time (backup)
-                    time_key = f"{stem}.time"
-                    timed_content = self._s3_client.get_object_content(
-                        self._transcription_bucket, time_key
-                    )
-                    if timed_content:
+                    if timed_fixed:
+                        # 4. Convert to VTT and upload
+                        vtt_content = convert_to_vtt(timed_fixed)
                         self._s3_client.put_object_content(
-                            self._output_bucket, f"{stem}.pre-fix.time", timed_content
+                            self._output_bucket, f"{stem}.vtt", vtt_content
+                        )
+                    else:
+                        # Line count mismatch - use original timed content for VTT
+                        logger.warning(f"Line mismatch for {stem}, using original timing")
+                        vtt_content = convert_to_vtt(timed_content)
+                        self._s3_client.put_object_content(
+                            self._output_bucket, f"{stem}.vtt", vtt_content
+                        )
+                        # Also save the fixed text without timing
+                        self._s3_client.put_object_content(
+                            self._output_bucket, f"{stem}.no_timing.txt", fixed_text
                         )
 
-                    # 7. Send SQS notification
-                    try:
-                        self._sqs_client.send_message(
-                            self._sqs_queue_url, {"filename": f"{stem}"}
-                        )
-                    except Exception as e:
-                        logger.error(f"SQS notification failed: {e}")
+                    # 5. Copy .time as .pre-fix.time (backup)
+                    self._s3_client.put_object_content(
+                        self._output_bucket, f"{stem}.pre-fix.time", timed_content
+                    )
 
-                    fixed_count += 1
-                    logger.info(f"Successfully processed {stem} with stable_whisper")
-
+                # 6. Send SQS notification
+                try:
+                    self._sqs_client.send_message(
+                        self._sqs_queue_url, {"filename": f"{stem}"}
+                    )
                 except Exception as e:
-                    logger.error(f"Post-process failed for {stem}: {e}")
-                    failed_count += 1
+                    logger.error(f"SQS notification failed: {e}")
+
+                fixed_count += 1
+                logger.info(f"Successfully processed {stem}")
+
+            except Exception as e:
+                logger.error(f"Post-process failed for {stem}: {e}")
+                failed_count += 1
 
         return ReviewResult(
             total_found=len(grouped_results),
