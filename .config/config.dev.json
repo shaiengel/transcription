@@ -21,6 +21,7 @@
     "audio_bucket": "portal-daf-yomi-audio",
     "transcription_bucket": "portal-daf-yomi-transcription",
     "template_bucket": "portal-daf-yomi-audio",
+    "transcription_fixes_bucket": "portal-daf-yomi-fixed-text",
     "output_bucket": "final-transcription",
     "output_prefix": ""
   },
