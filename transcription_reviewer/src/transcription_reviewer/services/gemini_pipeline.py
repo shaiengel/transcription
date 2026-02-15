@@ -164,7 +164,7 @@ class GeminiPipeline(LLMPipeline):
                 self._s3_client.copy_object(self._transcription_bucket, time_key, self._output_bucket, pre_fix_key)
 
                 # Cleanup source files
-                #self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
+                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
 
                 # # 2. Read .time file with timestamps
                 # time_key = f"{stem}.time"

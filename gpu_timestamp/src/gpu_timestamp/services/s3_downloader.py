@@ -24,7 +24,7 @@ class S3Downloader:
         """
         self._s3_client = s3_client
         self._audio_bucket = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")
-        self._text_bucket = os.getenv("TEXT_BUCKET", "final-transcription")
+        self._text_bucket = os.getenv("TEXT_BUCKET", "portal-daf-yomi-fixed-text")
 
     @property
     def audio_bucket(self) -> str:

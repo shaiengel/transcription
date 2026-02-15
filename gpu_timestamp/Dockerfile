@@ -30,7 +30,7 @@ RUN uv sync --frozen --no-dev
 # AWS Configuration
 ENV AWS_REGION=us-east-1
 ENV AUDIO_BUCKET=portal-daf-yomi-audio
-ENV TEXT_BUCKET=final-transcription
+ENV TEXT_BUCKET=portal-daf-yomi-fixed-text
 ENV OUTPUT_BUCKET=final-transcription
 ENV SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes
 ENV SQS_FINAL_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-final-transcribes

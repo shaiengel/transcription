@@ -3,12 +3,30 @@
 import json
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
+import boto3
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 # Load .env if exists (local dev only, no-op in Lambda)
 load_dotenv()
+
+
+@lru_cache(maxsize=1)
+def _get_secret(secret_name: str, key: str, region: str = "us-east-1") -> str:
+    """Retrieve a secret from AWS Secrets Manager. Cached to avoid repeated API calls."""
+    client = boto3.client("secretsmanager", region_name=region)
+    try:
+        response = client.get_secret_value(SecretId=secret_name)
+        secret_data = json.loads(response["SecretString"])
+        return secret_data.get(key, "")
+    except ClientError as e:
+        # Return empty string if secret not found (allows fallback to other config sources)
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            return ""
+        raise
 
 
 def _load_json_config(filename: str) -> dict:
@@ -57,7 +75,7 @@ class Config:
     transcription_prefix: str = _get_config("TRANSCRIPTION_PREFIX", "")
     template_bucket: str = _get_config("TEMPLATE_BUCKET", "portal-daf-yomi-audio")
     audio_bucket: str = _get_config("AUDIO_BUCKET", "portal-daf-yomi-audio")
-    output_bucket: str = _get_config("OUTPUT_BUCKET", "final-transcription")
+    output_bucket: str = _get_config("OUTPUT_BUCKET", "portal-daf-yomi-fixed-text")
 
     # LLM Backend Selection
     llm_backend: str = _get_config("LLM_BACKEND", "AWS_OPUS4.5")
@@ -71,8 +89,11 @@ class Config:
     max_tokens: int = int(_get_config("MAX_TOKENS", "60000"))
     temperature: float = float(_get_config("TEMPERATURE", "0.4"))
 
-    # Google Gemini config (from secrets file)
-    google_api_key: str = _get_config("GOOGLE_API_KEY", "")
+    # Google Gemini config
+    google_api_key: str = (
+        _get_config("GOOGLE_API_KEY", "")  # Check env/local config first
+        or _get_secret("google-api-key", "GOOGLE_API_KEY")  # Fall back to Secrets Manager
+    )
     gemini_model: str = _get_config("GEMINI_MODEL", "gemini-2.0-flash")
 
     # SQS
