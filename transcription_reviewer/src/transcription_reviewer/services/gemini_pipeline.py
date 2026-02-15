@@ -164,42 +164,9 @@ class GeminiPipeline(LLMPipeline):
                 self._s3_client.copy_object(self._transcription_bucket, time_key, self._output_bucket, pre_fix_key)
 
                 # Cleanup source files
-                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
+                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")                
 
-                # # 2. Read .time file with timestamps
-                # time_key = f"{stem}.time"
-                # timed_content = self._s3_client.get_object_content(
-                #     self._transcription_bucket, time_key
-                # )
-
-                # if timed_content:
-                #     # 3. Inject timestamps into fixed text
-                #     timed_fixed = self._inject_timestamps(fixed_text, timed_content)
-
-                #     if timed_fixed:
-                #         # 4. Convert to VTT and upload
-                #         vtt_content = convert_to_vtt(timed_fixed)
-                #         self._s3_client.put_object_content(
-                #             self._output_bucket, f"{stem}.vtt", vtt_content
-                #         )
-                #     else:
-                #         # Line count mismatch - use original timed content for VTT
-                #         logger.warning(f"Line mismatch for {stem}, using original timing")
-                #         vtt_content = convert_to_vtt(timed_content)
-                #         self._s3_client.put_object_content(
-                #             self._output_bucket, f"{stem}.vtt", vtt_content
-                #         )
-                #         # Also save the fixed text without timing
-                #         self._s3_client.put_object_content(
-                #             self._output_bucket, f"{stem}.no_timing.txt", fixed_text
-                #         )
-
-                #     # 5. Copy .time as .pre-fix.time (backup)
-                #     self._s3_client.put_object_content(
-                #         self._output_bucket, f"{stem}.pre-fix.time", timed_content
-                #     )
-
-                # 6. Send SQS notification
+                # Send SQS notification
                 try:
                     self._sqs_client.send_message(
                         self._sqs_queue_url, {"filename": f"{stem}"}
@@ -208,7 +175,7 @@ class GeminiPipeline(LLMPipeline):
                     logger.error(f"SQS notification failed: {e}")
 
                 fixed_count += 1
-                logger.info(f"Successfully processed {stem}")
+                logger.info(f"Successfully post-processed {stem}")
 
             except Exception as e:
                 logger.error(f"Post-process failed for {stem}: {e}")
