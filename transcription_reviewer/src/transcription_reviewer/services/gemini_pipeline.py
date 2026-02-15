@@ -150,45 +150,54 @@ class GeminiPipeline(LLMPipeline):
                 continue
 
             try:
-                # 1. Upload TXT file (fixed text for RAG)
+                # 1. Upload TXT file (fixed text for timestamps alignement)
                 if not self._s3_client.put_object_content(
                     self._output_bucket, f"{stem}.txt", fixed_text
                 ):
                     failed_count += 1
                     continue
 
-                # 2. Read .time file with timestamps
+
+                # Copy .time file as pre-fix transcription to output bucket before cleanup
                 time_key = f"{stem}.time"
-                timed_content = self._s3_client.get_object_content(
-                    self._transcription_bucket, time_key
-                )
+                pre_fix_key = f"{stem}.pre-fix.time"
+                self._s3_client.copy_object(self._transcription_bucket, time_key, self._output_bucket, pre_fix_key)
 
-                if timed_content:
-                    # 3. Inject timestamps into fixed text
-                    timed_fixed = self._inject_timestamps(fixed_text, timed_content)
+                # Cleanup source files
+                #self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
 
-                    if timed_fixed:
-                        # 4. Convert to VTT and upload
-                        vtt_content = convert_to_vtt(timed_fixed)
-                        self._s3_client.put_object_content(
-                            self._output_bucket, f"{stem}.vtt", vtt_content
-                        )
-                    else:
-                        # Line count mismatch - use original timed content for VTT
-                        logger.warning(f"Line mismatch for {stem}, using original timing")
-                        vtt_content = convert_to_vtt(timed_content)
-                        self._s3_client.put_object_content(
-                            self._output_bucket, f"{stem}.vtt", vtt_content
-                        )
-                        # Also save the fixed text without timing
-                        self._s3_client.put_object_content(
-                            self._output_bucket, f"{stem}.no_timing.txt", fixed_text
-                        )
+                # # 2. Read .time file with timestamps
+                # time_key = f"{stem}.time"
+                # timed_content = self._s3_client.get_object_content(
+                #     self._transcription_bucket, time_key
+                # )
 
-                    # 5. Copy .time as .pre-fix.time (backup)
-                    self._s3_client.put_object_content(
-                        self._output_bucket, f"{stem}.pre-fix.time", timed_content
-                    )
+                # if timed_content:
+                #     # 3. Inject timestamps into fixed text
+                #     timed_fixed = self._inject_timestamps(fixed_text, timed_content)
+
+                #     if timed_fixed:
+                #         # 4. Convert to VTT and upload
+                #         vtt_content = convert_to_vtt(timed_fixed)
+                #         self._s3_client.put_object_content(
+                #             self._output_bucket, f"{stem}.vtt", vtt_content
+                #         )
+                #     else:
+                #         # Line count mismatch - use original timed content for VTT
+                #         logger.warning(f"Line mismatch for {stem}, using original timing")
+                #         vtt_content = convert_to_vtt(timed_content)
+                #         self._s3_client.put_object_content(
+                #             self._output_bucket, f"{stem}.vtt", vtt_content
+                #         )
+                #         # Also save the fixed text without timing
+                #         self._s3_client.put_object_content(
+                #             self._output_bucket, f"{stem}.no_timing.txt", fixed_text
+                #         )
+
+                #     # 5. Copy .time as .pre-fix.time (backup)
+                #     self._s3_client.put_object_content(
+                #         self._output_bucket, f"{stem}.pre-fix.time", timed_content
+                #     )
 
                 # 6. Send SQS notification
                 try:

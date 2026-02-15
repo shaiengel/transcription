@@ -4,6 +4,7 @@ import logging
 import tempfile
 from pathlib import Path
 
+from gpu_timestamp.config import config
 from gpu_timestamp.models.schemas import AlignmentResult, SQSMessage
 from gpu_timestamp.services.aligner import align_audio, save_outputs
 from gpu_timestamp.services.s3_downloader import S3Downloader
@@ -64,7 +65,7 @@ def process_message(
             )
 
         # Align audio with text
-        result = align_audio(str(audio_path), text_content, message.language)
+        result = align_audio(str(audio_path), text_content, message.language, config.token_step)
         if result is None:
             logger.error("Alignment failed for: %s", s3_key)
             return AlignmentResult(
@@ -166,7 +167,7 @@ def run_worker_loop(
                     fail_count += 1
 
                 # Always delete message from queue
-                sqs_receiver.delete_message(message)
+                #sqs_receiver.delete_message(message)
 
                 logger.info(
                     "Stats: %d success, %d failed", success_count, fail_count

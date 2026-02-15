@@ -28,9 +28,10 @@ class Config:
     sqs_final_queue_url: str = os.getenv("SQS_FINAL_QUEUE_URL", "")
 
     # stable-whisper model
-    model_name: str = os.getenv("WHISPER_MODEL", "base")
+    model_name: str = os.getenv("WHISPER_MODEL", "large")
     device: str = os.getenv("DEVICE", "cuda")
     language: str = os.getenv("LANGUAGE", "he")
+    token_step: int = int(os.getenv("TOKEN_STEP", "200"))
 
     def validate(self) -> None:
         """Validate required configuration."""

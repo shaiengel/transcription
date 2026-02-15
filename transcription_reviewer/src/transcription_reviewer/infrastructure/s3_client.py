@@ -178,6 +178,20 @@ class S3Client:
         except ClientError as e:
             logger.error("Failed to upload file to s3://%s/%s: %s", bucket, key, e)
             return False
+        
+    def copy_object(self, source_bucket: str, source_key: str, dest_bucket: str, dest_key: str) -> bool:
+        """Copy an object from one S3 location to another."""
+        try:
+            self._client.copy_object(
+                Bucket=dest_bucket,
+                Key=dest_key,
+                CopySource={"Bucket": source_bucket, "Key": source_key},
+            )
+            logger.info("Copied s3://%s/%s -> s3://%s/%s", source_bucket, source_key, dest_bucket, dest_key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to copy s3://%s/%s: %s", source_bucket, source_key, e)
+            return False        
 
     def delete_object(self, bucket: str, key: str) -> bool:
         """

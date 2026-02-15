@@ -27,7 +27,7 @@
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
     "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
-    "final_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/portal-final-sqs"
+    "final_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-final-transcribes"
   },
   "whisper": {
     "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66",
@@ -37,9 +37,10 @@
     "beam_size": "7"
   },
   "stable_whisper": {
-    "model": "base",
+    "model": "large",
     "device": "cuda",
-    "language": "he"
+    "language": "he",
+    "token_step": "200"
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
