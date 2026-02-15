@@ -10,17 +10,18 @@ logger = logging.getLogger(__name__)
 _model = None
 
 
-def load_model(model_name: str, device: str) -> None:
+def load_model(model_name: str, device: str, download_root: str | None = None) -> None:
     """
     Load the stable-whisper model.
 
     Args:
         model_name: Model name (e.g., 'base', 'small', 'medium', 'large').
         device: Device to use ('cuda' or 'cpu').
+        download_root: Directory to look for/download models. If None, uses default cache.
     """
     global _model
-    logger.info("Loading stable-whisper model: %s on %s", model_name, device)
-    _model = stable_whisper.load_model(model_name, device=device)
+    logger.info("Loading stable-whisper model: %s on %s (cache: %s)", model_name, device, download_root or "default")
+    _model = stable_whisper.load_model(model_name, device=device, download_root=download_root)
     logger.info("Model loaded successfully")
 
 

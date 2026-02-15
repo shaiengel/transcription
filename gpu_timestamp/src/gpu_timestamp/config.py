@@ -32,6 +32,7 @@ class Config:
     device: str = os.getenv("DEVICE", "cuda")
     language: str = os.getenv("LANGUAGE", "he")
     token_step: int = int(os.getenv("TOKEN_STEP", "200"))
+    whisper_cache: str | None = os.getenv("WHISPER_CACHE", None)
 
     def validate(self) -> None:
         """Validate required configuration."""

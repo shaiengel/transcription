@@ -39,7 +39,7 @@ def main():
 
     # Pre-load stable-whisper model
     logger.info("Pre-loading stable-whisper model: %s", config.model_name)
-    load_model(config.model_name, config.device)
+    load_model(config.model_name, config.device, config.whisper_cache)
     logger.info("Model ready")
 
     # Resolve dependencies from container

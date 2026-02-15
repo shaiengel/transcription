@@ -35,8 +35,10 @@ ENV OUTPUT_BUCKET=final-transcription
 ENV SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes
 
 # stable-whisper Model Configuration
-ENV WHISPER_MODEL=base
+ENV WHISPER_CACHE=/opt/models/whisper
+ENV WHISPER_MODEL=large
 ENV DEVICE=cuda
 ENV LANGUAGE=he
+ENV TOKEN_STEP=200
 
 CMD ["uv", "run", "timestamp"]
