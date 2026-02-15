@@ -167,7 +167,7 @@ def run_worker_loop(
                     fail_count += 1
 
                 # Always delete message from queue
-                #sqs_receiver.delete_message(message)
+                sqs_receiver.delete_message(message)
 
                 logger.info(
                     "Stats: %d success, %d failed", success_count, fail_count

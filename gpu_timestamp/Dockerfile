@@ -33,6 +33,7 @@ ENV AUDIO_BUCKET=portal-daf-yomi-audio
 ENV TEXT_BUCKET=final-transcription
 ENV OUTPUT_BUCKET=final-transcription
 ENV SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes
+ENV SQS_FINAL_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-final-transcribes
 
 # stable-whisper Model Configuration
 ENV WHISPER_CACHE=/opt/models/whisper

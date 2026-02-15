@@ -20,6 +20,8 @@ def load_model(model_name: str, device: str, download_root: str | None = None) -
         download_root: Directory to look for/download models. If None, uses default cache.
     """
     global _model
+    # Treat empty string as None (use default cache)
+    download_root = download_root or None
     logger.info("Loading stable-whisper model: %s on %s (cache: %s)", model_name, device, download_root or "default")
     _model = stable_whisper.load_model(model_name, device=device, download_root=download_root)
     logger.info("Model loaded successfully")
