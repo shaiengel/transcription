@@ -12,11 +12,21 @@ def build():
     build_dir.mkdir()
 
     # Install deps to build folder
+    # Step 1: Install Linux binary packages (skip packages without Linux wheels)
     subprocess.run([
         "pip", "install", "-r", "requirements.txt",
         "-t", str(build_dir),
         "--platform", "manylinux2014_x86_64",
-        "--only-binary=:all:"
+        "--only-binary=:all:",
+        "--python-version", "3.12",
+        "--implementation", "cp",
+    ], check=False)
+
+    # Step 2: Install remaining pure Python packages (won't overwrite existing)
+    subprocess.run([
+        "pip", "install", "-r", "requirements.txt",
+        "-t", str(build_dir),
+        "--upgrade-strategy", "only-if-needed",
     ])
 
     # Copy source
