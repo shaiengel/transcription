@@ -32,7 +32,8 @@ def download_file(url: str, dest_path: Path) -> bool:
         with httpx.Client(
             timeout=300,
             follow_redirects=True,
-            headers=headers            
+            headers=headers,
+            http2=False,
         ) as client:
             with client.stream("GET", url) as response:
                 response.raise_for_status()
