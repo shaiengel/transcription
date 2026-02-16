@@ -1,37 +1,22 @@
 import logging
 import subprocess
 from pathlib import Path
-from urllib.parse import urlparse
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
 
 def download_file(url: str, dest_path: Path) -> bool:
-    """Download file using curl (bypasses TLS fingerprinting issues)."""
-    parsed = urlparse(url)
-    referer = f"{parsed.scheme}://{parsed.netloc}/"
-
+    """Download a file from URL to destination path."""
     try:
-        result = subprocess.run(
-            [
-                "curl",
-                "-fsSL",
-                "--max-time", "300",
-                "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "-H", f"Referer: {referer}",
-                "-o", str(dest_path),
-                url,
-            ],
-            check=True,
-            capture_output=True,
-        )
+        with httpx.Client(timeout=300, follow_redirects=True) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            dest_path.write_bytes(response.content)
         return True
-
-    except subprocess.CalledProcessError as e:
-        logger.error("Failed to download %s: %s", url, e.stderr.decode())
-        return False
-    except FileNotFoundError:
-        logger.error("curl not found. Please install curl.")
+    except Exception as e:
+        logger.error("Failed to download %s: %s", url, e)
         return False
 
 
