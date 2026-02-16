@@ -20,6 +20,12 @@ def download_file(url: str, dest_path: Path) -> bool:
         "Accept-Language": "en-US,en;q=0.9",
         "Connection": "keep-alive",
         "Referer": referer,
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "video",
+        "Sec-Fetch-Mode": "no-cors",
+        "Sec-Fetch-Site": "same-origin",
     }
 
     try:
