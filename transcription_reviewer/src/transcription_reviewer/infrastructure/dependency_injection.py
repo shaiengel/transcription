@@ -11,10 +11,12 @@ from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
-from transcription_reviewer.services.token_counter import TokenCounter
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
-from transcription_reviewer.services.bedrock_batch_pipeline import BedrockBatchPipeline
 from transcription_reviewer.services.gemini_pipeline import GeminiPipeline
+
+# Lazy imports for Bedrock pipeline (avoids tiktoken dependency when using Gemini)
+# from transcription_reviewer.services.token_counter import TokenCounter
+# from transcription_reviewer.services.bedrock_batch_pipeline import BedrockBatchPipeline
 
 
 def _create_session() -> boto3.Session:
@@ -52,10 +54,16 @@ def _create_transcription_fixer(bedrock_client: BedrockClient, s3_client: S3Clie
 def _create_bedrock_pipeline(
     s3_client: S3Client,
     bedrock_batch_client: BedrockBatchClient,
-    token_counter: TokenCounter,
 ) -> LLMPipeline:
-    """Create Bedrock batch pipeline."""
+    """Create Bedrock batch pipeline (lazy import to avoid tiktoken dependency)."""
+    from transcription_reviewer.services.token_counter import TokenCounter
+    from transcription_reviewer.services.bedrock_batch_pipeline import BedrockBatchPipeline
+
     config = Config()
+    token_counter = TokenCounter(
+        model_id=config.batch_model_id,
+        region=config.aws_region,
+    )
     return BedrockBatchPipeline(
         s3_client=s3_client,
         bedrock_batch_client=bedrock_batch_client,
@@ -80,7 +88,6 @@ def _create_gemini_pipeline(
         sqs_client=sqs_client,
         api_key=config.google_api_key,
         transcription_bucket=config.transcription_bucket,
-        audio_bucket=config.audio_bucket,
         output_bucket=config.output_bucket,
         sqs_queue_url=config.sqs_queue_url,
         model_name=config.gemini_model,
@@ -140,11 +147,11 @@ class DependenciesContainer(DeclarativeContainer):
     )
 
     # Token counter (uses Anthropic SDK with Bedrock)
-    token_counter = providers.Singleton(
-        TokenCounter,
-        model_id=os.getenv("BATCH_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0"),
-        region=os.getenv("AWS_REGION", "us-east-1"),
-    )
+    # token_counter = providers.Singleton(
+    #     TokenCounter,
+    #     model_id=os.getenv("BATCH_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0"),
+    #     region=os.getenv("AWS_REGION", "us-east-1"),
+    # )
 
     # SQS dependency chain
     sqs_boto_client = providers.Singleton(
@@ -164,7 +171,6 @@ class DependenciesContainer(DeclarativeContainer):
     #     _create_bedrock_pipeline,
     #     s3_client=s3_client,
     #     bedrock_batch_client=bedrock_batch_client,
-    #     token_counter=token_counter,
     # )
 
     # Option 2: Google Gemini (GEMINI2.5)

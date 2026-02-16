@@ -21,12 +21,14 @@
     "audio_bucket": "portal-daf-yomi-audio",
     "transcription_bucket": "portal-daf-yomi-transcription",
     "template_bucket": "portal-daf-yomi-audio",
+    "transcription_fixes_bucket": "portal-daf-yomi-fixed-text",
     "output_bucket": "final-transcription",
     "output_prefix": ""
   },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
-    "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes"
+    "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
+    "final_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-final-transcribes"
   },
   "whisper": {
     "model": "/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66",
@@ -34,6 +36,12 @@
     "compute_type": "float16",
     "language": "he",
     "beam_size": "7"
+  },
+  "stable_whisper": {
+    "model": "large",
+    "device": "cuda",
+    "language": "he",
+    "token_step": "200"
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",

@@ -13,10 +13,17 @@ SEFARIA_BASE_PATH = "backend/data/sefaria_pages"
 # Regex to match HTML tags
 HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
 
+# Regex to match parentheses and their contents
+PARENTHESES_PATTERN = re.compile(r"\([^)]*\)")
+
 
 def strip_html_tags(text: str) -> str:
-    """Remove all HTML tags, newlines, and unescape characters from text."""
+    """Remove all HTML tags, parentheses with contents, newlines, and unescape characters from text."""
     cleaned = HTML_TAG_PATTERN.sub("", text)
+    # Remove parentheses and their contents
+    cleaned = PARENTHESES_PATTERN.sub("", cleaned)
+    # Remove brackets but keep the text inside
+    cleaned = cleaned.replace("[", "").replace("]", "")
     # Remove newlines and collapse multiple spaces
     cleaned = cleaned.replace("\n", " ").replace("\r", " ")
     # Remove all backslashes (they're escape characters that shouldn't appear in final text)
@@ -115,7 +122,7 @@ def fetch_steinsaltz_for_daf(
         if content:
             commentary = extract_steinsaltz_commentary(content)
             if commentary:
-                commentaries.append(f"=== עמוד {page[-1]} === {commentary}")
+                commentaries.append(commentary)
                 logger.info("Found Steinsaltz commentary for %s", page)
             else:
                 logger.warning("No Steinsaltz commentary in %s", file_path)

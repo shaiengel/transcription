@@ -46,7 +46,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return result
 
 
-def load_config(config_file: Path, secrets_file: Path, require_secrets: bool = False) -> dict[str, Any]:
+def load_config(config_file: Path, secrets_file: Path, require_secrets: bool = False) -> tuple[dict[str, Any], bool]:
     """
     Load and merge public config with secrets file.
 
@@ -56,7 +56,7 @@ def load_config(config_file: Path, secrets_file: Path, require_secrets: bool = F
         require_secrets: If True, fail if secrets file doesn't exist
 
     Returns:
-        Merged configuration dictionary
+        Tuple of (merged configuration dictionary, whether secrets were loaded)
     """
     # Load public config
     if not config_file.exists():
@@ -67,12 +67,14 @@ def load_config(config_file: Path, secrets_file: Path, require_secrets: bool = F
         config = json.load(f)
 
     # Load secrets if available
+    secrets_loaded = False
     if secrets_file.exists():
         try:
             with open(secrets_file, "r", encoding="utf-8") as f:
                 secrets = json.load(f)
             config = deep_merge(config, secrets)
             print(f"Loaded secrets from: {secrets_file.name}")
+            secrets_loaded = True
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON in secrets file: {secrets_file}", file=sys.stderr)
             print(f"  {e}", file=sys.stderr)
@@ -84,7 +86,7 @@ def load_config(config_file: Path, secrets_file: Path, require_secrets: bool = F
     else:
         print(f"Warning: Secrets file not found: {secrets_file.name} (continuing without secrets)")
 
-    return config
+    return config, secrets_loaded
 
 
 def validate_secrets(config: dict[str, Any]) -> list[str]:
@@ -126,10 +128,10 @@ def main():
     secrets_file = config_dir / f"config.secrets.{args.env}.json"
 
     # Load and merge config
-    config = load_config(config_file, secrets_file, args.require_secrets)
+    config, secrets_loaded = load_config(config_file, secrets_file, args.require_secrets)
 
-    # Validate secrets unless skipped
-    if not args.skip_validation:
+    # Validate secrets unless skipped or secrets file wasn't loaded
+    if not args.skip_validation and secrets_loaded:
         missing = validate_secrets(config)
         if missing:
             print(f"\nError: Required secrets are missing or empty:", file=sys.stderr)
@@ -137,6 +139,8 @@ def main():
                 print(f"  - {secret}", file=sys.stderr)
             print(f"\nPlease update: {secrets_file.name}", file=sys.stderr)
             sys.exit(1)
+    elif not args.skip_validation and not secrets_loaded:
+        print("Skipping secrets validation (no secrets file loaded)")
 
     # Find all .env.jinja templates
     templates = list(repo_root.glob("*/.env.jinja"))

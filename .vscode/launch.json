@@ -50,7 +50,26 @@
             "request": "launch",
             "program": "C:\\portal\\transcription\\post_inference\\local_test.py",
             "console": "integratedTerminal",
-            
+
+        },
+        {
+            "name": "Python Debugger: gpu_timestamp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\gpu_timestamp\\src\\gpu_timestamp\\main.py",
+            "console": "integratedTerminal",
+
+        },
+        {
+            "name": "Python Debugger: aligner test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gpu_timestamp.services.aligner",
+            "console": "integratedTerminal",
+            "cwd": "C:\\portal\\transcription\\gpu_timestamp",
+            "env": {
+                "PYTHONPATH": "C:\\portal\\transcription\\gpu_timestamp\\src"
+            }
         }
     ]
 }

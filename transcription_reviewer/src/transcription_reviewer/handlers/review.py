@@ -75,24 +75,25 @@ def process_transcriptions(
         logger.info("No transcription files found")
         return ReviewResult(total_found=0, fixed=0, failed=0, batch_job_arn=None)
 
-    logger.info("Found %d timed transcription files", len(transcriptions))
+    logger.info("Found %d transcription files", len(transcriptions))
 
-    # 2. Load transcription files
-    transcription_files: list[TranscriptionFile] = []
-    failed_to_load = 0
+    # 2. Process each file individually through the full pipeline
+    fixed_count = 0
+    failed_count = 0
 
     for trans in transcriptions:
+        # Load file content
         content = s3_reader.get_transcription_content(trans)
         if not content:
             logger.error("Failed to read: %s", trans.key)
-            failed_to_load += 1
+            failed_count += 1
             continue
 
         # Fetch system prompt from S3 template file
         system_prompt = transcription_fixer.get_system_prompt(trans.key)
         if not system_prompt:
             logger.error("Failed to get system prompt for: %s", trans.key)
-            failed_to_load += 1
+            failed_count += 1
             continue
 
         # Extract stem using TranscriptionFixer method
@@ -101,35 +102,35 @@ def process_transcriptions(
         line_count = len(content.strip().split("\n"))
         word_count = len(content.split())
 
-        transcription_files.append(
-            TranscriptionFile(
-                stem=stem,
-                content=content,
-                system_prompt=system_prompt,
-                line_count=line_count,
-                word_count=word_count,
-            )
-        )        
-
-    if not transcription_files:
-        logger.error("No transcription files could be loaded")
-        return ReviewResult(
-            total_found=len(transcriptions),
-            fixed=0,
-            failed=len(transcriptions) + failed_to_load,
-            batch_job_arn=None,
+        transcription_file = TranscriptionFile(
+            stem=stem,
+            content=content,
+            system_prompt=system_prompt,
+            line_count=line_count,
+            word_count=word_count,
         )
 
-    logger.info("Loaded %d transcription files", len(transcription_files))
+        # Process THIS file through full pipeline before moving to next
+        logger.info("Processing file: %s", stem)
 
-    # 3. Three-step processing pipeline
-    logger.info("Step 1: Preparing data...")
-    prepared_data = pipeline.prepare_data(transcription_files)
+        logger.info("  Step 1: Preparing data...")
+        prepared_data = pipeline.prepare_data([transcription_file])
 
-    logger.info("Step 2: Invoking LLM...")
-    llm_response = pipeline.invoke(prepared_data)
+        logger.info("  Step 2: Invoking LLM...")
+        llm_response = pipeline.invoke(prepared_data)
 
-    logger.info("Step 3: Post-processing results...")
-    result = pipeline.post_process(llm_response, transcription_files)
+        logger.info("  Step 3: Post-processing results...")
+        result = pipeline.post_process(llm_response, prepared_data)
 
-    return result
+        # Aggregate counts
+        fixed_count += result.fixed
+        failed_count += result.failed
+
+        logger.info("  Completed: fixed=%d, failed=%d", result.fixed, result.failed)
+
+    return ReviewResult(
+        total_found=len(transcriptions),
+        fixed=fixed_count,
+        failed=failed_count,
+        batch_job_arn=None,
+    )

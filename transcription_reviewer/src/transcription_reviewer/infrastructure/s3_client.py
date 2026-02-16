@@ -80,6 +80,26 @@ class S3Client:
             logger.error("Failed to get object s3://%s/%s: %s", bucket, key, e)
             return None
 
+    def get_object_bytes(self, bucket: str, key: str) -> bytes | None:
+        """
+        Get object content as bytes.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        Returns:
+            Object content as bytes, or None if failed.
+        """
+        try:
+            response = self._client.get_object(Bucket=bucket, Key=key)
+            content = response["Body"].read()
+            logger.info("Read %d bytes from s3://%s/%s", len(content), bucket, key)
+            return content
+        except ClientError as e:
+            logger.error("Failed to get object s3://%s/%s: %s", bucket, key, e)
+            return None
+
     def file_exists(self, bucket: str, key: str) -> bool:
         """
         Check if a file exists in S3.
@@ -119,6 +139,26 @@ class S3Client:
             logger.error("Failed to upload to s3://%s/%s: %s", bucket, key, e)
             return False
 
+    def download_file(self, bucket: str, key: str, local_path: str) -> bool:
+        """
+        Download a file from S3 to a local path.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            local_path: Local file path to save to.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self._client.download_file(bucket, key, local_path)
+            logger.info("Downloaded s3://%s/%s to %s", bucket, key, local_path)
+            return True
+        except ClientError as e:
+            logger.error("Failed to download s3://%s/%s: %s", bucket, key, e)
+            return False
+
     def upload_file(self, file_path: Path, bucket: str, key: str) -> bool:
         """
         Upload a local file to S3.
@@ -138,6 +178,20 @@ class S3Client:
         except ClientError as e:
             logger.error("Failed to upload file to s3://%s/%s: %s", bucket, key, e)
             return False
+        
+    def copy_object(self, source_bucket: str, source_key: str, dest_bucket: str, dest_key: str) -> bool:
+        """Copy an object from one S3 location to another."""
+        try:
+            self._client.copy_object(
+                Bucket=dest_bucket,
+                Key=dest_key,
+                CopySource={"Bucket": source_bucket, "Key": source_key},
+            )
+            logger.info("Copied s3://%s/%s -> s3://%s/%s", source_bucket, source_key, dest_bucket, dest_key)
+            return True
+        except ClientError as e:
+            logger.error("Failed to copy s3://%s/%s: %s", source_bucket, source_key, e)
+            return False        
 
     def delete_object(self, bucket: str, key: str) -> bool:
         """

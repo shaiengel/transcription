@@ -13,8 +13,9 @@ from transcription_reviewer.infrastructure.dependency_injection import (
     DependenciesContainer,
 )
 
+# Configure root logger for Lambda (all modules will inherit this)
+logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event: dict, context) -> dict:

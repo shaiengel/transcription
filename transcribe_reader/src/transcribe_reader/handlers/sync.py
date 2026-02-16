@@ -57,7 +57,7 @@ def parse_sqs_messages(messages: list[dict]) -> list[tuple[VttFile, str]]:
             logger.warning("Failed to parse SQS message body: %s", msg["Body"][:100])
             continue
 
-        filename = body.get("filename", "")
+        filename = body.get("vtt_key", "")
         if not filename:
             logger.warning("No filename in SQS message: %s", body)
             continue

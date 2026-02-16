@@ -1,5 +1,6 @@
 """Gemini pipeline implementation with system prompt caching."""
 
+import hashlib
 import logging
 import re
 import time
@@ -31,17 +32,15 @@ class GeminiPipeline(LLMPipeline):
         sqs_client: SQSClient,
         api_key: str,
         transcription_bucket: str,
-        audio_bucket: str,
         output_bucket: str,
         sqs_queue_url: str,
-        model_name: str = "gemini-2.5-flash-latest",
+        model_name: str = "gemini-2.5-flash",
         temperature: float = 0.4,
         max_tokens: int = 60000,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
         self._transcription_bucket = transcription_bucket
-        self._audio_bucket = audio_bucket
         self._output_bucket = output_bucket
         self._sqs_queue_url = sqs_queue_url
         self._model_name = model_name
@@ -151,56 +150,29 @@ class GeminiPipeline(LLMPipeline):
                 continue
 
             try:
-                # Read .time file
-                time_key = f"{stem}.time"
-                timed_content = self._s3_client.get_object_content(
-                    self._transcription_bucket, time_key
-                )
-                if not timed_content:
-                    logger.error(f"Failed to read {time_key}")
-                    failed_count += 1
-                    continue
-
-                # Inject timestamps
-                timed_result = self._inject_timestamps(fixed_text, timed_content)
-
-                # Upload TXT
+                # 1. Upload TXT file (fixed text for timestamps alignement)
                 if not self._s3_client.put_object_content(
                     self._output_bucket, f"{stem}.txt", fixed_text
                 ):
                     failed_count += 1
                     continue
 
-                # Create and upload VTT
-                if timed_result:
-                    vtt_content = convert_to_vtt(timed_result)
-                else:
-                    logger.warning(f"Line mismatch for {stem}, using original times")
-                    vtt_content = convert_to_vtt(timed_content)                    
 
-                if not self._s3_client.put_object_content(
-                    self._output_bucket, f"{stem}.vtt", vtt_content
-                ):
-                    failed_count += 1
-                    continue
+                # Copy .time file as pre-fix transcription to output bucket before cleanup
+                time_key = f"{stem}.time"
+                pre_fix_key = f"{stem}.pre-fix.time"
+                self._s3_client.copy_object(self._transcription_bucket, time_key, self._output_bucket, pre_fix_key)
 
-                # Copy .time as .pre-fix.time
-                self._s3_client.put_object_content(
-                    self._output_bucket, f"{stem}.pre-fix.time", timed_content
-                )
+                # Cleanup source files
+                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")                
 
                 # Send SQS notification
                 try:
                     self._sqs_client.send_message(
-                        self._sqs_queue_url, {"filename": f"{stem}.vtt"}
+                        self._sqs_queue_url, {"filename": f"{stem}"}
                     )
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")
-
-                # Cleanup source files
-                #self._s3_client.delete_objects_by_prefix(self._audio_bucket, f"{stem}.")
-                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")
-                logger.info(f"Cleaned up source files for: {stem}")
 
                 fixed_count += 1
                 logger.info(f"Successfully post-processed {stem}")
@@ -273,7 +245,7 @@ class GeminiPipeline(LLMPipeline):
             logger.info(f"Creating cache for system prompt: {system_prompt[:50]}...")
 
             # Hash the prompt for a short display name
-            prompt_hash = str(hash(system_prompt))[-8:]
+            prompt_hash = hashlib.md5(system_prompt.encode()).hexdigest()[:8]
 
             cache_response = self._client.caches.create(
                 model=self._model_name,
