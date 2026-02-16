@@ -1,6 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -8,10 +9,17 @@ logger = logging.getLogger(__name__)
 
 
 def download_file(url: str, dest_path: Path) -> bool:
+    # Extract domain for Referer header (helps bypass hotlink protection)
+    parsed = urlparse(url)
+    referer = f"{parsed.scheme}://{parsed.netloc}/"
+
     headers = {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
         "Connection": "keep-alive",
+        "Referer": referer,
     }
 
     try:
