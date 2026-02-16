@@ -8,13 +8,26 @@ logger = logging.getLogger(__name__)
 
 
 def download_file(url: str, dest_path: Path) -> bool:
-    """Download a file from URL to destination path."""
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "*/*",
+        "Connection": "keep-alive",
+    }
+
     try:
-        with httpx.Client(timeout=300, follow_redirects=True) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            dest_path.write_bytes(response.content)
+        with httpx.Client(
+            timeout=300,
+            follow_redirects=True,
+            headers=headers            
+        ) as client:
+            with client.stream("GET", url) as response:
+                response.raise_for_status()
+                with open(dest_path, "wb") as f:
+                    for chunk in response.iter_bytes():
+                        f.write(chunk)
+
         return True
+
     except Exception as e:
         logger.error("Failed to download %s: %s", url, e)
         return False
