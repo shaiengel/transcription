@@ -3,48 +3,35 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
-import httpx
-
 logger = logging.getLogger(__name__)
 
 
 def download_file(url: str, dest_path: Path) -> bool:
-    # Extract domain for Referer header (helps bypass hotlink protection)
+    """Download file using curl (bypasses TLS fingerprinting issues)."""
     parsed = urlparse(url)
     referer = f"{parsed.scheme}://{parsed.netloc}/"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Connection": "keep-alive",
-        "Referer": referer,
-        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "video",
-        "Sec-Fetch-Mode": "no-cors",
-        "Sec-Fetch-Site": "same-origin",
-    }
-
     try:
-        with httpx.Client(
-            timeout=300,
-            follow_redirects=True,
-            headers=headers,
-            http2=False,
-        ) as client:
-            with client.stream("GET", url) as response:
-                response.raise_for_status()
-                with open(dest_path, "wb") as f:
-                    for chunk in response.iter_bytes():
-                        f.write(chunk)
-
+        result = subprocess.run(
+            [
+                "curl",
+                "-fsSL",
+                "--max-time", "300",
+                "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "-H", f"Referer: {referer}",
+                "-o", str(dest_path),
+                url,
+            ],
+            check=True,
+            capture_output=True,
+        )
         return True
 
-    except Exception as e:
-        logger.error("Failed to download %s: %s", url, e)
+    except subprocess.CalledProcessError as e:
+        logger.error("Failed to download %s: %s", url, e.stderr.decode())
+        return False
+    except FileNotFoundError:
+        logger.error("curl not found. Please install curl.")
         return False
 
 
