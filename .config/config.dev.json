@@ -38,7 +38,7 @@
     "beam_size": "7"
   },
   "stable_whisper": {
-    "model": "large",
+    "model": "large-v3",
     "device": "cuda",
     "language": "he",
     "token_step": "200"
