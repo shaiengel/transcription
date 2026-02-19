@@ -36,7 +36,7 @@ ENV OUTPUT_PREFIX=
 ENV SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription
 
 # Whisper Model Configuration
-ENV WHISPER_MODEL=/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e9ed4a4a98d761b0f617d668303de2c514236c66
+ENV WHISPER_MODEL=/opt/models/ivrit-ai--whisper-large-v3-ct2
 ENV DEVICE=cuda
 ENV COMPUTE_TYPE=float16
 ENV LANGUAGE=he
