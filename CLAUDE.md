@@ -32,10 +32,35 @@ On-Prem → S3 → Lambda → SQS → EC2 GPU → S3 → SQS → Lambda → Bedr
 ### S3 Bucket Structure
 
 ```
-s3://[BUCKET_NAME]/
-├── audio-input/        # MP3 uploads from on-prem
-├── transcriptions/     # Raw AST model output
-└── final-output/       # Spell-checked final text
+s3://portal-daf-yomi-audio/       # MP3 uploads from on-prem
+s3://portal-daf-yomi-transcription/  # Raw transcription output
+s3://final-transcription/         # Spell-checked final text
+s3://portal-daf-yomi-models/      # ML models (Whisper CT2)
+```
+
+### Model Storage (`portal-daf-yomi-models`)
+
+ML models are stored in S3 and downloaded to EC2 NVMe on startup for fast loading.
+
+**Current models:**
+```
+s3://portal-daf-yomi-models/
+└── ivrit-ai--whisper-large-v3-ct2/   # Hebrew Whisper CTranslate2 model
+    ├── config.json
+    ├── model.bin
+    ├── preprocessor_config.json
+    ├── tokenizer.json
+    └── vocabulary.json
+```
+
+**Uploading a new model from HuggingFace cache:**
+```bash
+# Models download to ~/.cache/huggingface/hub/ with symlinks
+# Copy with -L to resolve symlinks, then sync to S3
+SNAPSHOT=$(ls ~/.cache/huggingface/hub/models--ivrit-ai--whisper-large-v3-ct2/snapshots/)
+cp -rL ~/.cache/huggingface/hub/models--ivrit-ai--whisper-large-v3-ct2/snapshots/$SNAPSHOT/ /tmp/whisper-model/
+aws s3 sync /tmp/whisper-model/ s3://portal-daf-yomi-models/ivrit-ai--whisper-large-v3-ct2/
+rm -rf /tmp/whisper-model/
 ```
 
 ### SQS Queues
