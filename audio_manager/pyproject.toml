@@ -8,11 +8,11 @@ dependencies = [
     "sqlalchemy>=2.0",
     "pyodbc",
     "python-dotenv",
-    "httpx",
     "pydantic",
     "boto3",
     "dependency-injector",
     "python-gitlab",
+    "httpx>=0.28.1",
 ]
 
 [project.scripts]

@@ -1,5 +1,7 @@
 """Pydantic models for transcription reviewer."""
 
+from pathlib import Path
+
 from pydantic import BaseModel
 
 
@@ -19,6 +21,16 @@ class TimedTranscription(BaseModel):
     bucket: str
     key: str
     filename: str
+
+    @property
+    def stem(self) -> str:
+        """Return filename without extension."""
+        return Path(self.filename).stem
+
+    @property
+    def filename_time(self) -> str:
+        """Return the .time filename for this transcription."""
+        return f"{self.stem}.time"
 
     @property
     def s3_uri(self) -> str:

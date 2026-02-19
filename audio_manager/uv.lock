@@ -43,7 +43,7 @@ dependencies = [
 requires-dist = [
     { name = "boto3" },
     { name = "dependency-injector" },
-    { name = "httpx" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic" },
     { name = "pyodbc" },
     { name = "python-dotenv" },

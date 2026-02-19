@@ -1,6 +1,7 @@
 FROM nvidia/cuda:12.4.0-base-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
 # Install Python 3.12 + CUDA libs + FFmpeg (required by stable-whisper)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,10 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
     python3.12-venv \
-    libcudnn8 \
-    libcublas-12-4 \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /var/cache/apt/archives/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv package manager
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh

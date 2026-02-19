@@ -40,6 +40,6 @@ ENV WHISPER_MODEL=/opt/models/models--ivrit-ai--whisper-large-v3-ct2/snapshots/e
 ENV DEVICE=cuda
 ENV COMPUTE_TYPE=float16
 ENV LANGUAGE=he
-ENV BEAM_SIZE=7
+ENV BEAM_SIZE=5
 
 CMD ["uv", "run", "transcribe"]
