@@ -3,6 +3,7 @@
 import logging
 import os
 
+from transcription_reviewer.config import config
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFile
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 # Buckets for cleanup (still used by _cleanup_source_files)
 AUDIO_BUCKET = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")
 TRANSCRIPTION_BUCKET = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
-MAX_SEGMENT_DURATION_SECONDS = 22.0
 
 
 def _cleanup_source_files(s3_client: S3Client, stem: str) -> None:
@@ -100,7 +100,7 @@ def process_transcriptions(
             content = truncate_content_at_long_segment(
                 content=content,
                 time_content=time_content,
-                max_duration_seconds=MAX_SEGMENT_DURATION_SECONDS,
+                max_duration_seconds=config.max_segment_duration_seconds,
                 stem=trans.stem,
             )
 

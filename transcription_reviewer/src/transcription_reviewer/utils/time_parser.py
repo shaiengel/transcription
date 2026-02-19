@@ -51,7 +51,7 @@ def truncate_at_line(content: str, line_index: int) -> str:
 def truncate_content_at_long_segment(
     content: str,
     time_content: str,
-    max_duration_seconds: float = 22.0,
+    max_duration_seconds: float = 30.0,
     stem: str = "",
 ) -> str:
     """Truncate content if a long segment is found in time_content.
