@@ -63,9 +63,10 @@ def main():
         uploaded = upload_media_to_s3(media_links, s3_uploader)
         logger.info("Uploaded %d files to S3", uploaded)
 
-        # Publish to SQS
+        # Publish to SQS (skips files already processed in FINAL_BUCKET)
         sqs_publisher = container.sqs_publisher()
-        published = publish_uploads_to_sqs(media_links, sqs_publisher)
+        s3_client = container.s3_client()
+        published = publish_uploads_to_sqs(media_links, sqs_publisher, s3_client)
         logger.info("Published %d messages to SQS", published)
 
 

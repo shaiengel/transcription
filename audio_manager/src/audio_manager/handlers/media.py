@@ -20,6 +20,7 @@ from audio_manager.services.downloader import (
     download_file,
     extract_audio_from_mp4,
 )
+from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.services.s3_uploader import S3Uploader
 from audio_manager.services.sqs_publisher import SQSPublisher
 
@@ -291,16 +292,34 @@ def upload_media_to_s3(
 def publish_uploads_to_sqs(
     media_list: list[MediaEntry],
     sqs_publisher: SQSPublisher,
+    s3_client: S3Client,
 ) -> int:
-    """Publish uploaded media to SQS. Returns count of published messages."""
+    """Publish uploaded media to SQS. Returns count of published messages.
+
+    Skips files that have already been processed (VTT exists in FINAL_BUCKET).
+    """
+    load_dotenv()
+    final_bucket = os.getenv("FINAL_BUCKET")
     allowed_languages = get_allowed_languages()
     published = 0
+    skipped = 0
+
     for media in media_list:
         if media.language not in allowed_languages:
             continue
         if media.downloaded_path and media.downloaded_path.exists():
+            stem = media.downloaded_path.stem
+
+            # Skip if already processed (VTT exists in FINAL_BUCKET)
+            if final_bucket and s3_client.file_exists(final_bucket, f"{stem}.vtt"):
+                logger.info("Skipping - already processed: %s.vtt", stem)
+                skipped += 1
+                continue
+
             key = media.downloaded_path.name
             if sqs_publisher.publish_upload(key, media.language, media.details):
                 published += 1
 
+    if skipped > 0:
+        logger.info("Skipped %d already-processed files", skipped)
     return published
