@@ -12,11 +12,8 @@ runcmd:
       echo "Model already exists, skipping download."
     fi
 
-  # login to ECR
-  - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
-
-  # pull container
-  - docker pull 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-timestamp:5
+  # download and load docker image from S3
+  - aws s3 cp s3://portal-docker-images/whisper-timestamp.tar.gz - | docker load
 
   # run container
-  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme:/opt/dlami/nvme 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-timestamp:5
+  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme:/opt/dlami/nvme whisper-timestamp:1
