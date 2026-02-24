@@ -1,0 +1,22 @@
+#cloud-config
+runcmd:
+  # wait for docker + network
+  - sleep 15
+
+  # download model if not already present
+  - |
+    if [ ! -f /opt/dlami/nvme/large-v3.pt ]; then
+      echo "Downloading model from S3..."
+      aws s3 cp s3://portal-daf-yomi-models/whisper-large-v3.pt /opt/dlami/nvme/large-v3.pt --no-progress
+    else
+      echo "Model already exists, skipping download."
+    fi
+
+  # login to ECR
+  - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
+
+  # pull container
+  - docker pull 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-timestamp:5
+
+  # run container
+  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme:/opt/dlami/nvme 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-timestamp:5
