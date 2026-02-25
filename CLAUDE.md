@@ -561,7 +561,7 @@ audio_manager/
     │   └── media_source.py     # Abstract MediaSource class
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
+    │   └── media.py            # print_media_links(), download_media(), upload_media_to_s3(), publish_uploads_to_sqs()
     ├── infrastructure/
     │   ├── __init__.py
     │   ├── dependency_injection.py  # DependenciesContainer (DI container)
@@ -673,11 +673,11 @@ container = DependenciesContainer()
 
 # Get media from configured source (see dependency_injection.py to switch)
 media_source = container.media_source()
-media_links = media_source.get_media_entries()
+media_links = media_source.get_media_entries(days_ago=0)
 
 with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cleanup_errors=True) as temp_dir:
     download_dir = Path(temp_dir)
-    download_today_media(media_links, download_dir)  # Skips if already local
+    download_media(media_links, download_dir)  # Skips if already local
 
     s3_uploader = container.s3_uploader()
     sqs_publisher = container.sqs_publisher()
@@ -1004,7 +1004,7 @@ transcribe_reader/
 |------|---------|
 | `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaInfo`, `VttFile` |
 | `handlers/sync.py` | Main sync orchestration: `sync_transcriptions()` |
-| `services/database.py` | DB queries: `get_today_calendar_entries()`, `get_media_ids()` |
+| `services/database.py` | DB queries: `get_calendar_entries()`, `get_media_ids()` |
 | `services/s3_downloader.py` | `S3Downloader` - check and download VTT files |
 | `services/gitlab_uploader.py` | `GitLabUploader` - upload files to GitLab |
 | `infrastructure/gitlab_client.py` | `GitLabClient` - python-gitlab wrapper |

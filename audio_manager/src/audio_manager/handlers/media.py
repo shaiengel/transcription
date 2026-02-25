@@ -13,7 +13,7 @@ from audio_manager.services.database import (
     get_connection,
     get_massechet_sefaria_name,
     get_media_links,
-    get_today_calendar_entries,
+    get_calendar_entries,
 )
 from audio_manager.services.sefaria_fetcher import fetch_steinsaltz_for_daf
 from audio_manager.services.downloader import (
@@ -66,7 +66,7 @@ def format_duration(seconds: int | None) -> str:
 def get_today_media_links() -> list[MediaEntry]:
     """Fetch today's media links from the database."""
     with get_connection() as conn:
-        calendar_entries = get_today_calendar_entries(conn)
+        calendar_entries = get_calendar_entries(conn, days_ago=0)
 
         all_media: list[MediaEntry] = []
         for entry in calendar_entries:
@@ -76,11 +76,10 @@ def get_today_media_links() -> list[MediaEntry]:
         return all_media
 
 
-def get_today_calendar() -> list[CalendarEntry]:
+def get_calendar(days_ago: int = 0) -> list[CalendarEntry]:
     """Fetch today's calendar entries from the database."""
     with get_connection() as conn:
-        return get_today_calendar_entries(conn)
-
+        return get_calendar_entries(conn, days_ago=days_ago)
 
 def enrich_with_steinsaltz(
     media_list: list[MediaEntry],
@@ -217,7 +216,7 @@ def print_media_links(media_list: list[MediaEntry]) -> None:
         logger.info("  %s: %d (%s)", language, count, format_duration(duration))
 
 
-def download_today_media(media_list: list[MediaEntry], download_dir: Path) -> None:
+def download_media(media_list: list[MediaEntry], download_dir: Path) -> None:
     """Download ALL media files and set downloaded_path on each.
 
     Files that already have downloaded_path set (e.g., from LocalDiskMediaSource)

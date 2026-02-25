@@ -43,7 +43,7 @@ class LocalDiskMediaSource(MediaSource):
         self.language = language or os.getenv("LOCAL_MEDIA_LANGUAGE", "hebrew")
         self.details = details or os.getenv("LOCAL_DETAILS", "a Talmud Massechet")
 
-    def get_media_entries(self) -> list[MediaEntry]:
+    def get_media_entries(self, days_ago: int = 0) -> list[MediaEntry]:
         """Scan the local directory for media files.
 
         Returns:
