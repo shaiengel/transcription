@@ -75,24 +75,24 @@ def detect_degradation_rolling_avg(
 def detect_degradation_cusum(
     probs: np.ndarray,
     window: int = 100,
-    threshold: float = 80.0,
+    threshold: float = 50.0,
 ) -> int:
     """CUSUM change point detection for detecting mean shift.
 
     Args:
         probs: Array of word probabilities.
-        window: Window size for baseline calculation.
+        window: Window size for moving average calculation.
         threshold: CUSUM threshold for detection.
 
     Returns:
         Index where degradation detected, or -1 if not detected.
     """
-    if len(probs) < window * 3:
+    if len(probs) < 100:
         logger.debug("Not enough data points for CUSUM analysis")
         return -1
 
     moving_avg = _compute_moving_average(probs, window)
-    target = np.mean(moving_avg[window : window * 3])  # Baseline target
+    target = 0.25
 
     cusum_neg = 0
 
@@ -187,7 +187,7 @@ def evaluate_alignment(json_path: Path) -> dict | None:
         # Extract probabilities, filtering out None values
         probs = [w["probability"] for w in words if w["probability"] is not None]
 
-        if len(probs) < 300:  # Need at least window * 3 points
+        if len(probs) < 100:
             logger.debug(
                 "Not enough probability data for analysis: %d words", len(probs)
             )

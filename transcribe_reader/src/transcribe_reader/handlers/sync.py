@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 
 from transcribe_reader.infrastructure.sqs_client import SQSClient
-from transcribe_reader.models.schemas import VttFile
+from transcribe_reader.models.schemas import TranscriptionFile
 from transcribe_reader.services.s3_downloader import S3Downloader
 from transcribe_reader.services.gitlab_uploader import GitLabUploader
 
@@ -18,6 +18,7 @@ SQS_QUEUE_URL = os.getenv(
     "SQS_QUEUE_URL",
     "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
 )
+FIXED_TEXT_BUCKET = os.getenv("S3_FIXED_TEXT_BUCKET", "portal-daf-yomi-fixed-text")
 
 
 def poll_sqs_messages(sqs_client: SQSClient) -> list[dict]:
@@ -40,11 +41,11 @@ def poll_sqs_messages(sqs_client: SQSClient) -> list[dict]:
     return all_messages
 
 
-def parse_sqs_messages(messages: list[dict]) -> list[tuple[VttFile, str]]:
-    """Parse SQS messages into VttFile objects.
+def parse_sqs_messages(messages: list[dict]) -> list[tuple[list[TranscriptionFile], str]]:
+    """Parse SQS messages into TranscriptionFile objects.
 
     Returns:
-        List of (VttFile, receipt_handle) tuples.
+        List of ([TranscriptionFile, ...], receipt_handle) tuples.
     """
     results = []
 
@@ -57,20 +58,32 @@ def parse_sqs_messages(messages: list[dict]) -> list[tuple[VttFile, str]]:
             logger.warning("Failed to parse SQS message body: %s", msg["Body"][:100])
             continue
 
-        filename = body.get("vtt_key", "")
-        if not filename:
-            logger.warning("No filename in SQS message: %s", body)
+        stem = body.get("stem")
+
+        if not stem:
+            logger.warning("No stem in SQS message: %s", body)
             continue
 
-        stem = filename.rsplit(".", 1)[0]
+        files = [
+            TranscriptionFile(
+                s3_key=f"{stem}.vtt",
+                filename=f"{stem}.vtt",
+                stem=stem,
+            ),
+            TranscriptionFile(
+                s3_key=f"{stem}.srt",
+                filename=f"{stem}.srt",
+                stem=stem,
+            ),
+            TranscriptionFile(
+                s3_key=f"{stem}.txt",
+                filename=f"{stem}.txt",
+                stem=stem,
+                source_bucket=FIXED_TEXT_BUCKET,
+            ),
+        ]
 
-        vtt_file = VttFile(
-            s3_key=filename,
-            filename=filename,
-            stem=stem,
-        )
-
-        results.append((vtt_file, receipt_handle))
+        results.append((files, receipt_handle))
 
     return results
 
@@ -82,8 +95,8 @@ def sync_transcriptions(
 ) -> dict:
     """Main sync orchestration function.
 
-    1. Poll SQS for VTT filenames
-    2. Download VTT content from S3 (final-transcription bucket)
+    1. Poll SQS for transcription stems
+    2. Download .vtt/.srt from transcription bucket and .txt from fixed-text bucket
     3. Upload to GitLab
     4. Delete processed messages from SQS
 
@@ -97,30 +110,40 @@ def sync_transcriptions(
         return {"messages": 0, "downloaded": 0, "uploaded": 0, "deleted": 0}
 
     # Step 2: Parse messages
-    vtt_entries = parse_sqs_messages(messages)
-    logger.info("Parsed %d VTT entries from %d messages", len(vtt_entries), len(messages))
+    message_entries = parse_sqs_messages(messages)
+    files_to_process = [file for files, _ in message_entries for file in files]
+    logger.info(
+        "Parsed %d files from %d messages",
+        len(files_to_process),
+        len(messages),
+    )
 
     # Step 3: Download from S3
     downloaded = 0
-    for vtt_file, _ in vtt_entries:
-        if s3_downloader.download(vtt_file):
+    for file_item in files_to_process:
+        if s3_downloader.download(file_item):
             downloaded += 1
 
-    logger.info("Downloaded %d/%d files from S3", downloaded, len(vtt_entries))
+    logger.info("Downloaded %d/%d files from S3", downloaded, len(files_to_process))
 
     # Step 4: Upload to GitLab
-    files_with_content = [vtt_file for vtt_file, _ in vtt_entries if vtt_file.content]
+    files_with_content = [file_item for file_item in files_to_process if file_item.content]
     uploaded = 0
     if files_with_content:
         uploaded = gitlab_uploader.batch_upload(files_with_content)
 
     # Step 5: Delete successfully processed messages from SQS
     deleted = 0
-    for vtt_file, receipt_handle in vtt_entries:
-        if vtt_file.content:
+    for files, receipt_handle in message_entries:
+        if all(file_item.content for file_item in files):
             if sqs_client.delete_message(SQS_QUEUE_URL, receipt_handle):
                 deleted += 1
-                logger.info("Deleted SQS message for: %s", vtt_file.s3_key)
+                logger.info("Deleted SQS message for stem: %s", files[0].stem)
+        else:
+            logger.warning(
+                "Skipping delete for stem %s; missing one or more files",
+                files[0].stem,
+            )
 
     return {
         "messages": len(messages),

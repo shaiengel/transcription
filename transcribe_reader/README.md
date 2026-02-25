@@ -29,7 +29,7 @@ transcribe_reader/
     ├── main.py                 # Entry point
     ├── models/
     │   ├── __init__.py
-    │   └── schemas.py          # CalendarEntry, MediaInfo, VttFile
+    │   └── schemas.py          # CalendarEntry, MediaInfo, TranscriptionFile
     ├── handlers/
     │   ├── __init__.py
     │   └── sync.py             # Main sync orchestration
