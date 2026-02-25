@@ -16,6 +16,9 @@ HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
 # Regex to match parentheses and their contents
 PARENTHESES_PATTERN = re.compile(r"\([^)]*\)")
 
+# Regex to extract text inside <b> tags
+BOLD_TAG_PATTERN = re.compile(r"<b>([^<]*)</b>")
+
 
 def strip_html_tags(text: str) -> str:
     """Remove all HTML tags, parentheses with contents, newlines, and unescape characters from text."""
@@ -68,8 +71,13 @@ def extract_steinsaltz_commentary(json_content: str) -> str | None:
             else:
                 raw_text = str(hebrew_text)
 
-            # Remove HTML tags
-            return strip_html_tags(raw_text)
+            # Extract only text inside <b> tags
+            bold_texts = BOLD_TAG_PATTERN.findall(raw_text)
+            extracted = " ".join(bold_texts)
+            # Attach standalone letters to the next word
+            extracted = re.sub(r"(^|\s)(\S)\s+(?=\S)", r"\1\2", extracted)
+            # Clean up the extracted text
+            return strip_html_tags(extracted)
 
         return None
     except json.JSONDecodeError as e:

@@ -1,5 +1,6 @@
 """Alignment handler for orchestrating the audio-text alignment pipeline."""
 
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -7,6 +8,11 @@ from pathlib import Path
 from gpu_timestamp.config import config
 from gpu_timestamp.models.schemas import AlignmentResult, SQSMessage
 from gpu_timestamp.services.aligner import align_audio, save_outputs
+from gpu_timestamp.services.alignment_evaluator import (
+    evaluate_alignment,
+    truncate_srt_file,
+    truncate_vtt_file,
+)
 from gpu_timestamp.services.s3_downloader import S3Downloader
 from gpu_timestamp.services.s3_uploader import S3Uploader
 from gpu_timestamp.services.sqs_receiver import SQSReceiver
@@ -75,23 +81,53 @@ def process_message(
             )
 
         # Save outputs locally
-        json_path, vtt_path = save_outputs(result, temp_dir, stem)
+        json_path, vtt_path, srt_path = save_outputs(result, temp_dir, stem)
 
-        # Upload JSON and VTT to S3 (overwrites existing VTT)
+        # Evaluate alignment quality and truncate if degradation detected
+        analysis_result = evaluate_alignment(json_path)
+        if analysis_result:
+            logger.warning(
+                "Degradation detected for %s: rolling_avg=%d, cusum=%d",
+                stem,
+                analysis_result["rolling_avg_method"],
+                analysis_result["cusum_method"],
+            )
+            # Truncate VTT/SRT at degradation point (use max of both methods)
+            truncate_point = max(
+                analysis_result["cusum_method"],
+                analysis_result["rolling_avg_method"],
+            )
+            truncate_vtt_file(vtt_path, truncate_point)
+            truncate_srt_file(srt_path, truncate_point)
+
+        # Upload JSON, VTT, and SRT to S3
         json_uploaded = s3_uploader.upload_file(
             json_path, f"{stem}.json", source_audio=s3_key
         )
         vtt_uploaded = s3_uploader.upload_file(
             vtt_path, f"{stem}.vtt", source_audio=s3_key
         )
+        srt_uploaded = s3_uploader.upload_file(
+            srt_path, f"{stem}.srt", source_audio=s3_key
+        )
 
-        if not json_uploaded or not vtt_uploaded:
+        if not json_uploaded or not vtt_uploaded or not srt_uploaded:
             logger.error("Failed to upload outputs for: %s", s3_key)
             return AlignmentResult(
                 source_key=s3_key,
                 success=False,
                 error="Failed to upload outputs",
             )
+
+        # Upload analysis file if degradation was detected
+        if analysis_result:
+            analysis_uploaded = s3_uploader.upload_content(
+                json.dumps(analysis_result, indent=2),
+                f"{stem}.analysis",
+                source_audio=s3_key,
+            )
+            if not analysis_uploaded:
+                logger.error("Failed to upload analysis file for: %s", s3_key)
 
         # Send completion notification to final queue
         sqs_sender.send_completion_message(

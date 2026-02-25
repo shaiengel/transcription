@@ -1,0 +1,19 @@
+#cloud-config
+runcmd:
+  # wait for docker + network
+  - sleep 15
+
+  # download model if not already present
+  - |
+    if [ ! -f /opt/dlami/nvme/models/ivrit-ai--whisper-large-v3-ct2/model.bin ]; then
+      echo "Downloading model from S3..."
+      aws s3 sync s3://portal-daf-yomi-models/ivrit-ai--whisper-large-v3-ct2/ /opt/dlami/nvme/models/ivrit-ai--whisper-large-v3-ct2/ --no-progress
+    else
+      echo "Model already exists, skipping download."
+    fi
+
+  # download and load docker image from S3
+  - aws s3 cp s3://portal-docker-images/whisper-transcribe.tar.gz - | docker load
+
+  # run container
+  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme/models/ivrit-ai--whisper-large-v3-ct2:/opt/models/ivrit-ai--whisper-large-v3-ct2:ro whisper-transcribe:1

@@ -32,10 +32,35 @@ On-Prem → S3 → Lambda → SQS → EC2 GPU → S3 → SQS → Lambda → Bedr
 ### S3 Bucket Structure
 
 ```
-s3://[BUCKET_NAME]/
-├── audio-input/        # MP3 uploads from on-prem
-├── transcriptions/     # Raw AST model output
-└── final-output/       # Spell-checked final text
+s3://portal-daf-yomi-audio/       # MP3 uploads from on-prem
+s3://portal-daf-yomi-transcription/  # Raw transcription output
+s3://final-transcription/         # Spell-checked final text
+s3://portal-daf-yomi-models/      # ML models (Whisper CT2)
+```
+
+### Model Storage (`portal-daf-yomi-models`)
+
+ML models are stored in S3 and downloaded to EC2 NVMe on startup for fast loading.
+
+**Current models:**
+```
+s3://portal-daf-yomi-models/
+└── ivrit-ai--whisper-large-v3-ct2/   # Hebrew Whisper CTranslate2 model
+    ├── config.json
+    ├── model.bin
+    ├── preprocessor_config.json
+    ├── tokenizer.json
+    └── vocabulary.json
+```
+
+**Uploading a new model from HuggingFace cache:**
+```bash
+# Models download to ~/.cache/huggingface/hub/ with symlinks
+# Copy with -L to resolve symlinks, then sync to S3
+SNAPSHOT=$(ls ~/.cache/huggingface/hub/models--ivrit-ai--whisper-large-v3-ct2/snapshots/)
+cp -rL ~/.cache/huggingface/hub/models--ivrit-ai--whisper-large-v3-ct2/snapshots/$SNAPSHOT/ /tmp/whisper-model/
+aws s3 sync /tmp/whisper-model/ s3://portal-daf-yomi-models/ivrit-ai--whisper-large-v3-ct2/
+rm -rf /tmp/whisper-model/
 ```
 
 ### SQS Queues
@@ -536,7 +561,7 @@ audio_manager/
     │   └── media_source.py     # Abstract MediaSource class
     ├── handlers/
     │   ├── __init__.py
-    │   └── media.py            # print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
+    │   └── media.py            # print_media_links(), download_media(), upload_media_to_s3(), publish_uploads_to_sqs()
     ├── infrastructure/
     │   ├── __init__.py
     │   ├── dependency_injection.py  # DependenciesContainer (DI container)
@@ -648,11 +673,11 @@ container = DependenciesContainer()
 
 # Get media from configured source (see dependency_injection.py to switch)
 media_source = container.media_source()
-media_links = media_source.get_media_entries()
+media_links = media_source.get_media_entries(days_ago=0)
 
 with tempfile.TemporaryDirectory(prefix="transcription_", delete=True, ignore_cleanup_errors=True) as temp_dir:
     download_dir = Path(temp_dir)
-    download_today_media(media_links, download_dir)  # Skips if already local
+    download_media(media_links, download_dir)  # Skips if already local
 
     s3_uploader = container.s3_uploader()
     sqs_publisher = container.sqs_publisher()
@@ -979,7 +1004,7 @@ transcribe_reader/
 |------|---------|
 | `models/schemas.py` | Pydantic models: `CalendarEntry`, `MediaInfo`, `VttFile` |
 | `handlers/sync.py` | Main sync orchestration: `sync_transcriptions()` |
-| `services/database.py` | DB queries: `get_today_calendar_entries()`, `get_media_ids()` |
+| `services/database.py` | DB queries: `get_calendar_entries()`, `get_media_ids()` |
 | `services/s3_downloader.py` | `S3Downloader` - check and download VTT files |
 | `services/gitlab_uploader.py` | `GitLabUploader` - upload files to GitLab |
 | `infrastructure/gitlab_client.py` | `GitLabClient` - python-gitlab wrapper |

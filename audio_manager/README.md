@@ -93,7 +93,7 @@ src/audio_manager/
 │   └── schemas.py          # Pydantic models (CalendarEntry, MediaEntry)
 ├── handlers/
 │   ├── __init__.py
-│   └── media.py            # get_today_media_links(), print_media_links(), download_today_media(), upload_media_to_s3(), publish_uploads_to_sqs()
+│   └── media.py            # get_today_media_links(), print_media_links(), download_media(), upload_media_to_s3(), publish_uploads_to_sqs()
 ├── infrastructure/
 │   ├── __init__.py
 │   ├── dependency_injection.py  # DependenciesContainer (DI container)

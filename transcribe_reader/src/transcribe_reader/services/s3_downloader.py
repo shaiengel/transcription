@@ -1,4 +1,4 @@
-"""S3 downloader service for VTT files."""
+"""S3 downloader service for transcription files."""
 
 import logging
 import os
@@ -6,33 +6,39 @@ import os
 from dotenv import load_dotenv
 
 from transcribe_reader.infrastructure.s3_client import S3Client
-from transcribe_reader.models.schemas import VttFile
+from transcribe_reader.models.schemas import TranscriptionFile
 
 logger = logging.getLogger(__name__)
 
 
 class S3Downloader:
-    """Downloads VTT files from S3."""
+    """Downloads transcription files from S3."""
 
     def __init__(self, s3_client: S3Client):
         self._s3_client = s3_client
         load_dotenv()
-        self._bucket = os.getenv("S3_TRANSCRIPTION_BUCKET", "final-transcription")
+        self._default_bucket = os.getenv("S3_TRANSCRIPTION_BUCKET", "final-transcription")
 
-    def check_exists(self, vtt_file: VttFile) -> bool:
-        """Check if VTT file exists in S3."""
-        exists = self._s3_client.file_exists(self._bucket, vtt_file.s3_key)
-        vtt_file.exists_in_s3 = exists
+    def _get_bucket(self, transcription_file: TranscriptionFile) -> str:
+        """Resolve bucket for a given file."""
+        return transcription_file.source_bucket or self._default_bucket
+
+    def check_exists(self, transcription_file: TranscriptionFile) -> bool:
+        """Check if file exists in S3."""
+        bucket = self._get_bucket(transcription_file)
+        exists = self._s3_client.file_exists(bucket, transcription_file.s3_key)
+        transcription_file.exists_in_s3 = exists
         return exists
 
-    def download(self, vtt_file: VttFile) -> bool:
-        """Download VTT file content from S3."""
-        if not vtt_file.exists_in_s3:
-            if not self.check_exists(vtt_file):
+    def download(self, transcription_file: TranscriptionFile) -> bool:
+        """Download file content from S3."""
+        if not transcription_file.exists_in_s3:
+            if not self.check_exists(transcription_file):
                 return False
 
-        content = self._s3_client.download_content(self._bucket, vtt_file.s3_key)
+        bucket = self._get_bucket(transcription_file)
+        content = self._s3_client.download_content(bucket, transcription_file.s3_key)
         if content:
-            vtt_file.content = content
+            transcription_file.content = content
             return True
         return False

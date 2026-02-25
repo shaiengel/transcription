@@ -1,0 +1,19 @@
+#cloud-config
+runcmd:
+  # wait for docker + network
+  - sleep 15
+
+  # download model if not already present
+  - |
+    if [ ! -f /opt/dlami/nvme/large-v3.pt ]; then
+      echo "Downloading model from S3..."
+      aws s3 cp s3://portal-daf-yomi-models/whisper-large-v3.pt /opt/dlami/nvme/large-v3.pt --no-progress
+    else
+      echo "Model already exists, skipping download."
+    fi
+
+  # download and load docker image from S3
+  - aws s3 cp s3://portal-docker-images/whisper-timestamp.tar.gz - | docker load
+
+  # run container
+  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme:/opt/dlami/nvme whisper-timestamp:1

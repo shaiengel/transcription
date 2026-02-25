@@ -9,9 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class S3Reader:
-    """Reads timed transcription files from S3."""
-
-    # TIMED_SUFFIX = ".timed.txt"
+    """Reads timed transcription files from S3."""    
 
     def __init__(self, s3_client: S3Client):
         """
@@ -79,3 +77,16 @@ class S3Reader:
             bucket=transcription.bucket,
             key=transcription.key,
         )
+
+    def get_content_from_bucket(self, key: str, bucket: str) -> str | None:
+        """
+        Get content from a specific bucket and key.
+
+        Args:
+            key: S3 object key.
+            bucket: S3 bucket name.
+
+        Returns:
+            File content as string, or None if failed.
+        """
+        return self._s3_client.get_object_content(bucket=bucket, key=key)

@@ -1,6 +1,6 @@
 import os
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from typing import Generator
 from urllib.parse import quote_plus
 
@@ -46,16 +46,16 @@ def get_connection() -> Generator[Connection, None, None]:
         yield conn
 
 
-def get_today_calendar_entries(conn: Connection) -> list[CalendarEntry]:
-    """Get today's MassechetId and DafId from Calendar table."""
-    today = date.today().isoformat()
+def get_calendar_entries(conn: Connection, days_ago: int = 0) -> list[CalendarEntry]:
+    """Get calendar entries from x days ago."""
+    target_date = (date.today() - timedelta(days=days_ago)).isoformat()
 
     query = text("""
         SELECT DISTINCT MassechetId, DafId
         FROM [vps_daf-yomi].[dbo].[Calendar]
-        WHERE Date = :today
+        WHERE Date = :target_date
     """)
-    result = conn.execute(query, {"today": today}).fetchall()
+    result = conn.execute(query, {"target_date": target_date}).fetchall()
     return [
         CalendarEntry(massechet_id=row[0], daf_id=row[1])
         for row in result

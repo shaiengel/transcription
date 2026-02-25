@@ -3,11 +3,13 @@
 import logging
 import os
 
+from transcription_reviewer.config import config
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFile
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
 from transcription_reviewer.services.s3_reader import S3Reader
 from transcription_reviewer.services.transcription_fixer import TranscriptionFixer
+from transcription_reviewer.utils.time_parser import truncate_content_at_long_segment
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,19 @@ def process_transcriptions(
             failed_count += 1
             continue
 
+        # Check for long segments in .time file and truncate if needed
+        time_content = s3_reader.get_content_from_bucket(
+            trans.filename_time,
+            bucket=trans.bucket,
+        )
+        if time_content:
+            content = truncate_content_at_long_segment(
+                content=content,
+                time_content=time_content,
+                max_duration_seconds=config.max_segment_duration_seconds,
+                stem=trans.stem,
+            )
+
         # Fetch system prompt from S3 template file
         system_prompt = transcription_fixer.get_system_prompt(trans.key)
         if not system_prompt:
@@ -96,14 +111,11 @@ def process_transcriptions(
             failed_count += 1
             continue
 
-        # Extract stem using TranscriptionFixer method
-        stem = transcription_fixer._get_stem(trans.key)
-
         line_count = len(content.strip().split("\n"))
         word_count = len(content.split())
 
         transcription_file = TranscriptionFile(
-            stem=stem,
+            stem=trans.stem,
             content=content,
             system_prompt=system_prompt,
             line_count=line_count,
@@ -111,7 +123,7 @@ def process_transcriptions(
         )
 
         # Process THIS file through full pipeline before moving to next
-        logger.info("Processing file: %s", stem)
+        logger.info("Processing file: %s", trans.stem)
 
         logger.info("  Step 1: Preparing data...")
         prepared_data = pipeline.prepare_data([transcription_file])

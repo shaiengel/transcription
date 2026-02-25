@@ -99,6 +99,11 @@ class Config:
     # SQS
     sqs_queue_url: str = _get_config("SQS_QUEUE_URL", "")
 
+    # Processing
+    max_segment_duration_seconds: float = float(
+        _get_config("MAX_SEGMENT_DURATION_SECONDS", "30.0")
+    )
+
     def validate(self) -> None:
         """Validate required configuration."""
         if not self.transcription_bucket:

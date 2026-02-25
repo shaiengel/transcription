@@ -57,6 +57,7 @@ class S3Uploader:
                 ".json": "application/json",
                 ".txt": "text/plain",
                 ".srt": "text/plain",
+                ".analysis": "application/json",
             }
             content_type = content_types.get(local_path.suffix, "application/octet-stream")
 
@@ -76,4 +77,50 @@ class S3Uploader:
 
         except Exception as e:
             logger.error("Error uploading %s: %s", local_path, e, exc_info=True)
+            return False
+
+    def upload_content(
+        self,
+        content: str,
+        s3_key: str,
+        source_audio: str | None = None,
+    ) -> bool:
+        """
+        Upload string content directly to S3.
+
+        Args:
+            content: String content to upload.
+            s3_key: S3 object key.
+            source_audio: Original audio file key (for metadata).
+
+        Returns:
+            True if upload succeeded, False otherwise.
+        """
+        try:
+            content_types = {
+                ".vtt": "text/vtt",
+                ".json": "application/json",
+                ".txt": "text/plain",
+                ".srt": "text/plain",
+                ".analysis": "application/json",
+            }
+            suffix = Path(s3_key).suffix
+            content_type = content_types.get(suffix, "application/octet-stream")
+
+            metadata = {}
+            if source_audio:
+                metadata["source_audio"] = source_audio
+
+            success = self._s3_client.put_object(
+                bucket=self._output_bucket,
+                key=s3_key,
+                body=content.encode("utf-8"),
+                content_type=content_type,
+                metadata=metadata if metadata else None,
+            )
+
+            return success
+
+        except Exception as e:
+            logger.error("Error uploading content to %s: %s", s3_key, e, exc_info=True)
             return False
