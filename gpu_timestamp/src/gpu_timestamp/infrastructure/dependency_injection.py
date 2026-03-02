@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import boto3
-from gpu_instance.config import config
+from gpu_timestamp.config import config
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
@@ -25,10 +25,9 @@ def _create_session() -> boto3.Session:
     """
     if config.local_dev:
         profile = os.getenv("AWS_PROFILE_TIMESTAMP", "portal")
-        return boto3.Session(profile_name=profile, region_name=region)
+        return boto3.Session(profile_name=profile, region_name=config.aws_region)
 
-    region = os.getenv("AWS_REGION", "us-east-1")
-    return boto3.Session(region_name=region)
+    return boto3.Session(region_name=config.aws_region)
 
 
 def _create_s3_downloader(s3_client: S3Client):

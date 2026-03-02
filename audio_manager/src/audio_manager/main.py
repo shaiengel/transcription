@@ -37,9 +37,9 @@ def main():
     # Get media from configured source (see dependency_injection.py to switch)
     media_source = container.media_source()
     day_offsets: list[tuple[str, int]] = [
-        ("yesterday", 1),
+        #("yesterday", 1),
         ("today", 0),
-        ("tomorrow", -1),
+        #("tomorrow", -1),
     ]
 
     # Reuse clients across all day runs
