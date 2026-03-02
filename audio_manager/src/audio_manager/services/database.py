@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Generator
 from urllib.parse import quote_plus
 
@@ -10,13 +11,15 @@ from sqlalchemy.engine import Engine
 
 from audio_manager.models.schemas import CalendarEntry, MediaEntry
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 # Module-level engine singleton
 _engine: Engine | None = None
 
 
 def _get_connection_string() -> str:
     """Build MSSQL connection string from environment variables."""
-    load_dotenv()
+    
     driver = os.getenv("DB_DRIVER_WINDOWS", "ODBC Driver 17 for SQL Server")
     host = os.getenv("DB_HOST", "127.0.0.1")
     port = os.getenv("DB_PORT", "1433")

@@ -32,7 +32,7 @@ def _create_session() -> boto3.Session:
         return boto3.Session(region_name=region)
 
     # For local testing, use AWS profile
-    profile = os.getenv("AWS_PROFILE_REVIEWER", "default")
+    profile = os.getenv("AWS_PROFILE_REVIEWER", "reviewer")
     return boto3.Session(profile_name=profile)
 
 

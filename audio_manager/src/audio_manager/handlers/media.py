@@ -24,6 +24,8 @@ from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.services.s3_uploader import S3Uploader
 from audio_manager.services.sqs_publisher import SQSPublisher
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 # Load system prompt template once at module level
@@ -34,7 +36,7 @@ def _get_system_prompt_template() -> str:
     """Load the system prompt template from package resources."""
     global _SYSTEM_PROMPT_TEMPLATE
     if _SYSTEM_PROMPT_TEMPLATE is None:
-        template_path = resources.files("audio_manager") / "system_prompt.template.txt"
+        template_path = resources.files("audio_manager") / "system_prompt.template.md"
         _SYSTEM_PROMPT_TEMPLATE = template_path.read_text(encoding="utf-8")
     return _SYSTEM_PROMPT_TEMPLATE
 
@@ -47,7 +49,6 @@ def _render_system_prompt(details: str, steinsaltz: str) -> str:
 
 def get_allowed_languages() -> set[str]:
     """Get allowed languages from environment."""
-    load_dotenv()
     languages = os.getenv("ALLOWED_LANGUAGES", "hebrew")
     return {lang.strip() for lang in languages.split(",")}
 
@@ -297,7 +298,6 @@ def publish_uploads_to_sqs(
 
     Skips files that have already been processed (VTT exists in FINAL_BUCKET).
     """
-    load_dotenv()
     final_bucket = os.getenv("FINAL_BUCKET")
     allowed_languages = get_allowed_languages()
     published = 0

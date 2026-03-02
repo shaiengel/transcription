@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import boto3
+from gpu_instance.config import config
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
@@ -15,17 +16,26 @@ from gpu_instance.infrastructure.text_formatter import TextFormatter
 from gpu_instance.infrastructure.timed_text_formatter import TimedTextFormatter
 
 # Load .env file from project root
+# override=True: .env wins over system env vars (for local dev)
+# In Docker: .env is not in the image, so this is a no-op and docker run -e / Dockerfile ENV are used
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 
 def _create_session() -> boto3.Session:
     """Create boto3 session using default credential chain.
 
     - On EC2: uses instance profile
-    - Locally: uses ~/.aws/credentials
+    - Locally: uses ~/.aws/credentials with profile
     """
     region = os.getenv("AWS_REGION", "us-east-1")
+    
+    # For local testing, use AWS profile (LOCAL_DEV=true in local .env only)
+    if config.local_dev:
+        profile = os.getenv("AWS_PROFILE_TRANSCRIBE", "transcription")
+        return boto3.Session(profile_name=profile, region_name=region)
+    
+    # On EC2: uses instance profile via default credential chain
     return boto3.Session(region_name=region)
 
 

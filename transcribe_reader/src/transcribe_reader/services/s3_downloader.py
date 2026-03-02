@@ -2,12 +2,15 @@
 
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from transcribe_reader.infrastructure.s3_client import S3Client
 from transcribe_reader.models.schemas import TranscriptionFile
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -16,7 +19,6 @@ class S3Downloader:
 
     def __init__(self, s3_client: S3Client):
         self._s3_client = s3_client
-        load_dotenv()
         self._default_bucket = os.getenv("S3_TRANSCRIPTION_BUCKET", "final-transcription")
 
     def _get_bucket(self, transcription_file: TranscriptionFile) -> str:

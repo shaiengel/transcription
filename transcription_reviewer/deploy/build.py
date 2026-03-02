@@ -11,23 +11,13 @@ def build():
         shutil.rmtree(build_dir)
     build_dir.mkdir()
 
-    # Install deps to build folder
-    # Step 1: Install Linux binary packages (skip packages without Linux wheels)
+    # Install deps to build folder (Linux x86_64 for Lambda)
     subprocess.run([
-        "pip", "install", "-r", "requirements.txt",
-        "-t", str(build_dir),
-        "--platform", "manylinux2014_x86_64",
-        "--only-binary=:all:",
+        "uv", "pip", "install", "-r", "requirements.txt",
+        "--target", str(build_dir),
+        "--python-platform", "linux",
         "--python-version", "3.12",
-        "--implementation", "cp",
-    ], check=False)
-
-    # Step 2: Install remaining pure Python packages (won't overwrite existing)
-    subprocess.run([
-        "pip", "install", "-r", "requirements.txt",
-        "-t", str(build_dir),
-        "--upgrade-strategy", "only-if-needed",
-    ])
+    ], check=True)
 
     # Copy source
     shutil.copytree("src/transcription_reviewer", build_dir / "transcription_reviewer")

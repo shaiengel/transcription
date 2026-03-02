@@ -639,13 +639,13 @@ ALLOWED_LANGUAGES=hebrew
 ### AWS Configuration (`~/.aws/credentials`)
 
 ```ini
-[default]
+[portal]
 aws_access_key_id = YOUR_KEY
 aws_secret_access_key = YOUR_SECRET
 
 [transcription]
 role_arn = arn:aws:iam::ACCOUNT:role/ROLE_NAME
-source_profile = default
+source_profile = portal
 region = us-east-1
 ```
 
@@ -929,7 +929,7 @@ For each record in the batch output:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region |
-| `AWS_PROFILE_POST_REVIEWER` | `default` | AWS profile (local dev only) |
+| `AWS_PROFILE_POST_REVIEWER` | `portal` | AWS profile (local dev only) |
 | `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket (.time files + batch output) |
 | `OUTPUT_BUCKET` | `final-transcription` | Destination bucket for output files |
 | `AUDIO_BUCKET` | `portal-daf-yomi-audio` | Audio bucket (for cleanup) |
@@ -1022,7 +1022,7 @@ DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 
 # AWS
-AWS_PROFILE=default
+AWS_PROFILE=portal
 S3_TRANSCRIPTION_BUCKET=portal-daf-yomi-transcription
 
 # GitLab

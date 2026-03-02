@@ -88,14 +88,14 @@ def save_outputs(result, output_dir: Path, stem: str) -> tuple[Path, Path, Path]
 
 
 def test_align_local_files(
-    text_path: str = r"C:\Users\z0050yye\Downloads\303549.txt",
-    audio_path: str = r"C:\Users\z0050yye\Downloads\303549.mp3",
+    text_path: str = r"C:\Users\z0050yye\Downloads\59488.txt",
+    audio_path: str = r"C:\Users\z0050yye\Downloads\59488.mp3",
     json_path: str = r"C:\Users\z0050yye\Downloads\303549.json",
     vtt_path: str = r"C:\Users\z0050yye\Downloads\303549.vtt",
     language: str = "he",
-    model_name: str = "base",
+    model_name: str = "large",
     device: str = "cpu",
-    token_step: int = 100,
+    token_step: int = 200,
 ) -> None:
     """
     Test alignment with local files.
@@ -120,12 +120,13 @@ def test_align_local_files(
     # vtt_content = Path(vtt_path).read_text(encoding="utf-8")
     # logger.info("Read %d characters from %s", len(vtt_content), vtt_path)
 
+    text_content = Path(text_path).read_text(encoding="utf-8")
     # Load model if not already loaded
     if _model is None:
         load_model(model_name, device)
 
     # Run alignment
-    result = align_audio(audio_path, text_path, language, token_step)
+    result = align_audio(audio_path, text_content, language, token_step)
 
     # Save outputs to same directory as audio
     json_path, vtt_path, srt_path = save_outputs(result, output_dir, stem)

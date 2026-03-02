@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -11,9 +12,9 @@ from transcribe_reader.models.schemas import TranscriptionFile
 from transcribe_reader.services.s3_downloader import S3Downloader
 from transcribe_reader.services.gitlab_uploader import GitLabUploader
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 SQS_QUEUE_URL = os.getenv(
     "SQS_QUEUE_URL",
     "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",

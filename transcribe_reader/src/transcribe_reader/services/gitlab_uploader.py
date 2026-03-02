@@ -3,12 +3,15 @@
 import logging
 import os
 from datetime import date
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from transcribe_reader.infrastructure.gitlab_client import GitLabClient
 from transcribe_reader.models.schemas import TranscriptionFile
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 GITLAB_TARGET_PATH = "backend/data/portal_transcriptions"
@@ -19,7 +22,6 @@ class GitLabUploader:
 
     def __init__(self, gitlab_client: GitLabClient):
         self._gitlab_client = gitlab_client
-        load_dotenv()
         self._branch = os.getenv("GITLAB_BRANCH", "main")
 
     def upload(self, transcription_file: TranscriptionFile) -> bool:

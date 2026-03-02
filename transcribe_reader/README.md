@@ -74,7 +74,7 @@ DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 
 # AWS
-AWS_PROFILE=default
+AWS_PROFILE=portal
 S3_TRANSCRIPTION_BUCKET=portal-daf-yomi-transcription
 
 # GitLab

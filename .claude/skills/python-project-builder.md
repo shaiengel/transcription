@@ -99,7 +99,7 @@ def _create_session() -> boto3.Session:
         return boto3.Session(region_name=region)
 
     # Local: Uses AWS profile
-    profile = os.getenv("AWS_PROFILE", "default")
+    profile = os.getenv("AWS_PROFILE", "portal")
     return boto3.Session(profile_name=profile, region_name=region)
 ```
 
@@ -289,7 +289,7 @@ config.validate()
 ```jinja
 # AWS Configuration
 AWS_REGION={{ aws.region }}
-AWS_PROFILE={{ aws.profile }}
+AWS_PROFILE={{ aws.default_profile }}
 
 # S3 Configuration
 BUCKET_NAME={{ s3.bucket_name }}

@@ -7,8 +7,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env file from project root
+# override=True: .env wins over system env vars (for local dev)
+# In Docker: .env is not in the image, so this is a no-op and docker run -e / Dockerfile ENV are used
 env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 
 @dataclass
@@ -20,6 +22,7 @@ class Config:
     aws_role_arn: str = os.getenv(
         "AWS_ROLE_ARN", "arn:aws:iam::707072965202:role/gpu-transcription-role"
     )
+    local_dev: bool = os.getenv("LOCAL_DEV", "false").lower() in ("true", "1", "yes")
 
     # S3 Buckets
     source_bucket: str = os.getenv("SOURCE_BUCKET", "portal-daf-yomi-audio")

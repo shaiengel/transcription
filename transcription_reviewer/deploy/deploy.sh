@@ -18,6 +18,6 @@ echo "=== Uploading to AWS Lambda ==="
 aws lambda update-function-code \
     --function-name "$LAMBDA_FUNCTION_NAME" \
     --zip-file fileb://lambda_function.zip \
-    --region "$AWS_REGION"
+    --region "$AWS_REGION" --profile portal
 
 echo "=== Deployment complete ==="

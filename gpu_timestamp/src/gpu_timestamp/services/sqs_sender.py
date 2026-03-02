@@ -4,12 +4,14 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from gpu_timestamp.infrastructure.sqs_client import SQSClient
 
-load_dotenv()
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 

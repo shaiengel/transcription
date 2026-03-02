@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # Load .env file from project root
 env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 
 @dataclass
@@ -17,6 +17,8 @@ class Config:
 
     # AWS
     aws_region: str = os.getenv("AWS_REGION", "us-east-1")
+
+    local_dev: bool = os.getenv("LOCAL_DEV", "false").lower() in ("true", "1", "yes")
 
     # S3 Buckets
     audio_bucket: str = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")

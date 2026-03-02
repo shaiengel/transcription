@@ -78,7 +78,7 @@ Add to `~/.aws/config`:
 ```ini
 [profile post_reviewer]
 role_arn = arn:aws:iam::707072965202:role/portal-post-reviewer-role
-source_profile = default
+source_profile = portal
 region = us-east-1
 ```
 

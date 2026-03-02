@@ -10,8 +10,8 @@ import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-# Load .env if exists (local dev only, no-op in Lambda)
-load_dotenv()
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 
 @lru_cache(maxsize=1)
