@@ -7,7 +7,7 @@ from pathlib import Path
 from audio_manager.handlers.media import (
     download_media,
     enrich_with_steinsaltz,
-    get_calendar,
+    get_calendar_window,
     print_media_links,
     publish_uploads_to_sqs,
     upload_media_to_s3,
@@ -70,8 +70,8 @@ def main():
 
         # Enrich with Steinsaltz commentary from GitLab (only for database mode)
         if isinstance(media_source, DatabaseMediaSource):
-            calendar_entries = get_calendar(days_ago=days_ago)
-            enrich_with_steinsaltz(media_links, calendar_entries, gitlab_client)
+            calendar = get_calendar_window(days_ago=days_ago)
+            enrich_with_steinsaltz(media_links, calendar, gitlab_client)
 
         print_media_links(media_links)
 

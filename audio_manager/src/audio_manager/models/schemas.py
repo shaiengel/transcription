@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -6,6 +7,13 @@ from pydantic import BaseModel
 class CalendarEntry(BaseModel):
     massechet_id: int
     daf_id: int
+
+
+@dataclass
+class CalendarWindow:
+    today: list[CalendarEntry] = field(default_factory=list)
+    yesterday: list[CalendarEntry] = field(default_factory=list)
+    tomorrow: list[CalendarEntry] = field(default_factory=list)
 
 
 class MediaEntry(BaseModel):
