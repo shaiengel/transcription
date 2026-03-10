@@ -94,6 +94,7 @@ This is a valid phonetic correction.
 **9. Language constraint**
 All corrections must remain in Hebrew.
 Do not translate the text.
+If text appears not in Hebrew find the most phonetic Hebrew match in regard to the context.
 
 ---
 

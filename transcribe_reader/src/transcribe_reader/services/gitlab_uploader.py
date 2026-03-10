@@ -73,8 +73,7 @@ class GitLabUploader:
             descriptions.append(f"- {transcription_file.s3_key}")
 
         # Build commit message with file descriptions
-        commit_message = f"Sync {len(actions)} transcription(s) - {date.today().isoformat()}\n\n"
-        commit_message += "\n".join(descriptions)
+        commit_message = "upload transcription"
 
         if self._gitlab_client.batch_commit(actions, commit_message, self._branch):
             return len(actions)

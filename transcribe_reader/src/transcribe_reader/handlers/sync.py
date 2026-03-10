@@ -133,18 +133,17 @@ def sync_transcriptions(
     if files_with_content:
         uploaded = gitlab_uploader.batch_upload(files_with_content)
 
-    # Step 5: Delete successfully processed messages from SQS
+    # Step 5: Delete processed messages from SQS
     deleted = 0
     for files, receipt_handle in message_entries:
-        if all(file_item.content for file_item in files):
-            if sqs_client.delete_message(SQS_QUEUE_URL, receipt_handle):
-                deleted += 1
-                logger.info("Deleted SQS message for stem: %s", files[0].stem)
-        else:
+        if not all(file_item.content for file_item in files):
             logger.warning(
-                "Skipping delete for stem %s; missing one or more files",
+                "Missing one or more files for stem %s; deleting message anyway",
                 files[0].stem,
             )
+        if sqs_client.delete_message(SQS_QUEUE_URL, receipt_handle):
+            deleted += 1
+            logger.info("Deleted SQS message for stem: %s", files[0].stem)
 
     return {
         "messages": len(messages),
