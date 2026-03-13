@@ -82,59 +82,98 @@ class GeminiPipeline(LLMPipeline):
         return entries
 
     def invoke(self, prepared_data: list[BatchEntry]) -> list[tuple[str, str, bool]]:
-        """Call Gemini for each entry using cached system prompts."""
+        """Call Gemini for each entry using cached system prompts.
+
+        Splits each entry into ~1000 word chunks (at line boundaries) to avoid
+        hallucinations on long content, then merges results back together.
+        """
         results = []
 
         for entry in prepared_data:
             try:
-                logger.info(f"Processing {entry.record_id} with Gemini")
-
-                # Get or create cache for this system prompt
                 cache_name = self._get_or_create_cache(entry.system_prompt)
-
-                # Build config with or without cache
-                if cache_name:
-                    config = types.GenerateContentConfig(
-                        temperature=self._temperature,
-                        max_output_tokens=self._max_tokens,
-                        cached_content=cache_name,
-                        thinking_config=types.ThinkingConfig(
-                            thinking_budget=1024  # number of thinking tokens (0 = off)
-                        ),
-                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                            disable=True  # or max_remote_calls=5
-                        )
-                    )
-                else:
-                    # Fallback: no cache, use system_instruction directly
-                    config = types.GenerateContentConfig(
-                        temperature=self._temperature,
-                        max_output_tokens=self._max_tokens,
-                        system_instruction=entry.system_prompt,
-                        thinking_config=types.ThinkingConfig(
-                            thinking_budget=1024  # number of thinking tokens (0 = off)
-                        ),
-                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                            disable=True  # or max_remote_calls=5
-                        )
-                    )
-
-                # Generate with model name (not cache name)
-                response = self._client.models.generate_content(
-                    model=self._model_name,
-                    contents=entry.content,
-                    config=config,
-                )
-
-                fixed_text = response.text
-                results.append((entry.record_id, fixed_text, True))
-                logger.info(f"Successfully processed {entry.record_id}")
-
+                config = self._build_config(cache_name, entry.system_prompt)
+                
+                record_id, fixed_text, success = self._invoke_entry(entry, config)
+                results.append((record_id, fixed_text, success))
             except Exception as e:
                 logger.error(f"Failed to process {entry.record_id}: {e}")
                 results.append((entry.record_id, "", False))
 
         return results
+
+    def _invoke_entry(self, entry: BatchEntry, config: types.GenerateContentConfig) -> tuple[str, str, bool]:
+        """Process a single entry, splitting into word chunks if needed."""
+        logger.info(f"Processing {entry.record_id} with Gemini")
+
+        chunks = self._split_by_words(entry.content)
+        if len(chunks) > 1:
+            logger.info(f"Split {entry.record_id} into {len(chunks)} word-chunks")
+
+        chunk_results = []
+        for i, chunk in enumerate(chunks, start=1):
+            if len(chunks) > 1:
+                logger.info(f"  Processing chunk {i}/{len(chunks)} of {entry.record_id}")
+
+            fixed_chunk = self._call_gemini(chunk, config)
+            chunk_results.append(fixed_chunk)
+
+        fixed_text = "\n".join(chunk_results)
+        logger.info(f"Successfully processed {entry.record_id}")
+        return entry.record_id, fixed_text, True
+
+    def _build_config(self, cache_name: Optional[str], system_prompt: str) -> types.GenerateContentConfig:
+        """Build Gemini config with cache or system instruction fallback."""
+        kwargs = {
+            "temperature": self._temperature,
+            "max_output_tokens": self._max_tokens,
+            "thinking_config": types.ThinkingConfig(thinking_budget=1024),
+            "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
+        }
+        if cache_name:
+            kwargs["cached_content"] = cache_name
+        else:
+            kwargs["system_instruction"] = system_prompt
+        return types.GenerateContentConfig(**kwargs)
+
+    def _call_gemini(self, content: str, config: types.GenerateContentConfig) -> str:
+        """Send content to Gemini and return the response text."""
+        response = self._client.models.generate_content(
+            model=self._model_name,
+            contents=content,
+            config=config,
+        )
+        return response.text
+
+    @staticmethod
+    def _split_by_words(content: str, max_words: int = 1000) -> list[str]:
+        """Split content into chunks of ~max_words, breaking at line boundaries."""
+        lines = content.strip().split("\n")
+        if not lines:
+            return [content]
+
+        total_words = len(content.split())
+        if total_words <= max_words:
+            return [content.strip()]
+
+        chunks = []
+        current_lines: list[str] = []
+        current_word_count = 0
+
+        for line in lines:
+            line_words = len(line.split())
+            if current_word_count + line_words > max_words and current_lines:
+                chunks.append("\n".join(current_lines))
+                current_lines = [line]
+                current_word_count = line_words
+            else:
+                current_lines.append(line)
+                current_word_count += line_words
+
+        if current_lines:
+            chunks.append("\n".join(current_lines))
+
+        return chunks
 
     def post_process(self, llm_response: list[tuple[str, str, bool]], original_files: list[BatchEntry]) -> ReviewResult:
         """Match timestamps, create VTT, upload to S3, send SQS."""
@@ -283,29 +322,35 @@ class GeminiPipeline(LLMPipeline):
             return int(word_count * 4)
 
     def _split_content(self, content: str, total_tokens: int) -> list[tuple[str, int]]:
-        """Split content by tokens if over limit."""
-        lines = content.strip().split("\n")
-        if not lines or total_tokens <= self._max_tokens:
-            return [(content.strip(), total_tokens)]
+        """Split content by tokens if over limit.
 
-        tokens_per_line = total_tokens / len(lines)
-        chunks = []
-        current_lines = []
-        current_tokens = 0.0
+        NOTE: Token-based splitting is now handled by _split_by_words in invoke().
+        Always returns a single chunk.
+        """
+        return [(content.strip(), total_tokens)]
 
-        for line in lines:
-            if current_tokens + tokens_per_line > self._max_tokens and current_lines:
-                chunks.append(("\n".join(current_lines), int(current_tokens)))
-                current_lines = [line]
-                current_tokens = tokens_per_line
-            else:
-                current_lines.append(line)
-                current_tokens += tokens_per_line
-
-        if current_lines:
-            chunks.append(("\n".join(current_lines), int(current_tokens)))
-
-        return chunks
+        # lines = content.strip().split("\n")
+        # if not lines or total_tokens <= self._max_tokens:
+        #     return [(content.strip(), total_tokens)]
+        #
+        # tokens_per_line = total_tokens / len(lines)
+        # chunks = []
+        # current_lines = []
+        # current_tokens = 0.0
+        #
+        # for line in lines:
+        #     if current_tokens + tokens_per_line > self._max_tokens and current_lines:
+        #         chunks.append(("\n".join(current_lines), int(current_tokens)))
+        #         current_lines = [line]
+        #         current_tokens = tokens_per_line
+        #     else:
+        #         current_lines.append(line)
+        #         current_tokens += tokens_per_line
+        #
+        # if current_lines:
+        #     chunks.append(("\n".join(current_lines), int(current_tokens)))
+        #
+        # return chunks
 
     def _inject_timestamps(self, fixed_text: str, timed_content: str) -> str | None:
         """Inject timestamps from timed_content into fixed_text."""
