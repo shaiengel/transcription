@@ -1260,8 +1260,8 @@ for trans in transcriptions:
 
 1. **List files**: Find all `.txt` files in transcription bucket
 2. **Fetch prompts**: Load per-file system prompt from S3 template
-3. **Prepare data**: Pass-through (no splitting)
-4. **Invoke**: Call Gemini API sequentially for each file
+3. **Prepare data**: Pass-through (no token-based splitting — `_split_content` always returns 1 chunk)
+4. **Invoke**: For each entry, split content into ~1000 word chunks at line boundaries (`_split_by_words`), call Gemini per chunk, merge results. This prevents hallucinations on long content (Gemini degrades after ~10 min).
 5. **Post-process**: For each file:
    - Read `.time` file with timestamps
    - Inject timestamps into fixed text
