@@ -82,19 +82,12 @@ def get_massechet_sefaria_name(conn: Connection, massechet_id: int) -> str | Non
 
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
-    # query = text("""
-    #     SELECT media_id, media_link, maggid_description, massechet_name,
-    #            daf_name, language_en, media_duration, file_type
-    #     FROM [vps_daf-yomi].[dbo].[View_Media]
-    #     WHERE massechet_id = :massechet_id AND daf_id = :daf_id
-    #       AND media_duration IS NOT NULL AND media_duration > 0
-    # """)
     query = text("""
         SELECT media_id, media_link, maggid_description, massechet_name,
                daf_name, language_en, media_duration, file_type
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
-          AND media_duration IS NOT NULL AND media_duration > 0
+          AND file_type IN ('mp3', 'mp4')
           AND language_en = 'hebrew'
     """)
     result = conn.execute(

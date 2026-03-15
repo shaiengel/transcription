@@ -1,3 +1,4 @@
+
 # CLAUDE.md - Architecture Guide for Claude Code
 
 This file provides context and instructions for Claude Code to understand and work with the Audio Transcription Pipeline.
@@ -1361,3 +1362,9 @@ For each transcription `{stem}.txt`:
 4. **S3-based Configuration**: Templates can be updated without code deployment
 5. **Better Error Handling**: Tracks files with missing templates separately
 6. **Cost Optimization**: Bedrock batch saves ~50%, can switch to Gemini for faster turnaround
+
+---
+
+## Session Continuity
+
+At the start of each session, check `.claude/handoffs/` for the most recent handoff file and read it before doing anything else.

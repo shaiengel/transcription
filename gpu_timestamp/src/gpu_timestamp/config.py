@@ -35,6 +35,17 @@ class Config:
     language: str = os.getenv("LANGUAGE", "he")
     token_step: int = int(os.getenv("TOKEN_STEP", "200"))
     whisper_cache: str | None = os.getenv("WHISPER_CACHE", None)
+    rolling_avg_target: float = float(os.getenv("ROLLING_AVG_TARGET", "0.25"))
+
+    # DTW alignment parameters
+    dtw_band_width: int = int(os.getenv("DTW_BAND_WIDTH", "200"))
+    dtw_step_pattern: str = os.getenv("DTW_STEP_PATTERN", "asymmetric")
+    dtw_match_threshold: float = float(os.getenv("DTW_MATCH_THRESHOLD", "0.5"))
+    dtw_high_dist_threshold: float = float(os.getenv("DTW_HIGH_DIST_THRESHOLD", "0.7"))
+    dtw_low_score_threshold: float = float(os.getenv("DTW_LOW_SCORE_THRESHOLD", "0.5"))
+    dtw_jump_threshold: int = int(os.getenv("DTW_JUMP_THRESHOLD", "40"))
+    dtw_drop_threshold: float = float(os.getenv("DTW_DROP_THRESHOLD", "0.25"))
+    dtw_ma_window: int = int(os.getenv("DTW_MA_WINDOW", "10"))
 
     def validate(self) -> None:
         """Validate required configuration."""

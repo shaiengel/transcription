@@ -9,7 +9,7 @@ from gpu_timestamp.config import config
 from gpu_timestamp.models.schemas import AlignmentResult, SQSMessage
 from gpu_timestamp.services.aligner import align_audio, save_outputs
 from gpu_timestamp.services.alignment_evaluator import (
-    evaluate_alignment,
+    AlignmentEvaluator,
     truncate_srt_file,
     truncate_vtt_file,
 )
@@ -70,6 +70,24 @@ def process_message(
                 error="Failed to download text",
             )
 
+        # Download pre-fix .time file and run DTW to fix text before alignment
+        evaluator = AlignmentEvaluator(
+            band_width=config.dtw_band_width,
+            step_pattern=config.dtw_step_pattern,
+            match_threshold=config.dtw_match_threshold,
+            high_dist_threshold=config.dtw_high_dist_threshold,
+            low_score_threshold=config.dtw_low_score_threshold,
+            jump_threshold=config.dtw_jump_threshold,
+            drop_threshold=config.dtw_drop_threshold,
+            ma_window=config.dtw_ma_window,
+            rolling_avg_target=config.rolling_avg_target,
+        )
+        prefix_time_content = s3_downloader.download_text(stem + ".pre-fix.time")
+        if prefix_time_content:
+            text_content = evaluator.pre_alignment_fix(prefix_time_content, text_content)
+        else:
+            logger.warning("No pre-fix .time file for %s, skipping DTW fix", stem)
+
         # Align audio with text
         result = align_audio(str(audio_path), text_content, message.language, config.token_step)
         if result is None:
@@ -84,18 +102,15 @@ def process_message(
         json_path, vtt_path, srt_path = save_outputs(result, temp_dir, stem)
 
         # Evaluate alignment quality and truncate if degradation detected
-        analysis_result = evaluate_alignment(json_path)
-        if analysis_result:
+        analysis_result = evaluator.post_alignment_evaluate(json_path)
+        if analysis_result and analysis_result.get("should_truncate"):
+            truncate_point = analysis_result["truncate_point"]
             logger.warning(
-                "Degradation detected for %s: rolling_avg=%d, cusum=%d",
+                "Degradation detected for %s: rolling_avg=%d, dtw_cutoff=%s, truncating at %d",
                 stem,
                 analysis_result["rolling_avg_method"],
-                analysis_result["cusum_method"],
-            )
-            # Truncate VTT/SRT at degradation point (use max of both methods)
-            truncate_point = max(
-                analysis_result["cusum_method"],
-                analysis_result["rolling_avg_method"],
+                analysis_result["dtw_cutoff_index"],
+                truncate_point,
             )
             truncate_vtt_file(vtt_path, truncate_point)
             truncate_srt_file(srt_path, truncate_point)
@@ -122,7 +137,7 @@ def process_message(
         # Upload analysis file if degradation was detected
         if analysis_result:
             analysis_uploaded = s3_uploader.upload_content(
-                json.dumps(analysis_result, indent=2),
+                json.dumps(analysis_result, indent=2, default=str),
                 f"{stem}.analysis",
                 source_audio=s3_key,
             )

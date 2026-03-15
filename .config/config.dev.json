@@ -43,7 +43,8 @@
     "model": "large-v3",
     "device": "cuda",
     "language": "he",
-    "token_step": "200"
+    "token_step": "200",
+    "rolling_avg_target": "0.25"
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
@@ -73,6 +74,16 @@
     "project_id": "llm241203/dy6",
     "private_token": "",
     "branch": "main"
+  },
+  "dtw": {
+    "band_width": 200,
+    "step_pattern": "asymmetric",
+    "match_threshold": 0.5,
+    "high_dist_threshold": 0.7,
+    "low_score_threshold": 0.5,
+    "jump_threshold": 40,
+    "drop_threshold": 0.25,
+    "ma_window": 10
   },
   "statistics": {
     "max_segment_duration_seconds": 100

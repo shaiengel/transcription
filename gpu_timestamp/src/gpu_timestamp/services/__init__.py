@@ -2,7 +2,6 @@
 
 from .aligner import align_audio, load_model, save_outputs
 from .alignment_evaluator import (
-    evaluate_alignment,
     truncate_srt_file,
     truncate_vtt_file,
 )
@@ -15,7 +14,6 @@ __all__ = [
     "load_model",
     "align_audio",
     "save_outputs",
-    "evaluate_alignment",
     "truncate_vtt_file",
     "truncate_srt_file",
     "S3Downloader",
