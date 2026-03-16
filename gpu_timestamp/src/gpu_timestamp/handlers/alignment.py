@@ -125,8 +125,11 @@ def process_message(
         srt_uploaded = s3_uploader.upload_file(
             srt_path, f"{stem}.srt", source_audio=s3_key
         )
+        txt_uploaded = s3_uploader.upload_file(
+            text_content, f"{stem}.dtw.txt", source_audio=s3_key
+        )
 
-        if not json_uploaded or not vtt_uploaded or not srt_uploaded:
+        if not json_uploaded or not vtt_uploaded or not srt_uploaded or not txt_uploaded:
             logger.error("Failed to upload outputs for: %s", s3_key)
             return AlignmentResult(
                 source_key=s3_key,
