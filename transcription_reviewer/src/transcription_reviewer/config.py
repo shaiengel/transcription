@@ -101,7 +101,10 @@ class Config:
 
     # Processing
     max_segment_duration_seconds: float = float(
-        _get_config("MAX_SEGMENT_DURATION_SECONDS", "30.0")
+        _get_config("MAX_SEGMENT_DURATION_SECONDS", "100.0")
+    )
+    timeout_threshold_ms: int = int(
+        _get_config("TIMEOUT_THRESHOLD_MS", "240000")
     )
 
     def validate(self) -> None:

@@ -55,3 +55,4 @@ class ReviewResult(BaseModel):
     fixed: int
     failed: int
     batch_job_arn: str | None = None
+    timed_out: bool = False

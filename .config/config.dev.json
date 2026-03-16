@@ -85,6 +85,9 @@
     "drop_threshold": 0.25,
     "ma_window": 10
   },
+  "lambda": {
+    "timeout_threshold_ms": 240000
+  },
   "statistics": {
     "max_segment_duration_seconds": 100
   }

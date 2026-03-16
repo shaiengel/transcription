@@ -1288,6 +1288,7 @@ for trans in transcriptions:
 | `MIN_ENTRIES` | `100` | Batch padding size |
 | `MAX_TOKENS` | `60000` | Token limit per entry |
 | `TEMPERATURE` | `0.4` | LLM temperature |
+| `TIMEOUT_THRESHOLD_MS` | `240000` | Time remaining (ms) before Lambda re-invokes itself |
 
 ### Commands
 
@@ -1325,6 +1326,13 @@ session → s3_boto_client → s3_client → s3_reader
 llm_pipeline → BedrockBatchPipeline OR GeminiPipeline
 ```
 
+### Lambda Self-Reinvocation (Timeout Handling)
+
+Processing can exceed the 15-minute Lambda limit. After each file in the loop, `context.get_remaining_time_in_millis()` is checked. If less than `TIMEOUT_THRESHOLD_MS` (default 4 min) remains, the Lambda asynchronously re-invokes itself (`InvocationType="Event"`) and returns. Since processed files are deleted from S3 after completion, the new invocation picks up only remaining files.
+
+- **Config**: `TIMEOUT_THRESHOLD_MS` env var / `lambda.timeout_threshold_ms` in `config.dev.json`
+- **Local dev**: `context` is `None`, so the timeout check is skipped (processes all files)
+
 ### IAM Role: `portal-reviewer-role`
 
 **Permissions**:
@@ -1332,6 +1340,7 @@ llm_pipeline → BedrockBatchPipeline OR GeminiPipeline
 - `bedrock:InvokeModel` (Bedrock runtime)
 - `bedrock:CreateModelInvocationJob`, `bedrock:GetModelInvocationJob` (Bedrock batch)
 - `sqs:SendMessage` (results queue)
+- `lambda:InvokeFunction` (self-reinvocation: `arn:aws:lambda:us-east-1:707072965202:function:transcription-reviewer`)
 - CloudWatch Logs
 
 **Trust**: `lambda.amazonaws.com`
@@ -1362,6 +1371,16 @@ For each transcription `{stem}.txt`:
 4. **S3-based Configuration**: Templates can be updated without code deployment
 5. **Better Error Handling**: Tracks files with missing templates separately
 6. **Cost Optimization**: Bedrock batch saves ~50%, can switch to Gemini for faster turnaround
+
+---
+
+## Algorithm Documentation
+
+Detailed docs on DTW alignment and evaluation algorithms are stored in `.claude/memory/`. When working on alignment evaluation, replacements, or step patterns, read these files for context:
+
+- `dtw_replacements.md` — Replacement logic: modes (replace, insert_before, insert_after), grouping, anchoring, merging
+- `dtw_step_patterns.md` — DTW step pattern options and why we use `asymmetric`
+- `alignment_evaluation.md` — Two-phase evaluation: pre-alignment DTW + post-alignment probability, all configurable parameters
 
 ---
 
