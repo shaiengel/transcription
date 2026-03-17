@@ -87,7 +87,7 @@ class Config:
     batch_role_arn: str = _get_config("BATCH_ROLE_ARN", "")
     min_entries: int = int(_get_config("MIN_ENTRIES", "100"))
     max_tokens: int = int(_get_config("MAX_TOKENS", "60000"))
-    temperature: float = float(_get_config("TEMPERATURE", "0.4"))
+    temperature: float = float(_get_config("TEMPERATURE", "0.1"))
 
     # Google Gemini config
     google_api_key: str = (

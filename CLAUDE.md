@@ -1287,7 +1287,7 @@ for trans in transcriptions:
 | `SQS_QUEUE_URL` | - | Results queue (Gemini) |
 | `MIN_ENTRIES` | `100` | Batch padding size |
 | `MAX_TOKENS` | `60000` | Token limit per entry |
-| `TEMPERATURE` | `0.4` | LLM temperature |
+| `TEMPERATURE` | `0.1` | LLM temperature |
 | `TIMEOUT_THRESHOLD_MS` | `240000` | Time remaining (ms) before Lambda re-invokes itself |
 
 ### Commands

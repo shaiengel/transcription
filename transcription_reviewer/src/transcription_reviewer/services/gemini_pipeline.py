@@ -35,7 +35,7 @@ class GeminiPipeline(LLMPipeline):
         output_bucket: str,
         sqs_queue_url: str,
         model_name: str = "gemini-2.5-flash",
-        temperature: float = 0.4,
+        temperature: float = 0.1,
         max_tokens: int = 60000,
     ):
         self._s3_client = s3_client

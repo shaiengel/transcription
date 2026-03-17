@@ -54,7 +54,7 @@
   "batch": {
     "min_entries": "100",
     "max_tokens": "60000",
-    "temperature": "0.4"
+    "temperature": "0.1"
   },
   "ecs": {
     "cluster_name": "your-ecs-cluster-name",

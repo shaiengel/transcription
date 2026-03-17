@@ -29,7 +29,7 @@ class BedrockBatchPipeline(LLMPipeline):
         batch_role_arn: str,
         min_entries: int = 100,
         max_tokens: int = 60000,
-        temperature: float = 0.4,
+        temperature: float = 0.1,
     ):
         self._s3_client = s3_client
         self._bedrock_batch_client = bedrock_batch_client

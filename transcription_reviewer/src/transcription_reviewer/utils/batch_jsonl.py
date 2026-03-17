@@ -20,7 +20,7 @@ MIN_ENTRIES = int(os.getenv("MIN_ENTRIES", "100"))
 # Max tokens before Bedrock cuts off output
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "60000"))
 # Temperature for phonetic correction (0.3-0.5 helps with sound-alike reasoning)
-TEMPERATURE = float(os.getenv("TEMPERATURE", "0.4"))
+TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
 
 
 @dataclass
