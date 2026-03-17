@@ -125,7 +125,7 @@ def process_message(
         srt_uploaded = s3_uploader.upload_file(
             srt_path, f"{stem}.srt", source_audio=s3_key
         )
-        txt_uploaded = s3_uploader.upload_file(
+        txt_uploaded = s3_uploader.upload_content(
             text_content, f"{stem}.dtw.txt", source_audio=s3_key
         )
 
@@ -137,8 +137,8 @@ def process_message(
                 error="Failed to upload outputs",
             )
 
-        # Upload analysis file if degradation was detected
-        if analysis_result:
+        # Upload analysis file only if truncation was applied
+        if analysis_result and analysis_result.get("should_truncate"):
             analysis_uploaded = s3_uploader.upload_content(
                 json.dumps(analysis_result, indent=2, default=str),
                 f"{stem}.analysis",
