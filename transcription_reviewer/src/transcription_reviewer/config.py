@@ -99,6 +99,10 @@ class Config:
     # SQS
     sqs_queue_url: str = _get_config("SQS_QUEUE_URL", "")
 
+    # Gemini splitting strategy
+    split_by_words: bool = _get_config("SPLIT_BY_WORDS", "true").lower() in ("true", "1", "yes")
+    split_by_words_max: int = int(_get_config("SPLIT_BY_WORDS_MAX", "5000"))
+
     # Processing
     max_segment_duration_seconds: float = float(
         _get_config("MAX_SEGMENT_DURATION_SECONDS", "100.0")

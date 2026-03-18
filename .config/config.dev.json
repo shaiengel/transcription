@@ -51,6 +51,10 @@
     "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
     "batch_role_arn": "arn:aws:iam::707072965202:role/portal-bedrock-batch"
   },
+  "gemini": {
+    "split_by_words": "true",
+    "split_by_words_max": "5000"
+  },
   "batch": {
     "min_entries": "100",
     "max_tokens": "60000",

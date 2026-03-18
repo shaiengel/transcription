@@ -93,6 +93,8 @@ def _create_gemini_pipeline(
         model_name=config.gemini_model,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
+        split_by_words=config.split_by_words,
+        split_by_words_max=config.split_by_words_max,
     )
 
 

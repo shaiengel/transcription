@@ -37,6 +37,8 @@ class GeminiPipeline(LLMPipeline):
         model_name: str = "gemini-2.5-flash",
         temperature: float = 0.1,
         max_tokens: int = 60000,
+        split_by_words: bool = True,
+        split_by_words_max: int = 5000,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -46,6 +48,8 @@ class GeminiPipeline(LLMPipeline):
         self._model_name = model_name
         self._temperature = temperature
         self._max_tokens = max_tokens
+        self._split_by_words = split_by_words
+        self._split_by_words_max = split_by_words_max
 
         # Create client
         self._client = genai.Client(api_key=api_key)
@@ -83,9 +87,7 @@ class GeminiPipeline(LLMPipeline):
 
     def invoke(self, prepared_data: list[BatchEntry]) -> list[tuple[str, str, bool]]:
         """Call Gemini for each entry using cached system prompts.
-
-        Splits each entry into ~1000 word chunks (at line boundaries) to avoid
-        hallucinations on long content, then merges results back together.
+        
         """
         results = []
 
@@ -103,22 +105,26 @@ class GeminiPipeline(LLMPipeline):
         return results
 
     def _invoke_entry(self, entry: BatchEntry, config: types.GenerateContentConfig) -> tuple[str, str, bool]:
-        """Process a single entry, splitting into word chunks if needed."""
+        """Process a single entry, splitting into word chunks if enabled."""
         logger.info(f"Processing {entry.record_id} with Gemini")
 
-        chunks = self._split_by_words(entry.content)
-        if len(chunks) > 1:
-            logger.info(f"Split {entry.record_id} into {len(chunks)} word-chunks")
-
-        chunk_results = []
-        for i, chunk in enumerate(chunks, start=1):
+        if self._split_by_words:
+            chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
             if len(chunks) > 1:
-                logger.info(f"  Processing chunk {i}/{len(chunks)} of {entry.record_id}")
+                logger.info(f"Split {entry.record_id} into {len(chunks)} word-chunks")
 
-            fixed_chunk = self._call_gemini(chunk, config)
-            chunk_results.append(fixed_chunk)
+            chunk_results = []
+            for i, chunk in enumerate(chunks, start=1):
+                if len(chunks) > 1:
+                    logger.info(f"  Processing chunk {i}/{len(chunks)} of {entry.record_id}")
 
-        fixed_text = "\n".join(chunk_results)
+                fixed_chunk = self._call_gemini(chunk, config)
+                chunk_results.append(fixed_chunk)
+
+            fixed_text = "\n".join(chunk_results)
+        else:
+            fixed_text = self._call_gemini(entry.content, config)
+
         logger.info(f"Successfully processed {entry.record_id}")
         return entry.record_id, fixed_text, True
 
@@ -146,7 +152,7 @@ class GeminiPipeline(LLMPipeline):
         return response.text
 
     @staticmethod
-    def _split_by_words(content: str, max_words: int = 1000) -> list[str]:
+    def _split_by_words_static(content: str, max_words: int = 5000) -> list[str]:
         """Split content into chunks of ~max_words, breaking at line boundaries."""
         lines = content.strip().split("\n")
         if not lines:
@@ -324,33 +330,35 @@ class GeminiPipeline(LLMPipeline):
     def _split_content(self, content: str, total_tokens: int) -> list[tuple[str, int]]:
         """Split content by tokens if over limit.
 
-        NOTE: Token-based splitting is now handled by _split_by_words in invoke().
-        Always returns a single chunk.
+        When split_by_words is enabled, word-based splitting happens in invoke(),
+        so this always returns a single chunk. When disabled, this performs
+        token-based splitting.
         """
-        return [(content.strip(), total_tokens)]
+        if self._split_by_words:
+            return [(content.strip(), total_tokens)]
 
-        # lines = content.strip().split("\n")
-        # if not lines or total_tokens <= self._max_tokens:
-        #     return [(content.strip(), total_tokens)]
-        #
-        # tokens_per_line = total_tokens / len(lines)
-        # chunks = []
-        # current_lines = []
-        # current_tokens = 0.0
-        #
-        # for line in lines:
-        #     if current_tokens + tokens_per_line > self._max_tokens and current_lines:
-        #         chunks.append(("\n".join(current_lines), int(current_tokens)))
-        #         current_lines = [line]
-        #         current_tokens = tokens_per_line
-        #     else:
-        #         current_lines.append(line)
-        #         current_tokens += tokens_per_line
-        #
-        # if current_lines:
-        #     chunks.append(("\n".join(current_lines), int(current_tokens)))
-        #
-        # return chunks
+        lines = content.strip().split("\n")
+        if not lines or total_tokens <= self._max_tokens:
+            return [(content.strip(), total_tokens)]
+
+        tokens_per_line = total_tokens / len(lines)
+        chunks = []
+        current_lines = []
+        current_tokens = 0.0
+
+        for line in lines:
+            if current_tokens + tokens_per_line > self._max_tokens and current_lines:
+                chunks.append(("\n".join(current_lines), int(current_tokens)))
+                current_lines = [line]
+                current_tokens = tokens_per_line
+            else:
+                current_lines.append(line)
+                current_tokens += tokens_per_line
+
+        if current_lines:
+            chunks.append(("\n".join(current_lines), int(current_tokens)))
+
+        return chunks
 
     def _inject_timestamps(self, fixed_text: str, timed_content: str) -> str | None:
         """Inject timestamps from timed_content into fixed_text."""
