@@ -9,6 +9,7 @@ Combines two evaluation approaches:
 
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -111,12 +112,11 @@ def _word_distance(w1: str, w2: str) -> float:
 
 def _auto_band_width(n: int, m: int, window_type: str) -> int:
     """Auto-calculate band width based on word count difference and window type."""
-    diff = abs(n - m)
+    bw = int(math.sqrt(max(n, m)) * 6)
+    # sakoechiba requires band_width >= |n-m| to reach the endpoint
     if window_type == 'sakoechiba':
-        bw = max(diff + 50, 200)
-    else:
-        bw = max(diff // 2 + 50, 200)
-    logger.info("Auto-calculated band width: %d (%s, word count diff=%d)", bw, window_type, diff)
+        bw = max(bw, abs(n - m) + 50)
+    logger.info("Auto-calculated band width: %d window_type = %s", bw, window_type)
     return bw
 
 
