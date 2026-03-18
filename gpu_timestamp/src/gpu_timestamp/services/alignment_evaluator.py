@@ -113,9 +113,9 @@ def _auto_band_width(n: int, m: int, window_type: str) -> int:
     """Auto-calculate band width based on word count difference and window type."""
     diff = abs(n - m)
     if window_type == 'sakoechiba':
-        bw = diff + 50
+        bw = max(diff + 50, 200)
     else:
-        bw = diff // 2 + 50
+        bw = max(diff // 2 + 50, 200)
     logger.info("Auto-calculated band width: %d (%s, word count diff=%d)", bw, window_type, diff)
     return bw
 
