@@ -72,8 +72,9 @@ def process_message(
 
         # Download pre-fix .time file and run DTW to fix text before alignment
         evaluator = AlignmentEvaluator(
-            band_width=config.dtw_band_width,
+            band_width=config.dtw_band_width or None,
             step_pattern=config.dtw_step_pattern,
+            window_type=config.dtw_window_type,
             match_threshold=config.dtw_match_threshold,
             high_dist_threshold=config.dtw_high_dist_threshold,
             low_score_threshold=config.dtw_low_score_threshold,
@@ -82,11 +83,14 @@ def process_message(
             ma_window=config.dtw_ma_window,
             rolling_avg_target=config.rolling_avg_target,
         )
-        prefix_time_content = s3_downloader.download_text(stem + ".pre-fix.time")
-        if prefix_time_content:
-            text_content = evaluator.pre_alignment_fix(prefix_time_content, text_content)
+        if config.dtw_enabled:
+            prefix_time_content = s3_downloader.download_text(stem + ".pre-fix.time")
+            if prefix_time_content:
+                text_content = evaluator.pre_alignment_fix(prefix_time_content, text_content)
+            else:
+                logger.warning("No pre-fix .time file for %s, skipping DTW fix", stem)
         else:
-            logger.warning("No pre-fix .time file for %s, skipping DTW fix", stem)
+            logger.info("DTW disabled, using raw text for %s", stem)
 
         # Align audio with text
         result = align_audio(str(audio_path), text_content, message.language, config.token_step)
@@ -125,9 +129,12 @@ def process_message(
         srt_uploaded = s3_uploader.upload_file(
             srt_path, f"{stem}.srt", source_audio=s3_key
         )
-        txt_uploaded = s3_uploader.upload_content(
-            text_content, f"{stem}.dtw.txt", source_audio=s3_key
-        )
+        if config.dtw_enabled:
+            txt_uploaded = s3_uploader.upload_content(
+                text_content, f"{stem}.dtw.txt", source_audio=s3_key
+            )
+        else:
+            txt_uploaded = True
 
         if not json_uploaded or not vtt_uploaded or not srt_uploaded or not txt_uploaded:
             logger.error("Failed to upload outputs for: %s", s3_key)

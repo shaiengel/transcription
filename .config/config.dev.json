@@ -80,7 +80,9 @@
     "branch": "main"
   },
   "dtw": {
-    "band_width": 200,
+    "enabled": true,
+    "band_width": 0,
+    "window_type": "slantedband",
     "step_pattern": "asymmetric",
     "match_threshold": 0.5,
     "high_dist_threshold": 0.7,

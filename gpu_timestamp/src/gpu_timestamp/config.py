@@ -38,7 +38,9 @@ class Config:
     rolling_avg_target: float = float(os.getenv("ROLLING_AVG_TARGET", "0.25"))
 
     # DTW alignment parameters
-    dtw_band_width: int = int(os.getenv("DTW_BAND_WIDTH", "200"))
+    dtw_enabled: bool = os.getenv("DTW_ENABLED", "true").lower() in ("true", "1", "yes")
+    dtw_band_width: int = int(os.getenv("DTW_BAND_WIDTH", "0"))
+    dtw_window_type: str = os.getenv("DTW_WINDOW_TYPE", "slantedband")
     dtw_step_pattern: str = os.getenv("DTW_STEP_PATTERN", "asymmetric")
     dtw_match_threshold: float = float(os.getenv("DTW_MATCH_THRESHOLD", "0.5"))
     dtw_high_dist_threshold: float = float(os.getenv("DTW_HIGH_DIST_THRESHOLD", "0.7"))

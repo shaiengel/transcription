@@ -109,11 +109,23 @@ def _word_distance(w1: str, w2: str) -> float:
 # BANDED DTW ALIGNMENT
 # =============================================================================
 
+def _auto_band_width(n: int, m: int, window_type: str) -> int:
+    """Auto-calculate band width based on word count difference and window type."""
+    diff = abs(n - m)
+    if window_type == 'sakoechiba':
+        bw = diff + 50
+    else:
+        bw = diff // 2 + 50
+    logger.info("Auto-calculated band width: %d (%s, word count diff=%d)", bw, window_type, diff)
+    return bw
+
+
 def _banded_dtw_alignment(
     all_prefix_words: list[str],
     corrected_words: list[str],
-    band_width: int = 200,
+    band_width: int | None = None,
     step_pattern: str = 'asymmetric',
+    window_type: str = 'slantedband',
 ):
     n, m = len(all_prefix_words), len(corrected_words)
     logger.info("Computing distance matrix (%d x %d)...", n, m)
@@ -125,14 +137,24 @@ def _banded_dtw_alignment(
         for j, w2 in enumerate(corrected_words):
             dist_matrix[i, j] = _word_distance(w1, w2)
 
-    logger.info("Running DTW with slanted band (width=%d)...", band_width)
-    alignment = dtw(
-        dist_matrix,
-        step_pattern=step_pattern,
-        keep_internals=True,
-        window_type='slantedband',
-        window_args={'window_size': band_width},
-    )
+    if window_type == 'none':
+        logger.info("Running DTW without window constraint...")
+        alignment = dtw(
+            dist_matrix,
+            step_pattern=step_pattern,
+            keep_internals=True,
+        )
+    else:
+        if band_width is None or band_width == 0:
+            band_width = _auto_band_width(n, m, window_type)
+        logger.info("Running DTW with %s constraint (width=%d)...", window_type, band_width)
+        alignment = dtw(
+            dist_matrix,
+            step_pattern=step_pattern,
+            keep_internals=True,
+            window_type=window_type,
+            window_args={'window_size': band_width},
+        )
 
     return list(zip(alignment.index1, alignment.index2)), alignment, dist_matrix
 
@@ -676,8 +698,9 @@ class AlignmentEvaluator:
 
     def __init__(
         self,
-        band_width: int = 200,
+        band_width: int | None = None,
         step_pattern: str = "asymmetric",
+        window_type: str = "slantedband",
         match_threshold: float = 0.5,
         high_dist_threshold: float = 0.7,
         low_score_threshold: float = 0.5,
@@ -688,6 +711,7 @@ class AlignmentEvaluator:
     ):
         self.band_width = band_width
         self.step_pattern = step_pattern
+        self.window_type = window_type
         self.match_threshold = match_threshold
         self.high_dist_threshold = high_dist_threshold
         self.low_score_threshold = low_score_threshold
@@ -745,6 +769,7 @@ class AlignmentEvaluator:
             all_prefix_words, corrected_words,
             band_width=self.band_width,
             step_pattern=self.step_pattern,
+            window_type=self.window_type,
         )
 
         vertical_jumps = _detect_vertical_jumps(alignment_obj)
