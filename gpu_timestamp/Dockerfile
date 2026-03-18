@@ -39,5 +39,6 @@ ENV WHISPER_MODEL=large-v3
 ENV DEVICE=cuda
 ENV LANGUAGE=he
 ENV TOKEN_STEP=200
+ENV DTW_ENABLED=false
 
 CMD ["uv", "run", "timestamp"]
