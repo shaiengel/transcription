@@ -53,7 +53,8 @@
   },
   "gemini": {
     "split_by_words": "true",
-    "split_by_words_max": "5000"
+    "split_by_words_max": "5000",
+    "max_word_diff": "100"
   },
   "batch": {
     "min_entries": "100",

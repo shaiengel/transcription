@@ -39,6 +39,7 @@ class GeminiPipeline(LLMPipeline):
         max_tokens: int = 60000,
         split_by_words: bool = True,
         split_by_words_max: int = 5000,
+        max_word_diff: int = 100,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -50,6 +51,7 @@ class GeminiPipeline(LLMPipeline):
         self._max_tokens = max_tokens
         self._split_by_words = split_by_words
         self._split_by_words_max = split_by_words_max
+        self._max_word_diff = max_word_diff
 
         # Create client
         self._client = genai.Client(api_key=api_key)
@@ -105,9 +107,45 @@ class GeminiPipeline(LLMPipeline):
         return results
 
     def _invoke_entry(self, entry: BatchEntry, config: types.GenerateContentConfig) -> tuple[str, str, bool]:
-        """Process a single entry, splitting into word chunks if enabled."""
+        """Process a single entry, splitting into word chunks if enabled.
+
+        Retries up to 4 times if the word count difference between
+        the original and fixed text exceeds max_word_diff, keeping the best result.
+        """
         logger.info(f"Processing {entry.record_id} with Gemini")
 
+        max_retries = 4
+        original_word_count = len(entry.content.split())
+        best_text: str | None = None
+        best_diff = float("inf")
+
+        for attempt in range(1, max_retries + 1):
+            fixed_text = self._invoke_entry_once(entry, config)
+            diff = abs(len(fixed_text.split()) - original_word_count)
+
+            if diff < best_diff:
+                best_diff = diff
+                best_text = fixed_text
+
+            if diff <= self._max_word_diff:
+                break
+
+            logger.warning(
+                f"{entry.record_id}: word diff {diff} exceeds {self._max_word_diff} "
+                f"(original={original_word_count}, fixed={len(fixed_text.split())}), "
+                f"attempt {attempt}/{max_retries}"
+            )
+        else:
+            logger.warning(
+                f"{entry.record_id}: all {max_retries} attempts exceeded word diff limit, "
+                f"using best result with diff {best_diff}"
+            )
+
+        logger.info(f"Successfully processed {entry.record_id}")
+        return entry.record_id, best_text, True
+
+    def _invoke_entry_once(self, entry: BatchEntry, config: types.GenerateContentConfig) -> str:
+        """Run a single Gemini invocation for an entry."""
         if self._split_by_words:
             chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
             if len(chunks) > 1:
@@ -121,12 +159,9 @@ class GeminiPipeline(LLMPipeline):
                 fixed_chunk = self._call_gemini(chunk, config)
                 chunk_results.append(fixed_chunk)
 
-            fixed_text = "\n".join(chunk_results)
+            return "\n".join(chunk_results)
         else:
-            fixed_text = self._call_gemini(entry.content, config)
-
-        logger.info(f"Successfully processed {entry.record_id}")
-        return entry.record_id, fixed_text, True
+            return self._call_gemini(entry.content, config)
 
     def _build_config(self, cache_name: Optional[str], system_prompt: str) -> types.GenerateContentConfig:
         """Build Gemini config with cache or system instruction fallback."""

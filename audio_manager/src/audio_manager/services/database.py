@@ -89,6 +89,7 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[Me
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
           AND file_type IN ('mp3', 'mp4')
           AND language_en = 'hebrew'
+          AND media_is_active = 1
     """)
     result = conn.execute(
         query, {"massechet_id": massechet_id, "daf_id": daf_id}
