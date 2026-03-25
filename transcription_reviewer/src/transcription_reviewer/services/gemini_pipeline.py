@@ -40,6 +40,7 @@ class GeminiPipeline(LLMPipeline):
         split_by_words: bool = True,
         split_by_words_max: int = 5000,
         max_word_diff: int = 100,
+        thinking_budget: int = 1024,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -52,6 +53,7 @@ class GeminiPipeline(LLMPipeline):
         self._split_by_words = split_by_words
         self._split_by_words_max = split_by_words_max
         self._max_word_diff = max_word_diff
+        self._thinking_budget = thinking_budget
 
         # Create client
         self._client = genai.Client(api_key=api_key)
@@ -174,7 +176,7 @@ class GeminiPipeline(LLMPipeline):
         kwargs = {
             "temperature": self._temperature,
             "max_output_tokens": self._max_tokens,
-            "thinking_config": types.ThinkingConfig(thinking_budget=1024),
+            "thinking_config": types.ThinkingConfig(thinking_budget=self._thinking_budget),
             "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
         }
         if cache_name:

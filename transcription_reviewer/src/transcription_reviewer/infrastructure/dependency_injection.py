@@ -96,6 +96,7 @@ def _create_gemini_pipeline(
         split_by_words=config.split_by_words,
         split_by_words_max=config.split_by_words_max,
         max_word_diff=config.max_word_diff,
+        thinking_budget=config.thinking_budget,
     )
 
 
