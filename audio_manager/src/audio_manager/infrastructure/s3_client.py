@@ -28,7 +28,7 @@ class S3Client:
         try:
             if self.file_exists(bucket, key):
                 logger.info("Already exists: s3://%s/%s", bucket, key)
-                return True
+                return False
 
             self._client.upload_file(str(file_path), bucket, key)
             logger.info("Uploaded: s3://%s/%s", bucket, key)

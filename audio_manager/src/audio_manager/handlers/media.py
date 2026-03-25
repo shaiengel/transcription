@@ -359,11 +359,11 @@ def upload_media_to_s3(
             if s3_uploader.upload_file(media.downloaded_path, key):
                 uploaded += 1
 
-            # Upload system prompt template with same stem
-            if media.details and media.steinsaltz:
-                template_content = _render_system_prompt(media.details, media.steinsaltz)
-                template_key = media.downloaded_path.stem + ".template.txt"
-                s3_uploader.upload_content(template_content, template_key)
+                # Upload system prompt template with same stem
+                if media.details and media.steinsaltz:
+                    template_content = _render_system_prompt(media.details, media.steinsaltz)
+                    template_key = media.downloaded_path.stem + ".template.txt"
+                    s3_uploader.upload_content(template_content, template_key)
 
     return uploaded
 

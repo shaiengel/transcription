@@ -103,71 +103,76 @@ def process_transcriptions(
     timed_out = False
 
     for trans in transcriptions:
-        # Check remaining time before starting a new file
-        if _is_running_out_of_time(context):
-            timed_out = True
-            logger.info(
-                "Stopping early due to time limit. Processed %d/%d files.",
-                fixed_count + failed_count,
-                len(transcriptions),
+        try:
+            # Check remaining time before starting a new file
+            if _is_running_out_of_time(context):
+                timed_out = True
+                logger.info(
+                    "Stopping early due to time limit. Processed %d/%d files.",
+                    fixed_count + failed_count,
+                    len(transcriptions),
+                )
+                break
+
+            # Load file content
+            content = s3_reader.get_transcription_content(trans)
+            if not content:
+                logger.error("Failed to read: %s", trans.key)
+                failed_count += 1
+                continue
+
+            # Check for long segments in .time file and truncate if needed
+            time_content = s3_reader.get_content_from_bucket(
+                trans.filename_time,
+                bucket=trans.bucket,
             )
-            break
+            if time_content:
+                content = truncate_content_at_long_segment(
+                    content=content,
+                    time_content=time_content,
+                    max_duration_seconds=config.max_segment_duration_seconds,
+                    stem=trans.stem,
+                )
 
-        # Load file content
-        content = s3_reader.get_transcription_content(trans)
-        if not content:
-            logger.error("Failed to read: %s", trans.key)
-            failed_count += 1
-            continue
+            # Fetch system prompt from S3 template file
+            system_prompt = transcription_fixer.get_system_prompt(trans.key)
+            if not system_prompt:
+                logger.error("Failed to get system prompt for: %s", trans.key)
+                failed_count += 1
+                continue
 
-        # Check for long segments in .time file and truncate if needed
-        time_content = s3_reader.get_content_from_bucket(
-            trans.filename_time,
-            bucket=trans.bucket,
-        )
-        if time_content:
-            content = truncate_content_at_long_segment(
-                content=content,
-                time_content=time_content,
-                max_duration_seconds=config.max_segment_duration_seconds,
+            line_count = len(content.strip().split("\n"))
+            word_count = len(content.split())
+
+            transcription_file = TranscriptionFile(
                 stem=trans.stem,
+                content=content,
+                system_prompt=system_prompt,
+                line_count=line_count,
+                word_count=word_count,
             )
 
-        # Fetch system prompt from S3 template file
-        system_prompt = transcription_fixer.get_system_prompt(trans.key)
-        if not system_prompt:
-            logger.error("Failed to get system prompt for: %s", trans.key)
+            # Process THIS file through full pipeline before moving to next
+            logger.info("Processing file: %s", trans.stem)
+
+            logger.info("  Step 1: Preparing data...")
+            prepared_data = pipeline.prepare_data([transcription_file])
+
+            logger.info("  Step 2: Invoking LLM...")
+            llm_response = pipeline.invoke(prepared_data)
+
+            logger.info("  Step 3: Post-processing results...")
+            result = pipeline.post_process(llm_response, prepared_data)
+
+            # Aggregate counts
+            fixed_count += result.fixed
+            failed_count += result.failed
+
+            logger.info("  Completed: fixed=%d, failed=%d", result.fixed, result.failed)
+
+        except Exception:
+            logger.exception("Unexpected error processing %s", trans.key)
             failed_count += 1
-            continue
-
-        line_count = len(content.strip().split("\n"))
-        word_count = len(content.split())
-
-        transcription_file = TranscriptionFile(
-            stem=trans.stem,
-            content=content,
-            system_prompt=system_prompt,
-            line_count=line_count,
-            word_count=word_count,
-        )
-
-        # Process THIS file through full pipeline before moving to next
-        logger.info("Processing file: %s", trans.stem)
-
-        logger.info("  Step 1: Preparing data...")
-        prepared_data = pipeline.prepare_data([transcription_file])
-
-        logger.info("  Step 2: Invoking LLM...")
-        llm_response = pipeline.invoke(prepared_data)
-
-        logger.info("  Step 3: Post-processing results...")
-        result = pipeline.post_process(llm_response, prepared_data)
-
-        # Aggregate counts
-        fixed_count += result.fixed
-        failed_count += result.failed
-
-        logger.info("  Completed: fixed=%d, failed=%d", result.fixed, result.failed)
 
     return ReviewResult(
         total_found=len(transcriptions),

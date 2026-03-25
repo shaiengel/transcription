@@ -148,7 +148,12 @@ class GeminiPipeline(LLMPipeline):
         best_diff = float("inf")
 
         for attempt in range(1, max_retries + 1):
-            fixed_text = self._call_gemini(chunk, config)
+            try:
+                fixed_text = self._call_gemini(chunk, config)
+            except Exception as e:
+                logger.warning(f"{label}: Gemini call failed on attempt {attempt}/{max_retries}: {e}")
+                continue
+
             diff = abs(len(fixed_text.split()) - original_word_count)
 
             if diff < best_diff:
@@ -192,6 +197,11 @@ class GeminiPipeline(LLMPipeline):
             contents=content,
             config=config,
         )
+        if response.text is None:
+            raise ValueError(
+                f"Gemini returned empty response (finish_reason="
+                f"{getattr(response.candidates[0], 'finish_reason', 'unknown') if response.candidates else 'no_candidates'})"
+            )
         return response.text
 
     @staticmethod
