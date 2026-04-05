@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import torch
 
 from gpu_timestamp.config import config
 from gpu_timestamp.infrastructure import DependenciesContainer
@@ -25,6 +26,11 @@ def main():
     """Entry point for the SQS-driven timestamp alignment worker."""
     setup_logging()
     logger = logging.getLogger(__name__)
+
+    logger.info(f"PyTorch version: {torch.__version__}")
+    logger.info(f"CUDA available: {torch.cuda.is_available()}")
+    logger.info(f"CUDA version: {torch.version.cuda}")
+    logger.info(f"cuDNN : {torch.backends.cudnn.enabled}")
 
     logger.info("=" * 60)
     logger.info("Starting GPU Timestamp Alignment Worker")

@@ -1,6 +1,7 @@
 import os
 from contextlib import contextmanager
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Generator
 from urllib.parse import quote_plus
 
@@ -10,13 +11,15 @@ from sqlalchemy.engine import Engine
 
 from audio_manager.models.schemas import CalendarEntry, MediaEntry
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 # Module-level engine singleton
 _engine: Engine | None = None
 
 
 def _get_connection_string() -> str:
     """Build MSSQL connection string from environment variables."""
-    load_dotenv()
+    
     driver = os.getenv("DB_DRIVER_WINDOWS", "ODBC Driver 17 for SQL Server")
     host = os.getenv("DB_HOST", "127.0.0.1")
     port = os.getenv("DB_PORT", "1433")
@@ -79,20 +82,14 @@ def get_massechet_sefaria_name(conn: Connection, massechet_id: int) -> str | Non
 
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
-    # query = text("""
-    #     SELECT media_id, media_link, maggid_description, massechet_name,
-    #            daf_name, language_en, media_duration, file_type
-    #     FROM [vps_daf-yomi].[dbo].[View_Media]
-    #     WHERE massechet_id = :massechet_id AND daf_id = :daf_id
-    #       AND media_duration IS NOT NULL AND media_duration > 0
-    # """)
     query = text("""
         SELECT media_id, media_link, maggid_description, massechet_name,
                daf_name, language_en, media_duration, file_type
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
-          AND media_duration IS NOT NULL AND media_duration > 0
+          AND file_type IN ('mp3', 'mp4')
           AND language_en = 'hebrew'
+          AND media_is_active = 1
     """)
     result = conn.execute(
         query, {"massechet_id": massechet_id, "daf_id": daf_id}

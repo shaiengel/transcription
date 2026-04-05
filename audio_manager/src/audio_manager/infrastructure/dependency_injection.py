@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import boto3
 from dependency_injector import providers
@@ -9,11 +10,13 @@ from audio_manager.infrastructure.gitlab_client import GitLabClient
 from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.infrastructure.sqs_client import SQSClient
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 def _create_session() -> boto3.Session:
     """Create boto3 session using profile from environment."""
-    load_dotenv()
-    profile = os.getenv("AWS_PROFILE", "default")
+    
+    profile = os.getenv("AWS_PROFILE", "portal")
     return boto3.Session(profile_name=profile)
 
 
@@ -46,8 +49,7 @@ def _create_sqs_publisher(sqs_client: SQSClient):
 
 
 def _create_gitlab_client() -> GitLabClient | None:
-    """Factory for GitLabClient."""
-    load_dotenv()
+    """Factory for GitLabClient."""    
     url = os.getenv("GITLAB_URL", "https://gitlab.com")
     project_id = os.getenv("GITLAB_PROJECT_ID", "")
     private_token = os.getenv("GITLAB_PRIVATE_TOKEN", "")

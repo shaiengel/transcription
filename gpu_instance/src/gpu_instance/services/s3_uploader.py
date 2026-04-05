@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 
 from gpu_instance.infrastructure.s3_client import S3Client
 
-load_dotenv()
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 

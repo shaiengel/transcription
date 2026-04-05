@@ -35,8 +35,12 @@ class GeminiPipeline(LLMPipeline):
         output_bucket: str,
         sqs_queue_url: str,
         model_name: str = "gemini-2.5-flash",
-        temperature: float = 0.4,
+        temperature: float = 0.1,
         max_tokens: int = 60000,
+        split_by_words: bool = True,
+        split_by_words_max: int = 5000,
+        max_word_diff: int = 100,
+        thinking_budget: int = 1024,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -46,6 +50,10 @@ class GeminiPipeline(LLMPipeline):
         self._model_name = model_name
         self._temperature = temperature
         self._max_tokens = max_tokens
+        self._split_by_words = split_by_words
+        self._split_by_words_max = split_by_words_max
+        self._max_word_diff = max_word_diff
+        self._thinking_budget = thinking_budget
 
         # Create client
         self._client = genai.Client(api_key=api_key)
@@ -82,59 +90,149 @@ class GeminiPipeline(LLMPipeline):
         return entries
 
     def invoke(self, prepared_data: list[BatchEntry]) -> list[tuple[str, str, bool]]:
-        """Call Gemini for each entry using cached system prompts."""
+        """Call Gemini for each entry using cached system prompts.
+        
+        """
         results = []
 
         for entry in prepared_data:
             try:
-                logger.info(f"Processing {entry.record_id} with Gemini")
-
-                # Get or create cache for this system prompt
                 cache_name = self._get_or_create_cache(entry.system_prompt)
-
-                # Build config with or without cache
-                if cache_name:
-                    config = types.GenerateContentConfig(
-                        temperature=self._temperature,
-                        max_output_tokens=self._max_tokens,
-                        cached_content=cache_name,
-                        thinking_config=types.ThinkingConfig(
-                            thinking_budget=1024  # number of thinking tokens (0 = off)
-                        ),
-                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                            disable=True  # or max_remote_calls=5
-                        )
-                    )
-                else:
-                    # Fallback: no cache, use system_instruction directly
-                    config = types.GenerateContentConfig(
-                        temperature=self._temperature,
-                        max_output_tokens=self._max_tokens,
-                        system_instruction=entry.system_prompt,
-                        thinking_config=types.ThinkingConfig(
-                            thinking_budget=1024  # number of thinking tokens (0 = off)
-                        ),
-                        automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                            disable=True  # or max_remote_calls=5
-                        )
-                    )
-
-                # Generate with model name (not cache name)
-                response = self._client.models.generate_content(
-                    model=self._model_name,
-                    contents=entry.content,
-                    config=config,
-                )
-
-                fixed_text = response.text
-                results.append((entry.record_id, fixed_text, True))
-                logger.info(f"Successfully processed {entry.record_id}")
-
+                config = self._build_config(cache_name, entry.system_prompt)
+                
+                record_id, fixed_text, success = self._invoke_entry(entry, config)
+                results.append((record_id, fixed_text, success))
             except Exception as e:
                 logger.error(f"Failed to process {entry.record_id}: {e}")
                 results.append((entry.record_id, "", False))
 
         return results
+
+    def _invoke_entry(self, entry: BatchEntry, config: types.GenerateContentConfig) -> tuple[str, str, bool]:
+        """Process a single entry, splitting into word chunks if enabled.
+
+        Retries each chunk up to 4 times if the word count difference between
+        the original and fixed chunk exceeds max_word_diff, keeping the best result.
+        """
+        logger.info(f"Processing {entry.record_id} with Gemini")
+
+        if self._split_by_words:
+            chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
+            if len(chunks) > 1:
+                logger.info(f"Split {entry.record_id} into {len(chunks)} word-chunks")
+
+            chunk_results = []
+            for i, chunk in enumerate(chunks, start=1):
+                if len(chunks) > 1:
+                    logger.info(f"  Processing chunk {i}/{len(chunks)} of {entry.record_id}")
+
+                fixed_chunk = self._invoke_chunk_with_retries(
+                    chunk, config, f"{entry.record_id}[chunk {i}/{len(chunks)}]"
+                )
+                chunk_results.append(fixed_chunk)
+
+            fixed_text = "\n".join(chunk_results)
+        else:
+            fixed_text = self._invoke_chunk_with_retries(
+                entry.content, config, entry.record_id
+            )
+
+        logger.info(f"Successfully processed {entry.record_id}")
+        return entry.record_id, fixed_text, True
+
+    def _invoke_chunk_with_retries(self, chunk: str, config: types.GenerateContentConfig, label: str) -> str:
+        """Call Gemini for a single chunk, retrying up to 4 times on word count drift."""
+        max_retries = 4
+        original_word_count = len(chunk.split())
+        best_text: str | None = None
+        best_diff = float("inf")
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                fixed_text = self._call_gemini(chunk, config)
+            except Exception as e:
+                logger.warning(f"{label}: Gemini call failed on attempt {attempt}/{max_retries}: {e}")
+                continue
+
+            diff = abs(len(fixed_text.split()) - original_word_count)
+
+            if diff < best_diff:
+                best_diff = diff
+                best_text = fixed_text
+
+            if diff <= self._max_word_diff:
+                break
+
+            logger.warning(
+                f"{label}: word diff {diff} exceeds {self._max_word_diff} "
+                f"(original={original_word_count}, fixed={len(fixed_text.split())}), "
+                f"attempt {attempt}/{max_retries}"
+            )
+        else:
+            logger.warning(
+                f"{label}: all {max_retries} attempts exceeded word diff limit, "
+                f"using best result with diff {best_diff}"
+            )
+
+        return best_text
+
+    def _build_config(self, cache_name: Optional[str], system_prompt: str) -> types.GenerateContentConfig:
+        """Build Gemini config with cache or system instruction fallback."""
+        kwargs = {
+            "temperature": self._temperature,
+            "max_output_tokens": self._max_tokens,
+            "thinking_config": types.ThinkingConfig(thinking_budget=self._thinking_budget),
+            "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
+        }
+        if cache_name:
+            kwargs["cached_content"] = cache_name
+        else:
+            kwargs["system_instruction"] = system_prompt
+        return types.GenerateContentConfig(**kwargs)
+
+    def _call_gemini(self, content: str, config: types.GenerateContentConfig) -> str:
+        """Send content to Gemini and return the response text."""
+        response = self._client.models.generate_content(
+            model=self._model_name,
+            contents=content,
+            config=config,
+        )
+        if response.text is None:
+            raise ValueError(
+                f"Gemini returned empty response (finish_reason="
+                f"{getattr(response.candidates[0], 'finish_reason', 'unknown') if response.candidates else 'no_candidates'})"
+            )
+        return response.text
+
+    @staticmethod
+    def _split_by_words_static(content: str, max_words: int = 5000) -> list[str]:
+        """Split content into chunks of ~max_words, breaking at line boundaries."""
+        lines = content.strip().split("\n")
+        if not lines:
+            return [content]
+
+        total_words = len(content.split())
+        if total_words <= max_words:
+            return [content.strip()]
+
+        chunks = []
+        current_lines: list[str] = []
+        current_word_count = 0
+
+        for line in lines:
+            line_words = len(line.split())
+            if current_word_count + line_words > max_words and current_lines:
+                chunks.append("\n".join(current_lines))
+                current_lines = [line]
+                current_word_count = line_words
+            else:
+                current_lines.append(line)
+                current_word_count += line_words
+
+        if current_lines:
+            chunks.append("\n".join(current_lines))
+
+        return chunks
 
     def post_process(self, llm_response: list[tuple[str, str, bool]], original_files: list[BatchEntry]) -> ReviewResult:
         """Match timestamps, create VTT, upload to S3, send SQS."""
@@ -283,7 +381,15 @@ class GeminiPipeline(LLMPipeline):
             return int(word_count * 4)
 
     def _split_content(self, content: str, total_tokens: int) -> list[tuple[str, int]]:
-        """Split content by tokens if over limit."""
+        """Split content by tokens if over limit.
+
+        When split_by_words is enabled, word-based splitting happens in invoke(),
+        so this always returns a single chunk. When disabled, this performs
+        token-based splitting.
+        """
+        if self._split_by_words:
+            return [(content.strip(), total_tokens)]
+
         lines = content.strip().split("\n")
         if not lines or total_tokens <= self._max_tokens:
             return [(content.strip(), total_tokens)]

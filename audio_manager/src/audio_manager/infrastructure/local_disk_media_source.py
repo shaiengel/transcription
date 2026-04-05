@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from audio_manager.models.media_source import MediaSource
 from audio_manager.models.schemas import MediaEntry
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,7 @@ class LocalDiskMediaSource(MediaSource):
             details: Details/description for all entries.
                      If None, reads from LOCAL_DETAILS env var.
         """
-        load_dotenv()
+        
         self.media_dir = media_dir or Path(
             os.getenv("LOCAL_MEDIA_DIR", "./media")
         )

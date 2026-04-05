@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import boto3
+from gpu_timestamp.config import config
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ from gpu_timestamp.infrastructure.sqs_client import SQSClient
 
 # Load .env file from project root
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 
 def _create_session() -> boto3.Session:
@@ -22,8 +23,11 @@ def _create_session() -> boto3.Session:
     - On EC2: uses instance profile
     - Locally: uses ~/.aws/credentials
     """
-    region = os.getenv("AWS_REGION", "us-east-1")
-    return boto3.Session(region_name=region)
+    if config.local_dev:
+        profile = os.getenv("AWS_PROFILE_TIMESTAMP", "portal")
+        return boto3.Session(profile_name=profile, region_name=config.aws_region)
+
+    return boto3.Session(region_name=config.aws_region)
 
 
 def _create_s3_downloader(s3_client: S3Client):

@@ -32,7 +32,7 @@ def _create_session() -> boto3.Session:
         return boto3.Session(region_name=region)
 
     # For local testing, use AWS profile
-    profile = os.getenv("AWS_PROFILE_REVIEWER", "default")
+    profile = os.getenv("AWS_PROFILE_REVIEWER", "reviewer")
     return boto3.Session(profile_name=profile)
 
 
@@ -93,6 +93,10 @@ def _create_gemini_pipeline(
         model_name=config.gemini_model,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
+        split_by_words=config.split_by_words,
+        split_by_words_max=config.split_by_words_max,
+        max_word_diff=config.max_word_diff,
+        thinking_budget=config.thinking_budget,
     )
 
 

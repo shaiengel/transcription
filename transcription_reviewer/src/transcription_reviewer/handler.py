@@ -7,6 +7,8 @@ Reads all *.timed.txt files from S3 and fixes them using Bedrock.
 import json
 import logging
 
+import boto3
+
 from transcription_reviewer.config import config
 from transcription_reviewer.handlers.review import process_transcriptions
 from transcription_reviewer.infrastructure.dependency_injection import (
@@ -16,6 +18,17 @@ from transcription_reviewer.infrastructure.dependency_injection import (
 # Configure root logger for Lambda (all modules will inherit this)
 logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _reinvoke_self(context, event: dict) -> None:
+    """Asynchronously re-invoke this Lambda to continue processing remaining files."""
+    lambda_client = boto3.client("lambda", region_name=config.aws_region)
+    lambda_client.invoke(
+        FunctionName=context.function_name,
+        InvocationType="Event",
+        Payload=json.dumps(event).encode(),
+    )
+    logger.info("Re-invoked Lambda %s to continue processing", context.function_name)
 
 
 def lambda_handler(event: dict, context) -> dict:
@@ -53,6 +66,7 @@ def lambda_handler(event: dict, context) -> dict:
             transcription_fixer=transcription_fixer,
             bucket=config.transcription_bucket,
             prefix=config.transcription_prefix,
+            context=context,
         )
 
         response_body = {
@@ -62,9 +76,13 @@ def lambda_handler(event: dict, context) -> dict:
             "fixed": result.fixed,
             "failed": result.failed,
             "batch_job_arn": result.batch_job_arn,
+            "timed_out": result.timed_out,
         }
 
         logger.info("Review completed: %s", response_body)
+
+        if result.timed_out:
+            _reinvoke_self(context, event)
 
         return {
             "statusCode": 200,

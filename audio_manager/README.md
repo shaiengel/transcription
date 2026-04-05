@@ -33,13 +33,13 @@ ALLOWED_LANGUAGES=hebrew
 2. Configure AWS credentials in `~/.aws/credentials`:
 
 ```ini
-[default]
+[portal]
 aws_access_key_id = YOUR_KEY
 aws_secret_access_key = YOUR_SECRET
 
 [transcription]
 role_arn = arn:aws:iam::ACCOUNT:role/ROLE_NAME
-source_profile = default
+source_profile = portal
 region = us-east-1
 ```
 

@@ -9,7 +9,7 @@ requirements.txt
 
 # Virtual environments
 .venv/
-
+.a5c/
 # Claude Code temp files
 tmpclaude-*
 settings.local.json

@@ -21,7 +21,7 @@ def _create_session() -> boto3.Session:
     if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
         return boto3.Session(region_name=region)
 
-    profile = os.getenv("AWS_PROFILE_POST_REVIEWER", "default")
+    profile = os.getenv("AWS_PROFILE_POST_REVIEWER", "post_reviewer")
     return boto3.Session(profile_name=profile)
 
 

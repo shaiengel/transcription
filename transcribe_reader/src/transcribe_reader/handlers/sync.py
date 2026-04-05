@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -11,9 +12,9 @@ from transcribe_reader.models.schemas import TranscriptionFile
 from transcribe_reader.services.s3_downloader import S3Downloader
 from transcribe_reader.services.gitlab_uploader import GitLabUploader
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 SQS_QUEUE_URL = os.getenv(
     "SQS_QUEUE_URL",
     "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
@@ -132,18 +133,17 @@ def sync_transcriptions(
     if files_with_content:
         uploaded = gitlab_uploader.batch_upload(files_with_content)
 
-    # Step 5: Delete successfully processed messages from SQS
+    # Step 5: Delete processed messages from SQS
     deleted = 0
     for files, receipt_handle in message_entries:
-        if all(file_item.content for file_item in files):
-            if sqs_client.delete_message(SQS_QUEUE_URL, receipt_handle):
-                deleted += 1
-                logger.info("Deleted SQS message for stem: %s", files[0].stem)
-        else:
+        if not all(file_item.content for file_item in files):
             logger.warning(
-                "Skipping delete for stem %s; missing one or more files",
+                "Missing one or more files for stem %s; deleting message anyway",
                 files[0].stem,
             )
+        if sqs_client.delete_message(SQS_QUEUE_URL, receipt_handle):
+            deleted += 1
+            logger.info("Deleted SQS message for stem: %s", files[0].stem)
 
     return {
         "messages": len(messages),

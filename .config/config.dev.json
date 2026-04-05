@@ -1,6 +1,7 @@
 {
   "llm_backend": "GEMINI2.5",
   "gemini_model": "gemini-2.5-flash",
+  "local_dev": true,
   "db": {
     "engine": "mssql",
     "name": "vps_daf-yomi",
@@ -11,11 +12,12 @@
     "driver_windows": "ODBC Driver 17 for SQL Server"
   },
   "aws": {
-    "region": "us-east-1",
+    "default_profile": "portal",    
     "profile": "transcription",
     "profile_reviewer": "reviewer",
     "profile_post_reviewer": "post_reviewer",
-    "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role"
+    "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role",
+    "region": "us-east-1"
   },
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",
@@ -41,17 +43,24 @@
     "model": "large-v3",
     "device": "cuda",
     "language": "he",
-    "token_step": "200"
+    "token_step": "200",
+    "rolling_avg_target": "0.25"
   },
   "bedrock": {
     "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
     "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
     "batch_role_arn": "arn:aws:iam::707072965202:role/portal-bedrock-batch"
   },
+  "gemini": {
+    "split_by_words": "true",
+    "split_by_words_max": "5000",
+    "max_word_diff": "70",
+    "thinking_budget": "1024"
+  },
   "batch": {
     "min_entries": "100",
     "max_tokens": "60000",
-    "temperature": "0.4"
+    "temperature": "0.1"
   },
   "ecs": {
     "cluster_name": "your-ecs-cluster-name",
@@ -63,12 +72,31 @@
   "local": {
     "media_dir": "C:\\portal\\transcription\\media",
     "details": "a Talmud Massechet: שבועות of Daf:  4",
-    "allowed_languages": "hebrew"
+    "allowed_languages": "hebrew",
+    "adjacent_word_count": "120"
   },
   "gitlab": {
     "url": "https://gitlab.com",
     "project_id": "llm241203/dy6",
     "private_token": "",
     "branch": "main"
+  },
+  "dtw": {
+    "enabled": true,
+    "band_width": 0,
+    "window_type": "slantedband",
+    "step_pattern": "asymmetric",
+    "match_threshold": 0.5,
+    "high_dist_threshold": 0.7,
+    "low_score_threshold": 0.5,
+    "jump_threshold": 40,
+    "drop_threshold": 0.25,
+    "ma_window": 10
+  },
+  "lambda": {
+    "timeout_threshold_ms": 240000
+  },
+  "statistics": {
+    "max_segment_duration_seconds": 100
   }
 }

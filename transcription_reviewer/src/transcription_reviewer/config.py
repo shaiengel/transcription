@@ -10,8 +10,8 @@ import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
-# Load .env if exists (local dev only, no-op in Lambda)
-load_dotenv()
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 
 @lru_cache(maxsize=1)
@@ -87,7 +87,7 @@ class Config:
     batch_role_arn: str = _get_config("BATCH_ROLE_ARN", "")
     min_entries: int = int(_get_config("MIN_ENTRIES", "100"))
     max_tokens: int = int(_get_config("MAX_TOKENS", "60000"))
-    temperature: float = float(_get_config("TEMPERATURE", "0.4"))
+    temperature: float = float(_get_config("TEMPERATURE", "0.1"))
 
     # Google Gemini config
     google_api_key: str = (
@@ -99,9 +99,18 @@ class Config:
     # SQS
     sqs_queue_url: str = _get_config("SQS_QUEUE_URL", "")
 
+    # Gemini splitting strategy
+    split_by_words: bool = _get_config("SPLIT_BY_WORDS", "true").lower() in ("true", "1", "yes")
+    split_by_words_max: int = int(_get_config("SPLIT_BY_WORDS_MAX", "5000"))
+    max_word_diff: int = int(_get_config("MAX_WORD_DIFF", "100"))
+    thinking_budget: int = int(_get_config("THINKING_BUDGET", "1024"))
+
     # Processing
     max_segment_duration_seconds: float = float(
-        _get_config("MAX_SEGMENT_DURATION_SECONDS", "30.0")
+        _get_config("MAX_SEGMENT_DURATION_SECONDS", "100.0")
+    )
+    timeout_threshold_ms: int = int(
+        _get_config("TIMEOUT_THRESHOLD_MS", "240000")
     )
 
     def validate(self) -> None:

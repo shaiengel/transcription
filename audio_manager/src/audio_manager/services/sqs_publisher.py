@@ -1,10 +1,13 @@
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 from audio_manager.infrastructure.sqs_client import SQSClient
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -13,7 +16,6 @@ class SQSPublisher:
 
     def __init__(self, sqs_client: SQSClient):
         self._sqs_client = sqs_client
-        load_dotenv()
         self._queue_url = os.getenv("SQS_QUEUE_URL")
 
     def publish_upload(

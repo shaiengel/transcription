@@ -1,3 +1,4 @@
+
 # CLAUDE.md - Architecture Guide for Claude Code
 
 This file provides context and instructions for Claude Code to understand and work with the Audio Transcription Pipeline.
@@ -639,13 +640,13 @@ ALLOWED_LANGUAGES=hebrew
 ### AWS Configuration (`~/.aws/credentials`)
 
 ```ini
-[default]
+[portal]
 aws_access_key_id = YOUR_KEY
 aws_secret_access_key = YOUR_SECRET
 
 [transcription]
 role_arn = arn:aws:iam::ACCOUNT:role/ROLE_NAME
-source_profile = default
+source_profile = portal
 region = us-east-1
 ```
 
@@ -929,7 +930,7 @@ For each record in the batch output:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region |
-| `AWS_PROFILE_POST_REVIEWER` | `default` | AWS profile (local dev only) |
+| `AWS_PROFILE_POST_REVIEWER` | `portal` | AWS profile (local dev only) |
 | `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket (.time files + batch output) |
 | `OUTPUT_BUCKET` | `final-transcription` | Destination bucket for output files |
 | `AUDIO_BUCKET` | `portal-daf-yomi-audio` | Audio bucket (for cleanup) |
@@ -1022,7 +1023,7 @@ DB_PASSWORD=xxx
 DB_DRIVER_WINDOWS=ODBC Driver 17 for SQL Server
 
 # AWS
-AWS_PROFILE=default
+AWS_PROFILE=portal
 S3_TRANSCRIPTION_BUCKET=portal-daf-yomi-transcription
 
 # GitLab
@@ -1260,8 +1261,8 @@ for trans in transcriptions:
 
 1. **List files**: Find all `.txt` files in transcription bucket
 2. **Fetch prompts**: Load per-file system prompt from S3 template
-3. **Prepare data**: Pass-through (no splitting)
-4. **Invoke**: Call Gemini API sequentially for each file
+3. **Prepare data**: Pass-through (no token-based splitting — `_split_content` always returns 1 chunk)
+4. **Invoke**: For each entry, split content into ~1000 word chunks at line boundaries (`_split_by_words`), call Gemini per chunk, merge results. This prevents hallucinations on long content (Gemini degrades after ~10 min).
 5. **Post-process**: For each file:
    - Read `.time` file with timestamps
    - Inject timestamps into fixed text
@@ -1286,7 +1287,8 @@ for trans in transcriptions:
 | `SQS_QUEUE_URL` | - | Results queue (Gemini) |
 | `MIN_ENTRIES` | `100` | Batch padding size |
 | `MAX_TOKENS` | `60000` | Token limit per entry |
-| `TEMPERATURE` | `0.4` | LLM temperature |
+| `TEMPERATURE` | `0.1` | LLM temperature |
+| `TIMEOUT_THRESHOLD_MS` | `240000` | Time remaining (ms) before Lambda re-invokes itself |
 
 ### Commands
 
@@ -1324,6 +1326,13 @@ session → s3_boto_client → s3_client → s3_reader
 llm_pipeline → BedrockBatchPipeline OR GeminiPipeline
 ```
 
+### Lambda Self-Reinvocation (Timeout Handling)
+
+Processing can exceed the 15-minute Lambda limit. After each file in the loop, `context.get_remaining_time_in_millis()` is checked. If less than `TIMEOUT_THRESHOLD_MS` (default 4 min) remains, the Lambda asynchronously re-invokes itself (`InvocationType="Event"`) and returns. Since processed files are deleted from S3 after completion, the new invocation picks up only remaining files.
+
+- **Config**: `TIMEOUT_THRESHOLD_MS` env var / `lambda.timeout_threshold_ms` in `config.dev.json`
+- **Local dev**: `context` is `None`, so the timeout check is skipped (processes all files)
+
 ### IAM Role: `portal-reviewer-role`
 
 **Permissions**:
@@ -1331,6 +1340,7 @@ llm_pipeline → BedrockBatchPipeline OR GeminiPipeline
 - `bedrock:InvokeModel` (Bedrock runtime)
 - `bedrock:CreateModelInvocationJob`, `bedrock:GetModelInvocationJob` (Bedrock batch)
 - `sqs:SendMessage` (results queue)
+- `lambda:InvokeFunction` (self-reinvocation: `arn:aws:lambda:us-east-1:707072965202:function:transcription-reviewer`)
 - CloudWatch Logs
 
 **Trust**: `lambda.amazonaws.com`
@@ -1361,3 +1371,19 @@ For each transcription `{stem}.txt`:
 4. **S3-based Configuration**: Templates can be updated without code deployment
 5. **Better Error Handling**: Tracks files with missing templates separately
 6. **Cost Optimization**: Bedrock batch saves ~50%, can switch to Gemini for faster turnaround
+
+---
+
+## Algorithm Documentation
+
+Detailed docs on DTW alignment and evaluation algorithms are stored in `.claude/memory/`. When working on alignment evaluation, replacements, or step patterns, read these files for context:
+
+- `dtw_replacements.md` — Replacement logic: modes (replace, insert_before, insert_after), grouping, anchoring, merging
+- `dtw_step_patterns.md` — DTW step pattern options and why we use `asymmetric`
+- `alignment_evaluation.md` — Two-phase evaluation: pre-alignment DTW + post-alignment probability, all configurable parameters
+
+---
+
+## Session Continuity
+
+At the start of each session, check `.claude/handoffs/` for the most recent handoff file and read it before doing anything else.

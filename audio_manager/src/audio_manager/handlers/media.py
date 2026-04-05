@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from audio_manager.models.schemas import CalendarEntry, MediaEntry
+from audio_manager.models.schemas import CalendarEntry, CalendarWindow, MediaEntry
 from audio_manager.infrastructure.gitlab_client import GitLabClient
 from audio_manager.services.database import (
     get_connection,
@@ -24,6 +24,8 @@ from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.services.s3_uploader import S3Uploader
 from audio_manager.services.sqs_publisher import SQSPublisher
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 # Load system prompt template once at module level
@@ -34,7 +36,7 @@ def _get_system_prompt_template() -> str:
     """Load the system prompt template from package resources."""
     global _SYSTEM_PROMPT_TEMPLATE
     if _SYSTEM_PROMPT_TEMPLATE is None:
-        template_path = resources.files("audio_manager") / "system_prompt.template.txt"
+        template_path = resources.files("audio_manager") / "system_prompt.template.md"
         _SYSTEM_PROMPT_TEMPLATE = template_path.read_text(encoding="utf-8")
     return _SYSTEM_PROMPT_TEMPLATE
 
@@ -47,7 +49,6 @@ def _render_system_prompt(details: str, steinsaltz: str) -> str:
 
 def get_allowed_languages() -> set[str]:
     """Get allowed languages from environment."""
-    load_dotenv()
     languages = os.getenv("ALLOWED_LANGUAGES", "hebrew")
     return {lang.strip() for lang in languages.split(",")}
 
@@ -76,24 +77,71 @@ def get_today_media_links() -> list[MediaEntry]:
         return all_media
 
 
-def get_calendar(days_ago: int = 0) -> list[CalendarEntry]:
-    """Fetch today's calendar entries from the database."""
+def get_calendar_window(days_ago: int = 0) -> CalendarWindow:
+    """Fetch today's, yesterday's, and tomorrow's calendar entries in one connection."""
     with get_connection() as conn:
-        return get_calendar_entries(conn, days_ago=days_ago)
+        return CalendarWindow(
+            today=get_calendar_entries(conn, days_ago=days_ago),
+            yesterday=get_calendar_entries(conn, days_ago=days_ago + 1),
+            tomorrow=get_calendar_entries(conn, days_ago=days_ago - 1),
+        )
+
+def _extract_words(text: str, count: int, from_end: bool = False) -> str:
+    """Extract words from text.
+
+    Args:
+        text: The source text.
+        count: Number of words to extract.
+        from_end: If True, take last N words; otherwise take first N.
+
+    Returns:
+        Extracted words joined with spaces.
+    """
+    words = text.split()
+    if not words:
+        return ""
+    selected = words[-count:] if from_end else words[:count]
+    return " ".join(selected)
+
+
+def _get_adjacent_steinsaltz(
+    adjacent_entries: list[CalendarEntry],
+    today_massechet_id: int,
+    steinsaltz_cache: dict[tuple[int, int], str | None],
+) -> str | None:
+    """Pick the best adjacent daf Steinsaltz text.
+
+    Prefers the entry with the same massechet_id as today (normal case).
+    Falls back to the first available entry (handles massechet transitions).
+    """
+    # Prefer same massechet
+    for entry in adjacent_entries:
+        key = (entry.massechet_id, entry.daf_id)
+        text = steinsaltz_cache.get(key)
+        if text and entry.massechet_id == today_massechet_id:
+            return text
+    # Fallback to any available
+    for entry in adjacent_entries:
+        key = (entry.massechet_id, entry.daf_id)
+        text = steinsaltz_cache.get(key)
+        if text:
+            return text
+    return None
+
 
 def enrich_with_steinsaltz(
     media_list: list[MediaEntry],
-    calendar_entries: list[CalendarEntry],
+    calendar: CalendarWindow,
     gitlab_client: GitLabClient | None,
 ) -> None:
     """Enrich media entries with Steinsaltz commentary from GitLab.
 
-    Updates the 'details' field of each media entry with the Steinsaltz
-    commentary fetched from GitLab Sefaria pages.
+    Fetches Steinsaltz for today's daf plus adjacent dafim (yesterday/tomorrow)
+    to provide broader context for transcription correction.
 
     Args:
         media_list: List of media entries to enrich.
-        calendar_entries: Today's calendar entries with massechet_id and daf_id.
+        calendar: Calendar entries for today, yesterday, and tomorrow.
         gitlab_client: GitLab client instance, or None if not configured.
     """
     if not gitlab_client:
@@ -103,15 +151,24 @@ def enrich_with_steinsaltz(
         )
         return
 
-    if not calendar_entries:
+    if not calendar.today:
         logger.warning("No calendar entries to fetch Steinsaltz for")
         return
+
+    # Collect all unique (massechet_id, daf_id) keys to avoid duplicate fetches
+    all_entries: list[CalendarEntry] = []
+    seen_keys: set[tuple[int, int]] = set()
+    for entry in [*calendar.today, *calendar.yesterday, *calendar.tomorrow]:
+        key = (entry.massechet_id, entry.daf_id)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            all_entries.append(entry)
 
     # Cache Steinsaltz commentary per (massechet_id, daf_id)
     steinsaltz_cache: dict[tuple[int, int], str | None] = {}
 
     with get_connection() as conn:
-        for entry in calendar_entries:
+        for entry in all_entries:
             cache_key = (entry.massechet_id, entry.daf_id)
 
             # Get Sefaria folder name directly from massechet_stein table
@@ -145,18 +202,41 @@ def enrich_with_steinsaltz(
 
             steinsaltz_cache[cache_key] = steinsaltz
 
+    adjacent_word_count = int(os.getenv("adjacent_word_count", "120"))
+
     # Update media entries with Steinsaltz commentary
     for media in media_list:
         # Set basic details
         media.details = f"Talmud Massechet: {media.massechet_name}, Daf: {media.daf_name}"
 
         # Find the calendar entry this media belongs to and set steinsaltz
-        for entry in calendar_entries:
+        for entry in calendar.today:
             cache_key = (entry.massechet_id, entry.daf_id)
-            steinsaltz_text = steinsaltz_cache.get(cache_key)
+            today_text = steinsaltz_cache.get(cache_key)
 
-            if steinsaltz_text:
-                media.steinsaltz = steinsaltz_text
+            if not today_text:
+                break
+
+            # Build combined text with adjacent daf excerpts
+            sections: list[str] = []
+
+            yesterday_text = _get_adjacent_steinsaltz(
+                calendar.yesterday, entry.massechet_id, steinsaltz_cache
+            )
+            if yesterday_text:
+                excerpt = _extract_words(yesterday_text, adjacent_word_count, from_end=True)
+                sections.append(excerpt)
+
+            sections.append(today_text)
+
+            tomorrow_text = _get_adjacent_steinsaltz(
+                calendar.tomorrow, entry.massechet_id, steinsaltz_cache
+            )
+            if tomorrow_text:
+                excerpt = _extract_words(tomorrow_text, adjacent_word_count, from_end=False)
+                sections.append(excerpt)
+
+            media.steinsaltz = "\n\n".join(sections)
             break  # Only need to match one calendar entry
 
 
@@ -279,11 +359,11 @@ def upload_media_to_s3(
             if s3_uploader.upload_file(media.downloaded_path, key):
                 uploaded += 1
 
-            # Upload system prompt template with same stem
-            if media.details and media.steinsaltz:
-                template_content = _render_system_prompt(media.details, media.steinsaltz)
-                template_key = media.downloaded_path.stem + ".template.txt"
-                s3_uploader.upload_content(template_content, template_key)
+                # Upload system prompt template with same stem
+                if media.details and media.steinsaltz:
+                    template_content = _render_system_prompt(media.details, media.steinsaltz)
+                    template_key = media.downloaded_path.stem + ".template.txt"
+                    s3_uploader.upload_content(template_content, template_key)
 
     return uploaded
 
@@ -297,7 +377,6 @@ def publish_uploads_to_sqs(
 
     Skips files that have already been processed (VTT exists in FINAL_BUCKET).
     """
-    load_dotenv()
     final_bucket = os.getenv("FINAL_BUCKET")
     allowed_languages = get_allowed_languages()
     published = 0

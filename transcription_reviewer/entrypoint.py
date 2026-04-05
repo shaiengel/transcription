@@ -3,12 +3,12 @@
 import json
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load env from mounted file
-env_path = os.getenv("DOTENV_PATH", "/app/.env")
-load_dotenv(env_path)
+env_path = Path(__file__).parent / ".env"
+load_dotenv(env_path, override=True)
 
 logging.basicConfig(
     level=logging.INFO,

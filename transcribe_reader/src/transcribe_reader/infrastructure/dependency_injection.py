@@ -1,6 +1,7 @@
 """Dependency injection container."""
 
 import os
+from pathlib import Path
 
 import boto3
 from dependency_injector import providers
@@ -11,17 +12,18 @@ from transcribe_reader.infrastructure.s3_client import S3Client
 from transcribe_reader.infrastructure.sqs_client import SQSClient
 from transcribe_reader.infrastructure.gitlab_client import GitLabClient
 
+env_path = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(env_path, override=True)
+
 
 def _create_session() -> boto3.Session:
     """Create boto3 session using profile from environment."""
-    load_dotenv()
-    profile = os.getenv("AWS_PROFILE", "default")
+    profile = os.getenv("AWS_PROFILE", "portal")
     return boto3.Session(profile_name=profile)
 
 
 def _create_gitlab_client() -> GitLabClient:
     """Factory for GitLabClient."""
-    load_dotenv()
     url = os.getenv("GITLAB_URL", "https://gitlab.com")
     token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
     project_id = os.getenv("GITLAB_PROJECT_ID", "")  # e.g., "llm241203/dy6"
