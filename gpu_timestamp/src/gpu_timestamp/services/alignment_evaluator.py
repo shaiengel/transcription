@@ -607,7 +607,7 @@ def detect_degradation_rolling_avg(
     target: float = 0.25,
 ) -> int:
     """Find index where rolling avg drops below target."""
-    if len(probs) < window * 3:
+    if len(probs) < window:
         logger.debug("Not enough data points for rolling avg analysis")
         return -1
 
