@@ -80,6 +80,20 @@ def get_massechet_sefaria_name(conn: Connection, massechet_id: int) -> str | Non
     return result[0].lower() if result else None
 
 
+def get_massechet_sefaria_name_raw(conn: Connection, massechet_id: int) -> str | None:
+    """Get the Sefaria name for a massechet as stored in the DB (no lowercasing).
+
+    Use this when the original casing is needed (e.g. for Sefaria API URLs).
+    """
+    query = text("""
+        SELECT name
+        FROM [vps_daf-yomi].[dbo].[massechet_stein]
+        WHERE massechetId = :massechet_id
+    """)
+    result = conn.execute(query, {"massechet_id": massechet_id}).fetchone()
+    return result[0] if result else None
+
+
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
     query = text("""

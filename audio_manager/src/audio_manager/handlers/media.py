@@ -8,14 +8,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from audio_manager.models.schemas import CalendarEntry, CalendarWindow, MediaEntry
-from audio_manager.infrastructure.gitlab_client import GitLabClient
+from audio_manager.models.daf_text_fetcher import DafTextFetcher
 from audio_manager.services.database import (
     get_connection,
-    get_massechet_sefaria_name,
+    get_massechet_sefaria_name_raw,
     get_media_links,
     get_calendar_entries,
 )
-from audio_manager.services.sefaria_fetcher import fetch_steinsaltz_for_daf
 from audio_manager.services.downloader import (
     download_file,
     extract_audio_from_mp4,
@@ -132,9 +131,9 @@ def _get_adjacent_steinsaltz(
 def enrich_with_steinsaltz(
     media_list: list[MediaEntry],
     calendar: CalendarWindow,
-    gitlab_client: GitLabClient | None,
+    text_fetcher: DafTextFetcher | None,
 ) -> None:
-    """Enrich media entries with Steinsaltz commentary from GitLab.
+    """Enrich media entries with Steinsaltz commentary.
 
     Fetches Steinsaltz for today's daf plus adjacent dafim (yesterday/tomorrow)
     to provide broader context for transcription correction.
@@ -142,13 +141,10 @@ def enrich_with_steinsaltz(
     Args:
         media_list: List of media entries to enrich.
         calendar: Calendar entries for today, yesterday, and tomorrow.
-        gitlab_client: GitLab client instance, or None if not configured.
+        text_fetcher: DafTextFetcher instance, or None if not configured.
     """
-    if not gitlab_client:
-        logger.warning(
-            "GitLab client not configured. "
-            "Set GITLAB_PRIVATE_TOKEN and GITLAB_PROJECT_ID in .env"
-        )
+    if not text_fetcher:
+        logger.warning("No text fetcher configured.")
         return
 
     if not calendar.today:
@@ -171,8 +167,8 @@ def enrich_with_steinsaltz(
         for entry in all_entries:
             cache_key = (entry.massechet_id, entry.daf_id)
 
-            # Get Sefaria folder name directly from massechet_stein table
-            sefaria_name = get_massechet_sefaria_name(conn, entry.massechet_id)
+            # Get Sefaria name from massechet_stein table (original casing for URL/path use)
+            sefaria_name = get_massechet_sefaria_name_raw(conn, entry.massechet_id)
             if not sefaria_name:
                 logger.warning(
                     "No Sefaria name found for massechet_id %d", entry.massechet_id
@@ -180,11 +176,7 @@ def enrich_with_steinsaltz(
                 steinsaltz_cache[cache_key] = None
                 continue
 
-            # Fetch Steinsaltz commentary from GitLab
-            branch = os.getenv("GITLAB_BRANCH", "main")
-            steinsaltz = fetch_steinsaltz_for_daf(
-                gitlab_client, sefaria_name, entry.daf_id, branch
-            )
+            steinsaltz = text_fetcher.fetch_for_daf(sefaria_name, entry.daf_id)
 
             if steinsaltz:
                 logger.info(

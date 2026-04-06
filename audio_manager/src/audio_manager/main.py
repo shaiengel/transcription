@@ -43,8 +43,8 @@ def main():
     ]
 
     # Reuse clients across all day runs
-    gitlab_client = (
-        container.gitlab_client()
+    text_fetcher = (
+        container.daf_text_fetcher()
         if isinstance(media_source, DatabaseMediaSource)
         else None
     )
@@ -68,10 +68,10 @@ def main():
             days_ago=days_ago
         )
 
-        # Enrich with Steinsaltz commentary from GitLab (only for database mode)
+        # Enrich with Steinsaltz commentary (only for database mode)
         if isinstance(media_source, DatabaseMediaSource):
             calendar = get_calendar_window(days_ago=days_ago)
-            enrich_with_steinsaltz(media_links, calendar, gitlab_client)
+            enrich_with_steinsaltz(media_links, calendar, text_fetcher)
 
         print_media_links(media_links)
 

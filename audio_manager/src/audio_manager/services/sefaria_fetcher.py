@@ -1,10 +1,13 @@
-"""Service to fetch Steinsaltz commentary from GitLab Sefaria pages."""
+"""Service to fetch Steinsaltz commentary from GitLab Sefaria pages or Sefaria URL API."""
 
 import json
 import logging
 import re
 
+import httpx
+
 from audio_manager.infrastructure.gitlab_client import GitLabClient
+from audio_manager.models.daf_text_fetcher import DafTextFetcher
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +16,40 @@ SEFARIA_BASE_PATH = "backend/data/sefaria_pages"
 # Regex to match HTML tags
 HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
 
+# Regex to match Hebrew nikud (vowel diacritics and cantillation marks)
+NIQQUD_RE = re.compile(r"[\u0591-\u05C7]")
+
 # Regex to match parentheses and their contents
 PARENTHESES_PATTERN = re.compile(r"\([^)]*\)")
 
 # Regex to extract text inside <b> tags
 BOLD_TAG_PATTERN = re.compile(r"<b>([^<]*)</b>")
+
+
+def remove_nikud(text: str) -> str:
+    """Remove Hebrew nikud (vowel diacritics and cantillation marks) from text."""
+    return NIQQUD_RE.sub("", text).strip()
+
+
+# Abbreviation expansions (applied after nikud removal)
+_ABBREV_MAP = {
+    "מתני׳": "מתניתין",
+    "גמ׳": "גמרא",
+}
+
+
+def clean_sefaria_line(line: str) -> str:
+    """Strip HTML, remove nikud, and normalize Hebrew abbreviations."""
+    return normalize_hebrew_text(remove_nikud(strip_html_tags(line)))
+
+
+def normalize_hebrew_text(text: str) -> str:
+    """Expand common Hebrew abbreviations and normalize punctuation."""
+    for abbrev, expansion in _ABBREV_MAP.items():
+        text = text.replace(abbrev, expansion)
+    # Replace Hebrew gershayim with standard double quote
+    text = text.replace("\u05f4", '"')
+    return text
 
 
 def strip_html_tags(text: str) -> str:
@@ -141,3 +173,68 @@ def fetch_steinsaltz_for_daf(
         return " ".join(commentaries)
 
     return None
+
+
+class GitLabDafTextFetcher(DafTextFetcher):
+    """Fetches Steinsaltz commentary from GitLab-hosted Sefaria JSON files."""
+
+    def __init__(self, gitlab_client: GitLabClient, branch: str = "main") -> None:
+        self._gitlab_client = gitlab_client
+        self._branch = branch
+
+    def fetch_for_daf(self, massechet_name: str, daf_id: int) -> str | None:
+        # GitLab paths use lowercase folder names
+        return fetch_steinsaltz_for_daf(
+            self._gitlab_client, massechet_name.lower(), daf_id, self._branch
+        )
+
+
+class SefariaUrlDafTextFetcher(DafTextFetcher):
+    """Fetches Steinsaltz commentary directly from the Sefaria v3 REST API."""
+
+    _BASE = "https://www.sefaria.org.il"
+    _PATH = "/api/v3/texts/{}.{}{}"
+    _PARAMS = "version=primary&fill_in_missing_segments=1&return_format=wrap_all_entities"
+
+    def _build_url(self, massechet_name: str, daf_id: int, amud: str) -> str:
+        path = self._PATH.format(massechet_name, daf_id, amud)
+        return f"{self._BASE}{path}?{self._PARAMS}"
+
+    def fetch_for_daf(self, massechet_name: str, daf_id: int) -> str | None:
+        texts = []
+        for amud_letter in ("A", "B"):
+            text = self._fetch_amud(massechet_name, daf_id, amud_letter)
+            if text:
+                texts.append(text)
+            else:
+                logger.warning(
+                    "No text for %s %d amud %s", massechet_name, daf_id, amud_letter
+                )
+
+        if not texts:
+            logger.error(
+                "No text found for %s daf %d (both amuds missing)",
+                massechet_name,
+                daf_id,
+            )
+            raise ValueError(
+                f"No Sefaria text found for {massechet_name} daf {daf_id}"
+            )
+
+        return " ".join(texts)
+
+    def _fetch_amud(self, massechet_name: str, daf_id: int, amud: str) -> str | None:
+        url = self._build_url(massechet_name, daf_id, amud)
+        logger.info("Fetching Sefaria amud: %s", url)
+        try:
+            response = httpx.get(url, timeout=30)
+            response.raise_for_status()
+            versions = response.json().get("versions", [])
+            if not versions:
+                return None
+            lines = versions[0].get("text", [])
+            clean = [clean_sefaria_line(line) for line in lines if isinstance(line, str)]
+            return " ".join(clean).strip() or None
+        except Exception as e:
+            logger.warning("Failed to fetch %s: %s", url, e)
+            return None

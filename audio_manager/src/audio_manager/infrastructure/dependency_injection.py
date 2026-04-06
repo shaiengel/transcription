@@ -49,7 +49,7 @@ def _create_sqs_publisher(sqs_client: SQSClient):
 
 
 def _create_gitlab_client() -> GitLabClient | None:
-    """Factory for GitLabClient."""    
+    """Factory for GitLabClient."""
     url = os.getenv("GITLAB_URL", "https://gitlab.com")
     project_id = os.getenv("GITLAB_PROJECT_ID", "")
     private_token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
@@ -58,6 +58,23 @@ def _create_gitlab_client() -> GitLabClient | None:
         return None
 
     return GitLabClient(url, private_token, project_id)
+
+
+def _create_sefaria_url_fetcher():
+    """Factory for SefariaUrlDafTextFetcher."""
+    from audio_manager.services.sefaria_fetcher import SefariaUrlDafTextFetcher
+
+    return SefariaUrlDafTextFetcher()
+
+
+def _create_gitlab_fetcher(gitlab_client: GitLabClient | None):
+    """Factory for GitLabDafTextFetcher."""
+    if not gitlab_client:
+        return None
+    from audio_manager.services.sefaria_fetcher import GitLabDafTextFetcher
+
+    branch = os.getenv("GITLAB_BRANCH", "main")
+    return GitLabDafTextFetcher(gitlab_client, branch)
 
 
 class DependenciesContainer(DeclarativeContainer):
@@ -105,3 +122,9 @@ class DependenciesContainer(DeclarativeContainer):
 
     # GitLab
     gitlab_client = providers.Singleton(_create_gitlab_client)
+
+    # =========================================================================
+    # Daf Text Fetcher - Comment out one of the following two lines:
+    # =========================================================================
+    daf_text_fetcher = providers.Singleton(_create_sefaria_url_fetcher)
+    # daf_text_fetcher = providers.Singleton(_create_gitlab_fetcher, gitlab_client=gitlab_client)
