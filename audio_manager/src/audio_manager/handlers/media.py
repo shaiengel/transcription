@@ -163,36 +163,35 @@ def enrich_with_steinsaltz(
     # Cache Steinsaltz commentary per (massechet_id, daf_id)
     steinsaltz_cache: dict[tuple[int, int], str | None] = {}
 
-    with get_connection() as conn:
-        for entry in all_entries:
-            cache_key = (entry.massechet_id, entry.daf_id)
+    for entry in all_entries:
+        cache_key = (entry.massechet_id, entry.daf_id)
 
-            # Get Sefaria name from massechet_stein table (original casing for URL/path use)
-            sefaria_name = get_massechet_sefaria_name_raw(conn, entry.massechet_id)
-            if not sefaria_name:
-                logger.warning(
-                    "No Sefaria name found for massechet_id %d", entry.massechet_id
-                )
-                steinsaltz_cache[cache_key] = None
-                continue
+        # Get Sefaria name from massechet_data.json (original casing for URL/path use)
+        sefaria_name = get_massechet_sefaria_name_raw(entry.massechet_id)
+        if not sefaria_name:
+            logger.warning(
+                "No Sefaria name found for massechet_id %d", entry.massechet_id
+            )
+            steinsaltz_cache[cache_key] = None
+            continue
 
-            steinsaltz = text_fetcher.fetch_for_daf(sefaria_name, entry.daf_id)
+        steinsaltz = text_fetcher.fetch_for_daf(sefaria_name, entry.daf_id)
 
-            if steinsaltz:
-                logger.info(
-                    "Fetched Steinsaltz for %s daf %d (%d chars)",
-                    sefaria_name,
-                    entry.daf_id,
-                    len(steinsaltz),
-                )
-            else:
-                logger.warning(
-                    "No Steinsaltz found for %s daf %d",
-                    sefaria_name,
-                    entry.daf_id,
-                )
+        if steinsaltz:
+            logger.info(
+                "Fetched Steinsaltz for %s daf %d (%d chars)",
+                sefaria_name,
+                entry.daf_id,
+                len(steinsaltz),
+            )
+        else:
+            logger.warning(
+                "No Steinsaltz found for %s daf %d",
+                sefaria_name,
+                entry.daf_id,
+            )
 
-            steinsaltz_cache[cache_key] = steinsaltz
+        steinsaltz_cache[cache_key] = steinsaltz
 
     adjacent_word_count = int(os.getenv("adjacent_word_count", "120"))
 

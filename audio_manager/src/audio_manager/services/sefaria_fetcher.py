@@ -56,13 +56,15 @@ def strip_html_tags(text: str) -> str:
     """Remove all HTML tags, parentheses with contents, newlines, and unescape characters from text."""
     cleaned = HTML_TAG_PATTERN.sub("", text)
     # Remove parentheses and their contents
-    cleaned = PARENTHESES_PATTERN.sub("", cleaned)
+    # cleaned = PARENTHESES_PATTERN.sub("", cleaned)
     # Remove brackets but keep the text inside
     cleaned = cleaned.replace("[", "").replace("]", "")
     # Remove newlines and collapse multiple spaces
     cleaned = cleaned.replace("\n", " ").replace("\r", " ")
     # Remove all backslashes (they're escape characters that shouldn't appear in final text)
     cleaned = cleaned.replace("\\", "")
+    # during alignemnt in stable_whisper the "-"" character is sometimes considered as separte word with probablity factor. To avoid this we will replace it with space.
+    cleaned = cleaned.replace("–", " ").replace("—", " ")
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
 

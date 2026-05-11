@@ -174,12 +174,17 @@ class GeminiPipeline(LLMPipeline):
                 f"using best result with diff {best_diff}"
             )
 
+        fixed_word_count = len(best_text.split()) if best_text else 0
+        logger.info(f"{label}: final word diff = {best_diff} "
+                    f"(original={original_word_count}, fixed={fixed_word_count})")
         return best_text
 
     def _build_config(self, cache_name: Optional[str], system_prompt: str) -> types.GenerateContentConfig:
         """Build Gemini config with cache or system instruction fallback."""
         kwargs = {
-            "temperature": self._temperature,
+            "temperature": self._temperature,            
+            "top_p": 0.1,
+            "top_k": 1,
             "max_output_tokens": self._max_tokens,
             "thinking_config": types.ThinkingConfig(thinking_budget=self._thinking_budget),
             "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),

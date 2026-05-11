@@ -6,7 +6,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "היה קורא",
@@ -15,7 +16,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "מי שמתו",
@@ -24,7 +26,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 2,
     "massechet_id": 283,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "תפילת השחר",
@@ -33,7 +36,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "אין עומדין",
@@ -42,7 +46,8 @@
     "chapter_start_daf": 30,
     "chapter_start_amud": 2,
     "massechet_id": 283,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "כיצד מברכין",
@@ -51,7 +56,8 @@
     "chapter_start_daf": 35,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "שלשה שאכלו",
@@ -60,7 +66,8 @@
     "chapter_start_daf": 45,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "אלו דברים",
@@ -69,7 +76,8 @@
     "chapter_start_daf": 51,
     "chapter_start_amud": 2,
     "massechet_id": 283,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "הרואה",
@@ -78,7 +86,8 @@
     "chapter_start_daf": 54,
     "chapter_start_amud": 1,
     "massechet_id": 283,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Berakhot"
   },
   {
     "chapter_name": "אלו דברים",
@@ -681,7 +690,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "במה מדליקין",
@@ -690,7 +700,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "כירה",
@@ -699,7 +710,8 @@
     "chapter_start_daf": 36,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "במה טומנין",
@@ -708,7 +720,8 @@
     "chapter_start_daf": 47,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "במה בהמה",
@@ -717,7 +730,8 @@
     "chapter_start_daf": 51,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "במה אשה",
@@ -726,7 +740,8 @@
     "chapter_start_daf": 57,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "כלל גדול",
@@ -735,7 +750,8 @@
     "chapter_start_daf": 67,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "המוציא יין",
@@ -744,7 +760,8 @@
     "chapter_start_daf": 76,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "[אמר] רבי עקיבא",
@@ -753,7 +770,8 @@
     "chapter_start_daf": 82,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "המצניע",
@@ -762,7 +780,8 @@
     "chapter_start_daf": 90,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "הזורק",
@@ -771,7 +790,8 @@
     "chapter_start_daf": 96,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "הבונה",
@@ -780,7 +800,8 @@
     "chapter_start_daf": 102,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "האורג",
@@ -789,7 +810,8 @@
     "chapter_start_daf": 105,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "שלושה עשר"
+    "chapter_count": "שלושה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "שמונה שרצים",
@@ -798,7 +820,8 @@
     "chapter_start_daf": 107,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "ארבעה עשר"
+    "chapter_count": "ארבעה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "אלו קשרים",
@@ -807,7 +830,8 @@
     "chapter_start_daf": 111,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "חמישה עשר"
+    "chapter_count": "חמישה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "כל כתבי",
@@ -816,7 +840,8 @@
     "chapter_start_daf": 115,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "שישה עשר"
+    "chapter_count": "שישה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "כל הכלים",
@@ -825,7 +850,8 @@
     "chapter_start_daf": 122,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שבעה עשר"
+    "chapter_count": "שבעה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "מפנין",
@@ -834,7 +860,8 @@
     "chapter_start_daf": 126,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "שמונה עשר"
+    "chapter_count": "שמונה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "רבי אליעזר דמילה",
@@ -843,7 +870,8 @@
     "chapter_start_daf": 130,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "תשעה עשר"
+    "chapter_count": "תשעה עשר",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "תולין",
@@ -852,7 +880,8 @@
     "chapter_start_daf": 137,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "עשרים"
+    "chapter_count": "עשרים",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "נוטל",
@@ -861,7 +890,8 @@
     "chapter_start_daf": 141,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "עשרים ואחד"
+    "chapter_count": "עשרים ואחד",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "חבית",
@@ -870,7 +900,8 @@
     "chapter_start_daf": 143,
     "chapter_start_amud": 2,
     "massechet_id": 284,
-    "chapter_count": "עשרים ושניים"
+    "chapter_count": "עשרים ושניים",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "שואל",
@@ -879,7 +910,8 @@
     "chapter_start_daf": 148,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "עשרים ושלושה"
+    "chapter_count": "עשרים ושלושה",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "מי שהחשיך",
@@ -888,7 +920,8 @@
     "chapter_start_daf": 153,
     "chapter_start_amud": 1,
     "massechet_id": 284,
-    "chapter_count": "עשרים וארבעה"
+    "chapter_count": "עשרים וארבעה",
+    "massechet_english": "Shabbat"
   },
   {
     "chapter_name": "מבוי שהוא גבוה",
@@ -897,7 +930,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 285,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "עושין פסין",
@@ -906,7 +940,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 2,
     "massechet_id": 285,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "בכל מערבין",
@@ -915,7 +950,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 2,
     "massechet_id": 285,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "מי שהוציאוהו",
@@ -924,7 +960,8 @@
     "chapter_start_daf": 41,
     "chapter_start_amud": 2,
     "massechet_id": 285,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "כיצד מעברין",
@@ -933,7 +970,8 @@
     "chapter_start_daf": 52,
     "chapter_start_amud": 2,
     "massechet_id": 285,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "הדר",
@@ -942,7 +980,8 @@
     "chapter_start_daf": 61,
     "chapter_start_amud": 2,
     "massechet_id": 285,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "חלון",
@@ -951,7 +990,8 @@
     "chapter_start_daf": 76,
     "chapter_start_amud": 1,
     "massechet_id": 285,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "כיצד משתתפין",
@@ -960,7 +1000,8 @@
     "chapter_start_daf": 82,
     "chapter_start_amud": 1,
     "massechet_id": 285,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "כל גגות",
@@ -969,7 +1010,8 @@
     "chapter_start_daf": 89,
     "chapter_start_amud": 1,
     "massechet_id": 285,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "המוצא תפילין",
@@ -978,7 +1020,8 @@
     "chapter_start_daf": 95,
     "chapter_start_amud": 1,
     "massechet_id": 285,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Eruvin"
   },
   {
     "chapter_name": "אור לארבעה עשר",
@@ -987,7 +1030,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "כל שעה",
@@ -996,7 +1040,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "(ו)אלו עוברין",
@@ -1005,7 +1050,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "מקום שנהגו",
@@ -1014,7 +1060,8 @@
     "chapter_start_daf": 50,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "תמיד נשחט",
@@ -1023,7 +1070,8 @@
     "chapter_start_daf": 58,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "אלו דברים",
@@ -1032,7 +1080,8 @@
     "chapter_start_daf": 65,
     "chapter_start_amud": 2,
     "massechet_id": 286,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "כיצד צולין",
@@ -1041,7 +1090,8 @@
     "chapter_start_daf": 74,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "האשה",
@@ -1050,7 +1100,8 @@
     "chapter_start_daf": 87,
     "chapter_start_amud": 1,
     "massechet_id": 286,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "מי שהיה",
@@ -1059,7 +1110,8 @@
     "chapter_start_daf": 92,
     "chapter_start_amud": 2,
     "massechet_id": 286,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "ערבי פסחים",
@@ -1068,7 +1120,8 @@
     "chapter_start_daf": 99,
     "chapter_start_amud": 2,
     "massechet_id": 286,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Pesachim"
   },
   {
     "chapter_name": "באחד באדר",
@@ -1077,7 +1130,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "מצרפין שקלים",
@@ -1086,7 +1140,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "בשלשה פרקים",
@@ -1095,7 +1150,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "התרומה",
@@ -1104,7 +1160,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "אלו הן הממונים",
@@ -1113,7 +1170,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "שלשה עשר שופרות",
@@ -1122,7 +1180,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "מעות שנמצאו",
@@ -1131,7 +1190,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "כל הרוקין",
@@ -1140,7 +1200,8 @@
     "chapter_start_daf": null,
     "chapter_start_amud": null,
     "massechet_id": 287,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Jerusalem_Talmud_Shekalim"
   },
   {
     "chapter_name": "ארבעה ראשי שנים",
@@ -1149,7 +1210,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 291,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Rosh_Hashanah"
   },
   {
     "chapter_name": "אם אינן מכירין",
@@ -1158,7 +1220,8 @@
     "chapter_start_daf": 22,
     "chapter_start_amud": 1,
     "massechet_id": 291,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Rosh_Hashanah"
   },
   {
     "chapter_name": "ראוהו בית דין",
@@ -1167,7 +1230,8 @@
     "chapter_start_daf": 25,
     "chapter_start_amud": 2,
     "massechet_id": 291,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Rosh_Hashanah"
   },
   {
     "chapter_name": "יום טוב",
@@ -1176,7 +1240,8 @@
     "chapter_start_daf": 29,
     "chapter_start_amud": 2,
     "massechet_id": 291,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Rosh_Hashanah"
   },
   {
     "chapter_name": "שבעת ימים",
@@ -1185,7 +1250,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "בראשונה",
@@ -1194,7 +1260,8 @@
     "chapter_start_daf": 22,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "אמר להם הממונה",
@@ -1203,7 +1270,8 @@
     "chapter_start_daf": 28,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "טרף בקלפי",
@@ -1212,7 +1280,8 @@
     "chapter_start_daf": 39,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "הוציאו לו",
@@ -1221,7 +1290,8 @@
     "chapter_start_daf": 47,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "שני שעירי",
@@ -1230,7 +1300,8 @@
     "chapter_start_daf": 62,
     "chapter_start_amud": 1,
     "massechet_id": 288,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "בא לו (כהן גדול)",
@@ -1239,7 +1310,8 @@
     "chapter_start_daf": 68,
     "chapter_start_amud": 2,
     "massechet_id": 288,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "יום הכיפורים",
@@ -1248,7 +1320,8 @@
     "chapter_start_daf": 73,
     "chapter_start_amud": 2,
     "massechet_id": 288,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Yoma"
   },
   {
     "chapter_name": "סוכה",
@@ -1257,7 +1330,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 289,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Sukkah"
   },
   {
     "chapter_name": "הישן תחת המטה",
@@ -1266,7 +1340,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 289,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Sukkah"
   },
   {
     "chapter_name": "לולב הגזול",
@@ -1275,7 +1350,8 @@
     "chapter_start_daf": 29,
     "chapter_start_amud": 2,
     "massechet_id": 289,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Sukkah"
   },
   {
     "chapter_name": "לולב וערבה",
@@ -1284,7 +1360,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 2,
     "massechet_id": 289,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Sukkah"
   },
   {
     "chapter_name": "החליל",
@@ -1293,7 +1370,8 @@
     "chapter_start_daf": 50,
     "chapter_start_amud": 1,
     "massechet_id": 289,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Sukkah"
   },
   {
     "chapter_name": "ביצה",
@@ -1302,7 +1380,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 290,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Beitzah"
   },
   {
     "chapter_name": "יום טוב",
@@ -1311,7 +1390,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 2,
     "massechet_id": 290,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Beitzah"
   },
   {
     "chapter_name": "אין צדין",
@@ -1320,7 +1400,8 @@
     "chapter_start_daf": 23,
     "chapter_start_amud": 2,
     "massechet_id": 290,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Beitzah"
   },
   {
     "chapter_name": "המביא",
@@ -1329,7 +1410,8 @@
     "chapter_start_daf": 29,
     "chapter_start_amud": 2,
     "massechet_id": 290,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Beitzah"
   },
   {
     "chapter_name": "משילין",
@@ -1338,7 +1420,8 @@
     "chapter_start_daf": 35,
     "chapter_start_amud": 2,
     "massechet_id": 290,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Beitzah"
   },
   {
     "chapter_name": "מאימתי",
@@ -1347,7 +1430,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 292,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Taanit"
   },
   {
     "chapter_name": "סדר תעניות כיצד",
@@ -1356,7 +1440,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 1,
     "massechet_id": 292,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Taanit"
   },
   {
     "chapter_name": "סדר תעניות אלו",
@@ -1365,7 +1450,8 @@
     "chapter_start_daf": 18,
     "chapter_start_amud": 2,
     "massechet_id": 292,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Taanit"
   },
   {
     "chapter_name": "בשלשה פרקים",
@@ -1374,7 +1460,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 1,
     "massechet_id": 292,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Taanit"
   },
   {
     "chapter_name": "מגילה נקראת",
@@ -1383,7 +1470,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 293,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Megillah"
   },
   {
     "chapter_name": "הקורא למפרע",
@@ -1392,7 +1480,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 293,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Megillah"
   },
   {
     "chapter_name": "הקורא עומד",
@@ -1401,7 +1490,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 1,
     "massechet_id": 293,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Megillah"
   },
   {
     "chapter_name": "בני העיר",
@@ -1410,7 +1500,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 1,
     "massechet_id": 293,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Megillah"
   },
   {
     "chapter_name": "משקין בית השלחין",
@@ -1419,7 +1510,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 294,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Moed_Katan"
   },
   {
     "chapter_name": "מי שהפך",
@@ -1428,7 +1520,8 @@
     "chapter_start_daf": 11,
     "chapter_start_amud": 2,
     "massechet_id": 294,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Moed_Katan"
   },
   {
     "chapter_name": "ואלו מגלחין",
@@ -1437,7 +1530,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 2,
     "massechet_id": 294,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Moed_Katan"
   },
   {
     "chapter_name": "הכל חייבין",
@@ -1446,7 +1540,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 295,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Chagigah"
   },
   {
     "chapter_name": "אין דורשין",
@@ -1455,7 +1550,8 @@
     "chapter_start_daf": 11,
     "chapter_start_amud": 2,
     "massechet_id": 295,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Chagigah"
   },
   {
     "chapter_name": "חומר בקודש",
@@ -1464,7 +1560,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 295,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Chagigah"
   },
   {
     "chapter_name": "חמש עשרה נשים",
@@ -1473,7 +1570,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "כיצד",
@@ -1482,7 +1580,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "ארבעה אחין",
@@ -1491,7 +1590,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "החולץ ליבמתו",
@@ -1500,7 +1600,8 @@
     "chapter_start_daf": 35,
     "chapter_start_amud": 2,
     "massechet_id": 296,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "רבן גמליאל",
@@ -1509,7 +1610,8 @@
     "chapter_start_daf": 50,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "הבא על יבמתו",
@@ -1518,7 +1620,8 @@
     "chapter_start_daf": 53,
     "chapter_start_amud": 2,
     "massechet_id": 296,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "אלמנה לכהן גדול",
@@ -1527,7 +1630,8 @@
     "chapter_start_daf": 66,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "הערל",
@@ -1536,7 +1640,8 @@
     "chapter_start_daf": 70,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "יש מותרות",
@@ -1545,7 +1650,8 @@
     "chapter_start_daf": 84,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "האשה רבה",
@@ -1554,7 +1660,8 @@
     "chapter_start_daf": 87,
     "chapter_start_amud": 2,
     "massechet_id": 296,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "נושאין על האנוסה",
@@ -1563,7 +1670,8 @@
     "chapter_start_daf": 97,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "מצות חליצה",
@@ -1572,7 +1680,8 @@
     "chapter_start_daf": 101,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "בית שמאי",
@@ -1581,7 +1690,8 @@
     "chapter_start_daf": 107,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שלושה עשר"
+    "chapter_count": "שלושה עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "חרש שנשא",
@@ -1590,7 +1700,8 @@
     "chapter_start_daf": 112,
     "chapter_start_amud": 2,
     "massechet_id": 296,
-    "chapter_count": "ארבעה עשר"
+    "chapter_count": "ארבעה עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "האשה שלום",
@@ -1599,7 +1710,8 @@
     "chapter_start_daf": 114,
     "chapter_start_amud": 2,
     "massechet_id": 296,
-    "chapter_count": "חמישה עשר"
+    "chapter_count": "חמישה עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "האשה בתרא",
@@ -1608,7 +1720,8 @@
     "chapter_start_daf": 119,
     "chapter_start_amud": 1,
     "massechet_id": 296,
-    "chapter_count": "שישה עשר"
+    "chapter_count": "שישה עשר",
+    "massechet_english": "Yevamot"
   },
   {
     "chapter_name": "בתולה נשאת",
@@ -1617,7 +1730,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "האשה שנתארמלה",
@@ -1626,7 +1740,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "אלו נערות",
@@ -1635,7 +1750,8 @@
     "chapter_start_daf": 29,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "נערה שנתפתתה",
@@ -1644,7 +1760,8 @@
     "chapter_start_daf": 41,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "אף על פי",
@@ -1653,7 +1770,8 @@
     "chapter_start_daf": 54,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "מציאת האשה",
@@ -1662,7 +1780,8 @@
     "chapter_start_daf": 65,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "המדיר",
@@ -1671,7 +1790,8 @@
     "chapter_start_daf": 70,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "האשה שנפלו",
@@ -1680,7 +1800,8 @@
     "chapter_start_daf": 78,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "הכותב לאשתו",
@@ -1689,7 +1810,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "מי שהיה נשוי",
@@ -1698,7 +1820,8 @@
     "chapter_start_daf": 90,
     "chapter_start_amud": 1,
     "massechet_id": 297,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "אלמנה ניזונת",
@@ -1707,7 +1830,8 @@
     "chapter_start_daf": 95,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "הנושא את האשה",
@@ -1716,7 +1840,8 @@
     "chapter_start_daf": 101,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "שני דייני",
@@ -1725,7 +1850,8 @@
     "chapter_start_daf": 104,
     "chapter_start_amud": 2,
     "massechet_id": 297,
-    "chapter_count": "שלושה עשר"
+    "chapter_count": "שלושה עשר",
+    "massechet_english": "Ketubot"
   },
   {
     "chapter_name": "כל כנויי",
@@ -1734,7 +1860,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "ואלו מותרין",
@@ -1743,7 +1870,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 2,
     "massechet_id": 298,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "ארבעה נדרים",
@@ -1752,7 +1880,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 298,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "אין בין המודר",
@@ -1761,7 +1890,8 @@
     "chapter_start_daf": 32,
     "chapter_start_amud": 2,
     "massechet_id": 298,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "השותפין",
@@ -1770,7 +1900,8 @@
     "chapter_start_daf": 45,
     "chapter_start_amud": 2,
     "massechet_id": 298,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "הנודר מן המבושל",
@@ -1779,7 +1910,8 @@
     "chapter_start_daf": 49,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "הנודר מן הירק",
@@ -1788,7 +1920,8 @@
     "chapter_start_daf": 54,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "קונם יין",
@@ -1797,7 +1930,8 @@
     "chapter_start_daf": 60,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "רבי אליעזר",
@@ -1806,7 +1940,8 @@
     "chapter_start_daf": 64,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "נערה המאורסה",
@@ -1815,7 +1950,8 @@
     "chapter_start_daf": 66,
     "chapter_start_amud": 2,
     "massechet_id": 298,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "ואלו נדרים",
@@ -1824,7 +1960,8 @@
     "chapter_start_daf": 79,
     "chapter_start_amud": 1,
     "massechet_id": 298,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Nedarim"
   },
   {
     "chapter_name": "כל כנויי נזירות",
@@ -1833,7 +1970,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "הריני נזיר",
@@ -1842,7 +1980,8 @@
     "chapter_start_daf": 9,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "מי שאמר",
@@ -1851,7 +1990,8 @@
     "chapter_start_daf": 16,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "מי שאמר",
@@ -1860,7 +2000,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 299,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "בית שמאי",
@@ -1869,7 +2010,8 @@
     "chapter_start_daf": 30,
     "chapter_start_amud": 2,
     "massechet_id": 299,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "שלשה מינין",
@@ -1878,7 +2020,8 @@
     "chapter_start_daf": 34,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "כהן גדול",
@@ -1887,7 +2030,8 @@
     "chapter_start_daf": 47,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "שני נזירים",
@@ -1896,7 +2040,8 @@
     "chapter_start_daf": 60,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "הכותים אין להם",
@@ -1905,7 +2050,8 @@
     "chapter_start_daf": 57,
     "chapter_start_amud": 1,
     "massechet_id": 299,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Nazir"
   },
   {
     "chapter_name": "המקנא",
@@ -1914,7 +2060,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "היה מביא",
@@ -1923,7 +2070,8 @@
     "chapter_start_daf": 14,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "היה נוטל",
@@ -1932,7 +2080,8 @@
     "chapter_start_daf": 19,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "ארוסה",
@@ -1941,7 +2090,8 @@
     "chapter_start_daf": 23,
     "chapter_start_amud": 2,
     "massechet_id": 300,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "כשם שהמים",
@@ -1950,7 +2100,8 @@
     "chapter_start_daf": 27,
     "chapter_start_amud": 2,
     "massechet_id": 300,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "מי שקינא",
@@ -1959,7 +2110,8 @@
     "chapter_start_daf": 31,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "אלו נאמרין",
@@ -1968,7 +2120,8 @@
     "chapter_start_daf": 32,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "משוח מלחמה",
@@ -1977,7 +2130,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 1,
     "massechet_id": 300,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "עגלה ערופה",
@@ -1986,7 +2140,8 @@
     "chapter_start_daf": 44,
     "chapter_start_amud": 2,
     "massechet_id": 300,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Sotah"
   },
   {
     "chapter_name": "המביא גט",
@@ -1995,7 +2150,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "המביא גט",
@@ -2004,7 +2160,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "כל הגט",
@@ -2013,7 +2170,8 @@
     "chapter_start_daf": 24,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "השולח",
@@ -2022,7 +2180,8 @@
     "chapter_start_daf": 32,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "הניזקין",
@@ -2031,7 +2190,8 @@
     "chapter_start_daf": 48,
     "chapter_start_amud": 2,
     "massechet_id": 301,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "האומר",
@@ -2040,7 +2200,8 @@
     "chapter_start_daf": 62,
     "chapter_start_amud": 2,
     "massechet_id": 301,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "מי שאחזו",
@@ -2049,7 +2210,8 @@
     "chapter_start_daf": 67,
     "chapter_start_amud": 2,
     "massechet_id": 301,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "הזורק",
@@ -2058,7 +2220,8 @@
     "chapter_start_daf": 77,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "המגרש",
@@ -2067,7 +2230,8 @@
     "chapter_start_daf": 82,
     "chapter_start_amud": 1,
     "massechet_id": 301,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Gittin"
   },
   {
     "chapter_name": "האשה נקנית",
@@ -2076,7 +2240,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 302,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Kiddushin"
   },
   {
     "chapter_name": "האיש מקדש",
@@ -2085,7 +2250,8 @@
     "chapter_start_daf": 41,
     "chapter_start_amud": 1,
     "massechet_id": 302,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Kiddushin"
   },
   {
     "chapter_name": "האומר",
@@ -2094,7 +2260,8 @@
     "chapter_start_daf": 58,
     "chapter_start_amud": 2,
     "massechet_id": 302,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Kiddushin"
   },
   {
     "chapter_name": "עשרה יוחסין",
@@ -2103,7 +2270,8 @@
     "chapter_start_daf": 69,
     "chapter_start_amud": 1,
     "massechet_id": 302,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Kiddushin"
   },
   {
     "chapter_name": "ארבעה אבות",
@@ -2112,7 +2280,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 303,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "כיצד הרגל",
@@ -2121,7 +2290,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 303,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "המניח",
@@ -2130,7 +2300,8 @@
     "chapter_start_daf": 27,
     "chapter_start_amud": 1,
     "massechet_id": 303,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "שור שנגח ד' וה'",
@@ -2139,7 +2310,8 @@
     "chapter_start_daf": 36,
     "chapter_start_amud": 1,
     "massechet_id": 303,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "שור שנגח את הפרה",
@@ -2148,7 +2320,8 @@
     "chapter_start_daf": 46,
     "chapter_start_amud": 1,
     "massechet_id": 303,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "הכונס",
@@ -2157,7 +2330,8 @@
     "chapter_start_daf": 55,
     "chapter_start_amud": 2,
     "massechet_id": 303,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "מרובה",
@@ -2166,7 +2340,8 @@
     "chapter_start_daf": 62,
     "chapter_start_amud": 2,
     "massechet_id": 303,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "החובל",
@@ -2175,7 +2350,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 2,
     "massechet_id": 303,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "הגוזל עצים",
@@ -2184,7 +2360,8 @@
     "chapter_start_daf": 93,
     "chapter_start_amud": 2,
     "massechet_id": 303,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "הגוזל ומאכיל",
@@ -2193,7 +2370,8 @@
     "chapter_start_daf": 111,
     "chapter_start_amud": 2,
     "massechet_id": 303,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Bava_Kamma"
   },
   {
     "chapter_name": "שנים אוחזין",
@@ -2202,7 +2380,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "אלו מציאות",
@@ -2211,7 +2390,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "המפקיד",
@@ -2220,7 +2400,8 @@
     "chapter_start_daf": 33,
     "chapter_start_amud": 2,
     "massechet_id": 304,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "הזהב",
@@ -2229,7 +2410,8 @@
     "chapter_start_daf": 44,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "איזהו נשך",
@@ -2238,7 +2420,8 @@
     "chapter_start_daf": 60,
     "chapter_start_amud": 2,
     "massechet_id": 304,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "השוכר את האומנין",
@@ -2247,7 +2430,8 @@
     "chapter_start_daf": 75,
     "chapter_start_amud": 2,
     "massechet_id": 304,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "השוכר את הפועלים",
@@ -2256,7 +2440,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "השואל את הפרה",
@@ -2265,7 +2450,8 @@
     "chapter_start_daf": 94,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "המקבל שדה מחבירו",
@@ -2274,7 +2460,8 @@
     "chapter_start_daf": 103,
     "chapter_start_amud": 1,
     "massechet_id": 304,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "הבית והעלייה",
@@ -2283,7 +2470,8 @@
     "chapter_start_daf": 116,
     "chapter_start_amud": 2,
     "massechet_id": 304,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Bava_Metzia"
   },
   {
     "chapter_name": "השותפין",
@@ -2292,7 +2480,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "לא יחפור",
@@ -2301,7 +2490,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "חזקת הבתים",
@@ -2310,7 +2500,8 @@
     "chapter_start_daf": 28,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "המוכר את הבית",
@@ -2319,7 +2510,8 @@
     "chapter_start_daf": 61,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "המוכר את הספינה",
@@ -2328,7 +2520,8 @@
     "chapter_start_daf": 73,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "המוכר פירות",
@@ -2337,7 +2530,8 @@
     "chapter_start_daf": 92,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "בית כור",
@@ -2346,7 +2540,8 @@
     "chapter_start_daf": 102,
     "chapter_start_amud": 2,
     "massechet_id": 305,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "יש נוחלין",
@@ -2355,7 +2550,8 @@
     "chapter_start_daf": 108,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "מי שמת",
@@ -2364,7 +2560,8 @@
     "chapter_start_daf": 139,
     "chapter_start_amud": 2,
     "massechet_id": 305,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "גט פשוט",
@@ -2373,7 +2570,8 @@
     "chapter_start_daf": 160,
     "chapter_start_amud": 1,
     "massechet_id": 305,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Bava_Batra"
   },
   {
     "chapter_name": "דיני ממונות בשלשה",
@@ -2382,7 +2580,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "כהן גדול",
@@ -2391,7 +2590,8 @@
     "chapter_start_daf": 18,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "זה בורר",
@@ -2400,7 +2600,8 @@
     "chapter_start_daf": 23,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "אחד דיני ממונות",
@@ -2409,7 +2610,8 @@
     "chapter_start_daf": 32,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "היו בודקין",
@@ -2418,7 +2620,8 @@
     "chapter_start_daf": 40,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "נגמר הדין",
@@ -2427,7 +2630,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 2,
     "massechet_id": 306,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "ארבע מיתות",
@@ -2436,7 +2640,8 @@
     "chapter_start_daf": 49,
     "chapter_start_amud": 2,
     "massechet_id": 306,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "בן סורר ומורה",
@@ -2445,7 +2650,8 @@
     "chapter_start_daf": 68,
     "chapter_start_amud": 2,
     "massechet_id": 306,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "הנשרפין",
@@ -2454,7 +2660,8 @@
     "chapter_start_daf": 75,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "חלק",
@@ -2463,7 +2670,8 @@
     "chapter_start_daf": 90,
     "chapter_start_amud": 1,
     "massechet_id": 306,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "אלו הן הנחנקין",
@@ -2472,7 +2680,8 @@
     "chapter_start_daf": 84,
     "chapter_start_amud": 2,
     "massechet_id": 306,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Sanhedrin"
   },
   {
     "chapter_name": "כיצד העדים",
@@ -2481,7 +2690,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 307,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Makkot"
   },
   {
     "chapter_name": "אלו הן הגולין",
@@ -2490,7 +2700,8 @@
     "chapter_start_daf": 7,
     "chapter_start_amud": 1,
     "massechet_id": 307,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Makkot"
   },
   {
     "chapter_name": "ואלו הן הלוקין",
@@ -2499,7 +2710,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 1,
     "massechet_id": 307,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Makkot"
   },
   {
     "chapter_name": "שבועות שתים",
@@ -2508,7 +2720,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 308,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "ידיעות הטומאה",
@@ -2517,7 +2730,8 @@
     "chapter_start_daf": 14,
     "chapter_start_amud": 1,
     "massechet_id": 308,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "שבועות שתים",
@@ -2526,7 +2740,8 @@
     "chapter_start_daf": 19,
     "chapter_start_amud": 2,
     "massechet_id": 308,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "שבועת העדות",
@@ -2535,7 +2750,8 @@
     "chapter_start_daf": 30,
     "chapter_start_amud": 1,
     "massechet_id": 308,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "שבועת הפקדון",
@@ -2544,7 +2760,8 @@
     "chapter_start_daf": 36,
     "chapter_start_amud": 2,
     "massechet_id": 308,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "שבועת הדיינין",
@@ -2553,7 +2770,8 @@
     "chapter_start_daf": 38,
     "chapter_start_amud": 2,
     "massechet_id": 308,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "כל הנשבעין",
@@ -2562,7 +2780,8 @@
     "chapter_start_daf": 44,
     "chapter_start_amud": 2,
     "massechet_id": 308,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "ארבעה שומרין",
@@ -2571,7 +2790,8 @@
     "chapter_start_daf": 49,
     "chapter_start_amud": 1,
     "massechet_id": 308,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Shevuot"
   },
   {
     "chapter_name": "לפני אידיהן",
@@ -2580,7 +2800,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 309,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Avodah_Zarah"
   },
   {
     "chapter_name": "אין מעמידין",
@@ -2589,7 +2810,8 @@
     "chapter_start_daf": 22,
     "chapter_start_amud": 1,
     "massechet_id": 309,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Avodah_Zarah"
   },
   {
     "chapter_name": "כל הצלמים",
@@ -2598,7 +2820,8 @@
     "chapter_start_daf": 40,
     "chapter_start_amud": 2,
     "massechet_id": 309,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Avodah_Zarah"
   },
   {
     "chapter_name": "רבי ישמעאל",
@@ -2607,7 +2830,8 @@
     "chapter_start_daf": 49,
     "chapter_start_amud": 2,
     "massechet_id": 309,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Avodah_Zarah"
   },
   {
     "chapter_name": "השוכר את הפועל",
@@ -2616,7 +2840,8 @@
     "chapter_start_daf": 62,
     "chapter_start_amud": 1,
     "massechet_id": 309,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Avodah_Zarah"
   },
   {
     "chapter_name": "הורו בית דין",
@@ -2625,7 +2850,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 310,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Horayot"
   },
   {
     "chapter_name": "הורה כהן משיח",
@@ -2634,7 +2860,8 @@
     "chapter_start_daf": 6,
     "chapter_start_amud": 2,
     "massechet_id": 310,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Horayot"
   },
   {
     "chapter_name": "כהן משיח",
@@ -2643,7 +2870,8 @@
     "chapter_start_daf": 9,
     "chapter_start_amud": 2,
     "massechet_id": 310,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Horayot"
   },
   {
     "chapter_name": "שמאי אומר",
@@ -2778,7 +3006,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "כל הזבחים שקבלו דמן",
@@ -2787,7 +3016,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 2,
     "massechet_id": 311,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "כל הפסולין",
@@ -2796,7 +3026,8 @@
     "chapter_start_daf": 31,
     "chapter_start_amud": 2,
     "massechet_id": 311,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "בית שמאי",
@@ -2805,7 +3036,8 @@
     "chapter_start_daf": 36,
     "chapter_start_amud": 2,
     "massechet_id": 311,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "איזהו מקומן",
@@ -2814,7 +3046,8 @@
     "chapter_start_daf": 47,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "קדשי קדשים",
@@ -2823,7 +3056,8 @@
     "chapter_start_daf": 58,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "חטאת העוף",
@@ -2832,7 +3066,8 @@
     "chapter_start_daf": 66,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "כל הזבחים",
@@ -2841,7 +3076,8 @@
     "chapter_start_daf": 70,
     "chapter_start_amud": 2,
     "massechet_id": 311,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "המזבח מקדש",
@@ -2850,7 +3086,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "כל התדיר",
@@ -2859,7 +3096,8 @@
     "chapter_start_daf": 89,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "דם חטאת",
@@ -2868,7 +3106,8 @@
     "chapter_start_daf": 92,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "טבול יום",
@@ -2877,7 +3116,8 @@
     "chapter_start_daf": 98,
     "chapter_start_amud": 2,
     "massechet_id": 311,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "השוחט והמעלה",
@@ -2886,7 +3126,8 @@
     "chapter_start_daf": 106,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "שלושה עשר"
+    "chapter_count": "שלושה עשר",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "פרת חטאת",
@@ -2895,7 +3136,8 @@
     "chapter_start_daf": 112,
     "chapter_start_amud": 1,
     "massechet_id": 311,
-    "chapter_count": "ארבעה עשר"
+    "chapter_count": "ארבעה עשר",
+    "massechet_english": "Zevachim"
   },
   {
     "chapter_name": "כל המנחות",
@@ -2904,7 +3146,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "הקומץ את המנחה",
@@ -2913,7 +3156,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "הקומץ רבה",
@@ -2922,7 +3166,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "התכלת",
@@ -2931,7 +3176,8 @@
     "chapter_start_daf": 38,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "כל המנחות באות מצה",
@@ -2940,7 +3186,8 @@
     "chapter_start_daf": 52,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "רבי ישמעאל",
@@ -2949,7 +3196,8 @@
     "chapter_start_daf": 63,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "אלו מנחות נקמצות",
@@ -2958,7 +3206,8 @@
     "chapter_start_daf": 72,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "התודה היתה באה",
@@ -2967,7 +3216,8 @@
     "chapter_start_daf": 76,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "כל קרבנות הצבור",
@@ -2976,7 +3226,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "שתי מדות",
@@ -2985,7 +3236,8 @@
     "chapter_start_daf": 87,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "שתי הלחם",
@@ -2994,7 +3246,8 @@
     "chapter_start_daf": 94,
     "chapter_start_amud": 1,
     "massechet_id": 312,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "המנחות והנסכים",
@@ -3003,7 +3256,8 @@
     "chapter_start_daf": 100,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "הרי עלי עשרון",
@@ -3012,7 +3266,8 @@
     "chapter_start_daf": 104,
     "chapter_start_amud": 2,
     "massechet_id": 312,
-    "chapter_count": "שלושה עשר"
+    "chapter_count": "שלושה עשר",
+    "massechet_english": "Menachot"
   },
   {
     "chapter_name": "הכל שוחטין",
@@ -3021,7 +3276,8 @@
     "chapter_start_daf": 27,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "השוחט",
@@ -3030,7 +3286,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "אלו טרפות",
@@ -3039,7 +3296,8 @@
     "chapter_start_daf": 42,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "בהמה המקשה",
@@ -3048,7 +3306,8 @@
     "chapter_start_daf": 68,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "אותו ואת בנו",
@@ -3057,7 +3316,8 @@
     "chapter_start_daf": 78,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "כסוי הדם",
@@ -3066,7 +3326,8 @@
     "chapter_start_daf": 83,
     "chapter_start_amud": 2,
     "massechet_id": 313,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "גיד הנשה",
@@ -3075,7 +3336,8 @@
     "chapter_start_daf": 89,
     "chapter_start_amud": 2,
     "massechet_id": 313,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "כל הבשר",
@@ -3084,7 +3346,8 @@
     "chapter_start_daf": 103,
     "chapter_start_amud": 2,
     "massechet_id": 313,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "העור והרוטב",
@@ -3093,7 +3356,8 @@
     "chapter_start_daf": 117,
     "chapter_start_amud": 2,
     "massechet_id": 313,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "הזרוע והלחיים",
@@ -3102,7 +3366,8 @@
     "chapter_start_daf": 130,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "ראשית הגז",
@@ -3111,7 +3376,8 @@
     "chapter_start_daf": 135,
     "chapter_start_amud": 1,
     "massechet_id": 313,
-    "chapter_count": "אחד עשר"
+    "chapter_count": "אחד עשר",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "שילוח הקן",
@@ -3120,7 +3386,8 @@
     "chapter_start_daf": 138,
     "chapter_start_amud": 2,
     "massechet_id": 313,
-    "chapter_count": "שנים עשר"
+    "chapter_count": "שנים עשר",
+    "massechet_english": "Chullin"
   },
   {
     "chapter_name": "הלוקח עובר חמורו",
@@ -3129,7 +3396,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "הלוקח עובר פרתו",
@@ -3138,7 +3406,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "הלוקח בהמה",
@@ -3147,7 +3416,8 @@
     "chapter_start_daf": 19,
     "chapter_start_amud": 2,
     "massechet_id": 314,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "עד כמה",
@@ -3156,7 +3426,8 @@
     "chapter_start_daf": 26,
     "chapter_start_amud": 2,
     "massechet_id": 314,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "כל פסולי המוקדשין",
@@ -3165,7 +3436,8 @@
     "chapter_start_daf": 31,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "על אלו מומין",
@@ -3174,7 +3446,8 @@
     "chapter_start_daf": 37,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "מומין אלו",
@@ -3183,7 +3456,8 @@
     "chapter_start_daf": 43,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "יש בכור",
@@ -3192,7 +3466,8 @@
     "chapter_start_daf": 46,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "מעשר בהמה",
@@ -3201,7 +3476,8 @@
     "chapter_start_daf": 53,
     "chapter_start_amud": 1,
     "massechet_id": 314,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Bekhorot"
   },
   {
     "chapter_name": "הכל מעריכין",
@@ -3210,7 +3486,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 315,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "אין נערכין",
@@ -3219,7 +3496,8 @@
     "chapter_start_daf": 7,
     "chapter_start_amud": 2,
     "massechet_id": 315,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "יש בערכין",
@@ -3228,7 +3506,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 2,
     "massechet_id": 315,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "השג יד",
@@ -3237,7 +3516,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 315,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "האומר משקלי עלי",
@@ -3246,7 +3526,8 @@
     "chapter_start_daf": 19,
     "chapter_start_amud": 1,
     "massechet_id": 315,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "שום היתומים",
@@ -3255,7 +3536,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 2,
     "massechet_id": 315,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "אין מקדישין",
@@ -3264,7 +3546,8 @@
     "chapter_start_daf": 24,
     "chapter_start_amud": 1,
     "massechet_id": 315,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "המקדיש שדהו",
@@ -3273,7 +3556,8 @@
     "chapter_start_daf": 27,
     "chapter_start_amud": 1,
     "massechet_id": 315,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "המוכר שדהו",
@@ -3282,7 +3566,8 @@
     "chapter_start_daf": 29,
     "chapter_start_amud": 2,
     "massechet_id": 315,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Arakhin"
   },
   {
     "chapter_name": "הכל ממירין",
@@ -3291,7 +3576,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 316,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "יש בקרבנות",
@@ -3300,7 +3586,8 @@
     "chapter_start_daf": 14,
     "chapter_start_amud": 1,
     "massechet_id": 316,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "אלו קדשים",
@@ -3309,7 +3596,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 2,
     "massechet_id": 316,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "ולד חטאת",
@@ -3318,7 +3606,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 2,
     "massechet_id": 316,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "כיצד מערימין",
@@ -3327,7 +3616,8 @@
     "chapter_start_daf": 24,
     "chapter_start_amud": 2,
     "massechet_id": 316,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "כל האסורין",
@@ -3336,7 +3626,8 @@
     "chapter_start_daf": 28,
     "chapter_start_amud": 1,
     "massechet_id": 316,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "יש בקדשי מזבח",
@@ -3345,7 +3636,8 @@
     "chapter_start_daf": 31,
     "chapter_start_amud": 1,
     "massechet_id": 316,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Temurah"
   },
   {
     "chapter_name": "שלשים ושש",
@@ -3354,7 +3646,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 317,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "ארבעה מחוסרי כפרה",
@@ -3363,7 +3656,8 @@
     "chapter_start_daf": 8,
     "chapter_start_amud": 2,
     "massechet_id": 317,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "אמרו לו",
@@ -3372,7 +3666,8 @@
     "chapter_start_daf": 11,
     "chapter_start_amud": 2,
     "massechet_id": 317,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "ספק אכל חלב",
@@ -3381,7 +3676,8 @@
     "chapter_start_daf": 17,
     "chapter_start_amud": 1,
     "massechet_id": 317,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "דם שחיטה",
@@ -3390,7 +3686,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 2,
     "massechet_id": 317,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "המביא אשם",
@@ -3399,7 +3696,8 @@
     "chapter_start_daf": 23,
     "chapter_start_amud": 2,
     "massechet_id": 317,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Keritot"
   },
   {
     "chapter_name": "קדשי קדשים",
@@ -3408,7 +3706,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 318,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "חטאת העוף",
@@ -3417,7 +3716,8 @@
     "chapter_start_daf": 8,
     "chapter_start_amud": 1,
     "massechet_id": 318,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "ולד חטאת",
@@ -3426,7 +3726,8 @@
     "chapter_start_daf": 10,
     "chapter_start_amud": 2,
     "massechet_id": 318,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "קדשי מזבח",
@@ -3435,7 +3736,8 @@
     "chapter_start_daf": 15,
     "chapter_start_amud": 1,
     "massechet_id": 318,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "הנהנה מן ההקדש",
@@ -3444,7 +3746,8 @@
     "chapter_start_daf": 18,
     "chapter_start_amud": 1,
     "massechet_id": 318,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "השליח שעשה",
@@ -3453,7 +3756,8 @@
     "chapter_start_daf": 20,
     "chapter_start_amud": 1,
     "massechet_id": 318,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Meilah"
   },
   {
     "chapter_name": "חטאת העוף",
@@ -3597,7 +3901,8 @@
     "chapter_start_daf": 2,
     "chapter_start_amud": 1,
     "massechet_id": 322,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "כל היד",
@@ -3606,7 +3911,8 @@
     "chapter_start_daf": 13,
     "chapter_start_amud": 1,
     "massechet_id": 322,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "המפלת חתיכה",
@@ -3615,7 +3921,8 @@
     "chapter_start_daf": 21,
     "chapter_start_amud": 1,
     "massechet_id": 322,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "בנות כותים",
@@ -3624,7 +3931,8 @@
     "chapter_start_daf": 31,
     "chapter_start_amud": 2,
     "massechet_id": 322,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "יוצא דופן",
@@ -3633,7 +3941,8 @@
     "chapter_start_daf": 40,
     "chapter_start_amud": 1,
     "massechet_id": 322,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "בא סימן",
@@ -3642,7 +3951,8 @@
     "chapter_start_daf": 48,
     "chapter_start_amud": 1,
     "massechet_id": 322,
-    "chapter_count": "שישי"
+    "chapter_count": "שישי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "דם הנדה",
@@ -3651,7 +3961,8 @@
     "chapter_start_daf": 54,
     "chapter_start_amud": 2,
     "massechet_id": 322,
-    "chapter_count": "שביעי"
+    "chapter_count": "שביעי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "הרואה כתם",
@@ -3660,7 +3971,8 @@
     "chapter_start_daf": 57,
     "chapter_start_amud": 2,
     "massechet_id": 322,
-    "chapter_count": "שמיני"
+    "chapter_count": "שמיני",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "האשה שהיא עושה",
@@ -3669,7 +3981,8 @@
     "chapter_start_daf": 59,
     "chapter_start_amud": 2,
     "massechet_id": 322,
-    "chapter_count": "תשיעי"
+    "chapter_count": "תשיעי",
+    "massechet_english": "Niddah"
   },
   {
     "chapter_name": "תינוקת",
@@ -3678,6 +3991,7 @@
     "chapter_start_daf": 64,
     "chapter_start_amud": 2,
     "massechet_id": 322,
-    "chapter_count": "עשירי"
+    "chapter_count": "עשירי",
+    "massechet_english": "Niddah"
   }
 ]

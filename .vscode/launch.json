@@ -61,6 +61,14 @@
 
         },
         {
+            "name": "Python Debugger: transcription_reviewer gemini",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\transcription_reviewer\\local_test_gemini.py",
+            "console": "integratedTerminal",
+            "cwd": "C:\\portal\\transcription\\transcription_reviewer"
+        },
+        {
             "name": "Python Debugger: aligner test",
             "type": "debugpy",
             "request": "launch",
