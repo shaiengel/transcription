@@ -46,6 +46,8 @@ class TranscriptionFile(BaseModel):
     system_prompt: str
     line_count: int
     word_count: int
+    transcription_bucket: str = ""
+    output_bucket: str = ""
 
 
 class ReviewResult(BaseModel):

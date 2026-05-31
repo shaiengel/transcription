@@ -31,8 +31,6 @@ class GeminiPipeline(LLMPipeline):
         s3_client: S3Client,
         sqs_client: SQSClient,
         api_key: str,
-        transcription_bucket: str,
-        output_bucket: str,
         sqs_queue_url: str,
         model_name: str = "gemini-2.5-flash",
         temperature: float = 0.1,
@@ -44,8 +42,6 @@ class GeminiPipeline(LLMPipeline):
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
-        self._transcription_bucket = transcription_bucket
-        self._output_bucket = output_bucket
         self._sqs_queue_url = sqs_queue_url
         self._model_name = model_name
         self._temperature = temperature
@@ -83,6 +79,8 @@ class GeminiPipeline(LLMPipeline):
                         system_prompt=f.system_prompt,
                         content=chunk_content,
                         token_count=chunk_tokens,
+                        transcription_bucket=f.transcription_bucket,
+                        output_bucket=f.output_bucket,
                     )
                 )
 
@@ -244,6 +242,14 @@ class GeminiPipeline(LLMPipeline):
         fixed_count = 0
         failed_count = 0
 
+        # Build a stem -> BatchEntry lookup for per-file bucket resolution
+        entry_by_stem: dict[str, BatchEntry] = {}
+        for entry in original_files:
+            stem = entry.record_id.rsplit("_", 1)[0] if (
+                "_" in entry.record_id and entry.record_id.rsplit("_", 1)[1].isdigit()
+            ) else entry.record_id
+            entry_by_stem.setdefault(stem, entry)
+
         # Group split records back together (stem_1, stem_2 -> stem)
         grouped_results = self._group_split_records(llm_response)
 
@@ -252,27 +258,30 @@ class GeminiPipeline(LLMPipeline):
                 failed_count += 1
                 continue
 
+            batch_entry = entry_by_stem.get(stem)
+            transcription_bucket = batch_entry.transcription_bucket if batch_entry else ""
+            output_bucket = batch_entry.output_bucket if batch_entry else ""
+
             try:
-                # 1. Upload TXT file (fixed text for timestamps alignement)
+                # 1. Upload TXT file (fixed text for timestamps alignment)
                 if not self._s3_client.put_object_content(
-                    self._output_bucket, f"{stem}.txt", fixed_text
+                    output_bucket, f"{stem}.txt", fixed_text
                 ):
                     failed_count += 1
                     continue
 
-
                 # Copy .time file as pre-fix transcription to output bucket before cleanup
                 time_key = f"{stem}.time"
                 pre_fix_key = f"{stem}.pre-fix.time"
-                self._s3_client.copy_object(self._transcription_bucket, time_key, self._output_bucket, pre_fix_key)
+                self._s3_client.copy_object(transcription_bucket, time_key, output_bucket, pre_fix_key)
 
                 # Cleanup source files
-                self._s3_client.delete_objects_by_prefix(self._transcription_bucket, f"{stem}.")                
+                self._s3_client.delete_objects_by_prefix(transcription_bucket, f"{stem}.")
 
                 # Send SQS notification
                 try:
                     self._sqs_client.send_message(
-                        self._sqs_queue_url, {"filename": f"{stem}"}
+                        self._sqs_queue_url, {"media_id": int(stem)}
                     )
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")

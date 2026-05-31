@@ -24,15 +24,19 @@ CloudWatch Alarm (ASG scaled to 0)
          ↓
     Lambda handler
          ↓
-    S3Reader → list .txt files in portal-daf-yomi-transcription
+    S3Reader → list .txt files in TRANSCRIPTION_BUCKET
          ↓
-    TranscriptionFixer → fetch per-file system prompts from S3 templates
+    DynamoReader → get_entry(media_id) — gate on status == "transcribed"
+         ↓
+    TranscriptionFixer → fetch system prompt from context_files_bucket_s3
          ↓
     LLMPipeline (abstract)
          ├── BedrockBatchPipeline → AWS Bedrock batch inference (async)
          └── GeminiPipeline → Google Gemini API (sync + immediate results)
          ↓
-    Output to final-transcription S3 + SQS notifications
+    Output to media_fixed_transcribed_bucket S3 + SQS notification
+         ↓
+    DynamoReader → set_status(media_id, "fixed")
 ```
 
 ## Project Structure
@@ -49,17 +53,20 @@ transcription_reviewer/
     ├── config.py               # Configuration management (JSON + env vars)
     ├── models/
     │   ├── schemas.py          # TranscriptionFile, ReviewResult
+    │   ├── dynamo_entry.py     # DynamoDBMediaEntry dataclass
     │   └── llm_pipeline.py     # Abstract LLMPipeline base class
     ├── handlers/
     │   └── review.py           # Main orchestration: process_transcriptions()
     ├── services/
     │   ├── s3_reader.py        # List and read transcription files
+    │   ├── dynamo_reader.py    # DynamoDB get_entry / set_status
     │   ├── transcription_fixer.py  # System prompt fetching, stem extraction
     │   ├── token_counter.py    # Token counting for splitting
     │   ├── bedrock_batch_pipeline.py  # AWS Bedrock batch implementation
     │   └── gemini_pipeline.py  # Google Gemini implementation
     ├── infrastructure/
     │   ├── dependency_injection.py  # DI container (comment/uncomment to switch backend)
+    │   ├── dynamodb_client.py
     │   ├── s3_client.py
     │   ├── sqs_client.py
     │   ├── bedrock_client.py
@@ -75,7 +82,7 @@ Configured via `LLM_BACKEND` env var or `llm_backend` in `config.dev.json`.
 | Backend | Implementation | Processing | Output |
 |---------|---------------|------------|--------|
 | `AWS_OPUS4.5` | BedrockBatchPipeline | Async batch (≥100 entries) | Job ARN — `post_inference` Lambda processes results |
-| `GEMINI2.5` | GeminiPipeline | Sync one-by-one | Immediate VTT + TXT + SQS notification |
+| `GEMINI2.5` | GeminiPipeline | Sync one-by-one | Immediate TXT + SQS notification |
 
 **Switching backends** — edit `infrastructure/dependency_injection.py`:
 ```python
@@ -86,37 +93,53 @@ llm_pipeline = providers.Singleton(_create_bedrock_pipeline, ...)
 # llm_pipeline = providers.Singleton(_create_gemini_pipeline, ...)
 ```
 
+## DynamoDB Integration (Gemini backend only)
+
+Each file's S3 bucket paths and processing status are stored in a DynamoDB table (shared with `gpu_instance` and `audio_manager`).
+
+**Table**: `MEDIA_TABLE` env var (e.g. `transcription-tracker`)  
+**Partition key**: `media_id` (string — the numeric filename stem)
+
+Relevant fields read per entry:
+
+| DynamoDB field | Used for |
+|----------------|----------|
+| `status` | Gate: only process if `"transcribed"` |
+| `context_files_bucket_s3` | Bucket containing `{stem}.template.txt` system prompt |
+| `media_transcribed_bucket` | Source bucket for `.time` file copy |
+| `media_fixed_transcribed_bucket` | Destination bucket for fixed `.txt` output |
+
+After a successful fix, status is updated to `"fixed"`.
+
 ## System Prompt Management
 
 Each transcription file has its own custom system prompt stored in S3.
 
-**Template location**: `s3://portal-daf-yomi-audio/{stem}.template.txt`
+**Template location**: `s3://{context_files_bucket_s3}/{stem}.template.txt`
 
-Example for `151415.txt`:
-- Transcription: `s3://portal-daf-yomi-transcription/151415.txt`
-- Template: `s3://portal-daf-yomi-audio/151415.template.txt`
+The bucket is resolved per-file from the DynamoDB entry (`context_files_bucket_s3`). If the template is missing, the file is skipped and logged as an error.
 
-If a template is missing, the file is skipped and logged as an error.
+## Workflow (Gemini)
 
-## Workflow
+1. List all `.txt` files in `TRANSCRIPTION_BUCKET`
+2. For each file, look up its DynamoDB entry by `media_id` (filename stem as int)
+3. Skip silently if status is not `"transcribed"`
+4. Fetch system prompt from `context_files_bucket_s3`
+5. Optionally truncate at long silence segments (`.time` file)
+6. Split content into word chunks if needed
+7. Call Gemini per chunk with cached system prompt, merge results
+8. Upload fixed `{stem}.txt` to `media_fixed_transcribed_bucket`
+9. Copy original `.time` as `{stem}.pre-fix.time` then delete source files
+10. Send SQS notification `{"media_id": <int>}`
+11. Update DynamoDB status to `"fixed"`
 
-### AWS Bedrock Batch
+## Workflow (Bedrock Batch)
 
 1. List all `.txt` files in transcription bucket
 2. Fetch per-file system prompt from S3 template
 3. Count tokens, split large files, pad batch to 100 entries minimum
 4. Upload JSONL to S3, submit batch job to Bedrock
 5. Return job ARN — `post_inference` Lambda handles results asynchronously
-
-### Gemini
-
-1. List all `.txt` files in transcription bucket
-2. Fetch per-file system prompt from S3 template
-3. Split content into ~1000 word chunks at line boundaries (prevents hallucination on long content)
-4. Call Gemini per chunk, merge results
-5. Read `.time` file with timestamps; inject timestamps into fixed text
-6. Upload `{stem}.txt`, `{stem}.vtt`, `{stem}.pre-fix.time` to `final-transcription`
-7. Send SQS notification
 
 ## Lambda Self-Reinvocation (Timeout Handling)
 
@@ -126,14 +149,12 @@ Processing can exceed the 15-minute Lambda limit. After each file, `context.get_
 
 ## Output Files
 
-For each transcription `{stem}.txt` (Gemini output, written to `final-transcription`):
+For each transcription `{stem}.txt` (Gemini output, written to `media_fixed_transcribed_bucket`):
 
 | File | Description |
 |------|-------------|
-| `{stem}.txt` | LLM-fixed plain text (for RAG) |
-| `{stem}.vtt` | VTT subtitles (from fixed text, or original `.time` on mismatch) |
-| `{stem}.pre-fix.time` | Original transcription before LLM fix |
-| `{stem}.no_timing.txt` | LLM-fixed text when line count mismatched (diagnostic) |
+| `{stem}.txt` | LLM-fixed plain text |
+| `{stem}.pre-fix.time` | Original timed transcription before LLM fix |
 
 ## Configuration
 
@@ -144,12 +165,13 @@ Config files live in `../.config/`. See [.config/README.md](../.config/README.md
 Relevant keys in `config.dev.json`:
 ```json
 {
-  "llm_backend": "AWS_OPUS4.5",
-  "gemini_model": "gemini-2.5-flash-lite",
+  "llm_backend": "GEMINI2.5",
+  "gemini_model": "gemini-2.5-flash",
   "s3": {
-    "transcription_bucket": "portal-daf-yomi-transcription",
-    "template_bucket": "portal-daf-yomi-audio",
-    "output_bucket": "final-transcription"
+    "transcription_bucket": "portal-daf-yomi-transcription"
+  },
+  "dynamodb": {
+    "table_name": "transcription-tracker"
   },
   "bedrock": {
     "batch_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
@@ -169,14 +191,13 @@ Relevant keys in `config.dev.json`:
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region |
 | `AWS_PROFILE_REVIEWER` | `reviewer` | AWS profile (local dev only) |
-| `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket |
-| `TEMPLATE_BUCKET` | `portal-daf-yomi-audio` | System prompt templates |
-| `OUTPUT_BUCKET` | `final-transcription` | Output bucket (Gemini backend) |
+| `TRANSCRIPTION_BUCKET` | `portal-daf-yomi-transcription` | Source bucket for file discovery |
+| `MEDIA_TABLE` | — | DynamoDB table name (required for Gemini backend) |
 | `LLM_BACKEND` | `AWS_OPUS4.5` | Backend: `AWS_OPUS4.5` or `GEMINI2.5` |
 | `BATCH_MODEL_ID` | `us.anthropic.claude-opus-4-5-20251101-v1:0` | Bedrock model |
 | `BATCH_ROLE_ARN` | — | Bedrock batch IAM role ARN |
 | `GOOGLE_API_KEY` | — | Gemini API key |
-| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model name |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model name |
 | `SQS_QUEUE_URL` | — | Results queue URL (Gemini backend) |
 | `MIN_ENTRIES` | `100` | Minimum batch size (Bedrock, padded with dummies) |
 | `MAX_TOKENS` | `60000` | Token limit per entry before splitting |
@@ -202,6 +223,7 @@ uv build
 
 **Permissions:**
 - `s3:GetObject`, `s3:PutObject`, `s3:ListBucket`, `s3:DeleteObject` — transcription, template, output buckets
+- `dynamodb:GetItem`, `dynamodb:UpdateItem` — media tracking table
 - `bedrock:InvokeModel` — Bedrock runtime
 - `bedrock:CreateModelInvocationJob`, `bedrock:GetModelInvocationJob` — Bedrock batch
 - `sqs:SendMessage` — results queue
@@ -214,7 +236,8 @@ uv build
 
 | Scenario | Behavior |
 |----------|----------|
-| Missing S3 template | File skipped, logged as error, counted in `failed_to_load` |
-| Failed transcription read | File skipped, logged |
+| No DynamoDB entry for media_id | File counted as failed, loop continues |
+| Status not `"transcribed"` | File skipped silently (not counted as failure) |
+| Missing S3 template | File skipped, logged as error, counted as failed |
+| Failed transcription read | File skipped, logged as failed |
 | Gemini API error | File counted as failed, loop continues |
-| Line count mismatch (Gemini) | Uses original `.time` for VTT, saves `{stem}.no_timing.txt` |

@@ -1,41 +1,16 @@
 """Handler for reviewing transcriptions when ASG scales to zero."""
 
 import logging
-import os
 
 from transcription_reviewer.config import config
-from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFile
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
+from transcription_reviewer.services.dynamo_reader import DynamoReader
 from transcription_reviewer.services.s3_reader import S3Reader
 from transcription_reviewer.services.transcription_fixer import TranscriptionFixer
 from transcription_reviewer.utils.time_parser import truncate_content_at_long_segment
 
 logger = logging.getLogger(__name__)
-
-# Buckets for cleanup (still used by _cleanup_source_files)
-AUDIO_BUCKET = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")
-TRANSCRIPTION_BUCKET = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
-
-
-def _cleanup_source_files(s3_client: S3Client, stem: str) -> None:
-    """
-    Remove source files after processing.
-
-    Deletes from AUDIO_BUCKET: {stem}.*
-    Deletes from TRANSCRIPTION_BUCKET: {stem}.*
-
-    Args:
-        s3_client: S3Client for delete operations.
-        stem: File stem (filename without extension).
-    """
-    # Delete all files matching stem.* from audio bucket
-    s3_client.delete_objects_by_prefix(AUDIO_BUCKET, f"{stem}.")
-
-    # Delete all files matching stem.* from transcription bucket
-    s3_client.delete_objects_by_prefix(TRANSCRIPTION_BUCKET, f"{stem}.")
-
-    logger.info("Cleaned up source files for: %s", stem)
 
 
 def _is_running_out_of_time(context) -> bool:
@@ -58,8 +33,8 @@ def process_transcriptions(
     s3_reader: S3Reader,
     pipeline: LLMPipeline,
     transcription_fixer: TranscriptionFixer,
+    dynamo_reader: DynamoReader,
     bucket: str,
-    prefix: str,
     context=None,
 ) -> ReviewResult:
     """
@@ -71,23 +46,20 @@ def process_transcriptions(
     Args:
         s3_reader: S3Reader service for listing/reading transcriptions.
         pipeline: LLMPipeline implementation (Bedrock or Gemini).
+        transcription_fixer: TranscriptionFixer service for fetching system prompts.
+        dynamo_reader: DynamoReader for per-file bucket lookup and status updates.
         bucket: S3 bucket containing transcriptions.
-        prefix: S3 prefix to filter transcriptions.
         context: Lambda context object for checking remaining execution time.
 
     Returns:
         ReviewResult with counts of found, fixed, failed, and optional batch_job_arn.
     """
-    logger.info(
-        "Processing transcriptions from s3://%s/%s",
-        bucket,
-        prefix,
-    )
+    logger.info("Processing transcriptions from s3://%s", bucket)
 
     # 1. List transcription files
     transcriptions = s3_reader.list_transcriptions(
         bucket=bucket,
-        prefix=prefix,
+        prefix="",
         suffix=".txt",
     )
 
@@ -114,6 +86,28 @@ def process_transcriptions(
                 )
                 break
 
+            # Look up DynamoDB entry by media_id (stem)
+            try:
+                media_id = int(trans.stem)
+            except ValueError:
+                logger.error("Cannot parse media_id from stem: %s", trans.stem)
+                failed_count += 1
+                continue
+
+            dynamo_entry = dynamo_reader.get_entry(media_id)
+            if not dynamo_entry:
+                logger.error("No DynamoDB entry for media_id=%s", media_id)
+                failed_count += 1
+                continue
+
+            if dynamo_entry.status != "transcribed":
+                logger.info(
+                    "Skipping %s: status=%s (expected 'transcribed')",
+                    trans.stem,
+                    dynamo_entry.status,
+                )
+                continue
+
             # Load file content
             content = s3_reader.get_transcription_content(trans)
             if not content:
@@ -134,8 +128,11 @@ def process_transcriptions(
                     stem=trans.stem,
                 )
 
-            # Fetch system prompt from S3 template file
-            system_prompt = transcription_fixer.get_system_prompt(trans.key)
+            # Fetch system prompt from per-entry template bucket
+            system_prompt = transcription_fixer.get_system_prompt(
+                trans.key,
+                template_bucket=dynamo_entry.context_files_bucket_s3,
+            )
             if not system_prompt:
                 logger.error("Failed to get system prompt for: %s", trans.key)
                 failed_count += 1
@@ -150,6 +147,8 @@ def process_transcriptions(
                 system_prompt=system_prompt,
                 line_count=line_count,
                 word_count=word_count,
+                transcription_bucket=dynamo_entry.media_transcribed_bucket,
+                output_bucket=dynamo_entry.media_fixed_transcribed_bucket,
             )
 
             # Process THIS file through full pipeline before moving to next
@@ -167,6 +166,9 @@ def process_transcriptions(
             # Aggregate counts
             fixed_count += result.fixed
             failed_count += result.failed
+
+            if result.fixed > 0:
+                dynamo_reader.set_status(media_id, "fixed")
 
             logger.info("  Completed: fixed=%d, failed=%d", result.fixed, result.failed)
 

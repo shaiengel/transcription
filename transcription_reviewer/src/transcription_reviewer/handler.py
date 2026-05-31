@@ -52,6 +52,7 @@ def lambda_handler(event: dict, context) -> dict:
         s3_reader = container.s3_reader()
         pipeline = container.llm_pipeline()
         transcription_fixer = container.transcription_fixer()
+        dynamo_reader = container.dynamo_reader()
 
         # Validate configuration
         config.validate()
@@ -64,8 +65,8 @@ def lambda_handler(event: dict, context) -> dict:
             s3_reader=s3_reader,
             pipeline=pipeline,
             transcription_fixer=transcription_fixer,
+            dynamo_reader=dynamo_reader,
             bucket=config.transcription_bucket,
-            prefix=config.transcription_prefix,
             context=context,
         )
 

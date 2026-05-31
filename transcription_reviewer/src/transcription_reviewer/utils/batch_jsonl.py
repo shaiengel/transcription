@@ -31,6 +31,8 @@ class BatchEntry:
     system_prompt: str
     content: str
     token_count: int = 0
+    transcription_bucket: str = ""
+    output_bucket: str = ""
 
 
 def _split_content_by_tokens(
@@ -140,6 +142,8 @@ def prepare_batch_entries(
                     system_prompt=f.system_prompt,
                     content=chunk_content,
                     token_count=chunk_tokens,
+                    transcription_bucket=f.transcription_bucket,
+                    output_bucket=f.output_bucket,
                 )
             )
 

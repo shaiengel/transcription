@@ -72,10 +72,8 @@ class Config:
     transcription_bucket: str = _get_config(
         "TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription"
     )
-    transcription_prefix: str = _get_config("TRANSCRIPTION_PREFIX", "")
-    template_bucket: str = _get_config("TEMPLATE_BUCKET", "portal-daf-yomi-audio")
-    audio_bucket: str = _get_config("AUDIO_BUCKET", "portal-daf-yomi-audio")
-    output_bucket: str = _get_config("OUTPUT_BUCKET", "portal-daf-yomi-fixed-text")
+    # DynamoDB
+    media_table: str = _get_config("MEDIA_TABLE", "transcription-tracker")
 
     # LLM Backend Selection
     llm_backend: str = _get_config("LLM_BACKEND", "AWS_OPUS4.5")
@@ -126,6 +124,11 @@ class Config:
         if self.llm_backend == "GEMINI2.5" and not self.google_api_key:
             raise ValueError(
                 "GOOGLE_API_KEY environment variable is required for GEMINI2.5 backend"
+            )
+
+        if self.llm_backend == "GEMINI2.5" and not self.media_table:
+            raise ValueError(
+                "MEDIA_TABLE environment variable is required for GEMINI2.5 backend"
             )
 
 

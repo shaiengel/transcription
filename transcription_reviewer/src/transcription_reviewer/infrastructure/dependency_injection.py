@@ -7,6 +7,7 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 
 from transcription_reviewer.config import Config
+from transcription_reviewer.infrastructure.dynamodb_client import DynamoDBClient
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
@@ -77,6 +78,14 @@ def _create_bedrock_pipeline(
     )
 
 
+def _create_dynamo_reader(dynamodb_client: DynamoDBClient):
+    """Factory for DynamoReader."""
+    from transcription_reviewer.services.dynamo_reader import DynamoReader
+
+    config = Config()
+    return DynamoReader(dynamodb_client, config.media_table)
+
+
 def _create_gemini_pipeline(
     s3_client: S3Client,
     sqs_client: SQSClient,
@@ -87,8 +96,6 @@ def _create_gemini_pipeline(
         s3_client=s3_client,
         sqs_client=sqs_client,
         api_key=config.google_api_key,
-        transcription_bucket=config.transcription_bucket,
-        output_bucket=config.output_bucket,
         sqs_queue_url=config.sqs_queue_url,
         model_name=config.gemini_model,
         temperature=config.temperature,
@@ -105,6 +112,22 @@ class DependenciesContainer(DeclarativeContainer):
 
     # Session (Lambda execution role or local AWS profile)
     session = providers.Singleton(_create_session)
+
+    # DynamoDB dependency chain
+    dynamodb_boto_client = providers.Singleton(
+        lambda session: session.client("dynamodb"),
+        session=session,
+    )
+
+    dynamodb_client = providers.Singleton(
+        DynamoDBClient,
+        client=dynamodb_boto_client,
+    )
+
+    dynamo_reader = providers.Singleton(
+        _create_dynamo_reader,
+        dynamodb_client=dynamodb_client,
+    )
 
     # S3 dependency chain
     s3_boto_client = providers.Singleton(
