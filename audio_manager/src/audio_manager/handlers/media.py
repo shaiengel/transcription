@@ -11,6 +11,7 @@ from audio_manager.models.schemas import CalendarEntry, CalendarWindow, MediaEnt
 from audio_manager.models.daf_text_fetcher import DafTextFetcher
 from audio_manager.services.database import (
     get_connection,
+    get_massechet_bounds,
     get_massechet_sefaria_name_raw,
     get_media_links,
     get_calendar_entries,
@@ -23,22 +24,23 @@ env_path = Path(__file__).parent.parent.parent.parent / ".env"
 load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
-# Load system prompt template once at module level
-_SYSTEM_PROMPT_TEMPLATE: str | None = None
+_SYSTEM_PROMPT_TEMPLATES: dict[str, str] = {}
+
+_SYSTEM_PROMPT_FILENAMES = [
+    "system_prompt.template.md",
+    "system_prompt.template.reasoning.md",
+]
 
 
-def _get_system_prompt_template() -> str:
-    """Load the system prompt template from package resources."""
-    global _SYSTEM_PROMPT_TEMPLATE
-    if _SYSTEM_PROMPT_TEMPLATE is None:
-        template_path = resources.files("audio_manager") / "system_prompt.template.md"
-        _SYSTEM_PROMPT_TEMPLATE = template_path.read_text(encoding="utf-8")
-    return _SYSTEM_PROMPT_TEMPLATE
+def _get_system_prompt_template(filename: str) -> str:
+    if filename not in _SYSTEM_PROMPT_TEMPLATES:
+        template_path = resources.files("audio_manager") / filename
+        _SYSTEM_PROMPT_TEMPLATES[filename] = template_path.read_text(encoding="utf-8")
+    return _SYSTEM_PROMPT_TEMPLATES[filename]
 
 
-def _render_system_prompt(details: str, steinsaltz: str) -> str:
-    """Render the system prompt template with details and Steinsaltz commentary."""
-    template = _get_system_prompt_template()
+def _render_system_prompt(details: str, steinsaltz: str, filename: str) -> str:
+    template = _get_system_prompt_template(filename)
     return template.format(details, steinsaltz)
 
 
@@ -147,10 +149,26 @@ def enrich_with_steinsaltz(
         logger.warning("No calendar entries to fetch Steinsaltz for")
         return
 
+    # Determine boundary conditions: skip adjacent days if we're at massechet edges
+    use_yesterday = True
+    use_tomorrow = True
+    for entry in calendar.today:
+        bounds = get_massechet_bounds(entry.massechet_id)
+        if bounds:
+            massechet_start, massechet_end = bounds
+            if entry.daf_id == massechet_start:
+                use_yesterday = False
+            if entry.daf_id == massechet_end:
+                use_tomorrow = False
+
     # Collect all unique (massechet_id, daf_id) keys to avoid duplicate fetches
     all_entries: list[CalendarEntry] = []
     seen_keys: set[tuple[int, int]] = set()
-    for entry in [*calendar.today, *calendar.yesterday, *calendar.tomorrow]:
+    adjacent_days = [
+        *(calendar.yesterday if use_yesterday else []),
+        *(calendar.tomorrow if use_tomorrow else []),
+    ]
+    for entry in [*calendar.today, *adjacent_days]:
         key = (entry.massechet_id, entry.daf_id)
         if key not in seen_keys:
             seen_keys.add(key)
@@ -207,21 +225,23 @@ def enrich_with_steinsaltz(
             # Build combined text with adjacent daf excerpts
             sections: list[str] = []
 
-            yesterday_text = _get_adjacent_steinsaltz(
-                calendar.yesterday, entry.massechet_id, steinsaltz_cache
-            )
-            if yesterday_text:
-                excerpt = _extract_words(yesterday_text, adjacent_word_count, from_end=True)
-                sections.append(excerpt)
+            if use_yesterday:
+                yesterday_text = _get_adjacent_steinsaltz(
+                    calendar.yesterday, entry.massechet_id, steinsaltz_cache
+                )
+                if yesterday_text:
+                    excerpt = _extract_words(yesterday_text, adjacent_word_count, from_end=True)
+                    sections.append(excerpt)
 
             sections.append(today_text)
 
-            tomorrow_text = _get_adjacent_steinsaltz(
-                calendar.tomorrow, entry.massechet_id, steinsaltz_cache
-            )
-            if tomorrow_text:
-                excerpt = _extract_words(tomorrow_text, adjacent_word_count, from_end=False)
-                sections.append(excerpt)
+            if use_tomorrow:
+                tomorrow_text = _get_adjacent_steinsaltz(
+                    calendar.tomorrow, entry.massechet_id, steinsaltz_cache
+                )
+                if tomorrow_text:
+                    excerpt = _extract_words(tomorrow_text, adjacent_word_count, from_end=False)
+                    sections.append(excerpt)
 
             media.steinsaltz = "\n\n".join(sections)
             break  # Only need to match one calendar entry
@@ -303,9 +323,11 @@ def upload_media_to_s3(
                 uploaded += 1
 
                 if media.details and media.steinsaltz:
-                    template_content = _render_system_prompt(media.details, media.steinsaltz)
-                    template_key = f"{media.media_id}.template.txt"
-                    s3_uploader.upload_content(template_content, media.context_files_bucket or "", template_key)
+                    for filename in _SYSTEM_PROMPT_FILENAMES:
+                        template_content = _render_system_prompt(media.details, media.steinsaltz, filename)
+                        stem = filename.replace("system_prompt.", "").replace(".md", "")
+                        template_key = f"{media.media_id}.{stem}.txt"
+                        s3_uploader.upload_content(template_content, media.context_files_bucket or "", template_key)
 
     return uploaded
 
@@ -334,8 +356,7 @@ def publish_uploads_to_sqs(
                 skipped += 1
                 continue
 
-            key = f"{media.media_id}{media.downloaded_path.suffix}"
-            if sqs_publisher.publish_upload(key, media.language, media.details):
+            if sqs_publisher.publish_upload(media.media_id):
                 published += 1
 
     if skipped > 0:

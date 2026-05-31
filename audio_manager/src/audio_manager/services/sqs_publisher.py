@@ -18,22 +18,13 @@ class SQSPublisher:
         self._sqs_client = sqs_client
         self._queue_url = os.getenv("SQS_QUEUE_URL")
 
-    def publish_upload(
-        self,
-        s3_key: str,
-        language: str | None,
-        details: str,
-    ) -> bool:
+    def publish_upload(self, media_id: int) -> bool:
         """Publish upload notification to SQS."""
         if not self._queue_url:
             logger.error("SQS_QUEUE_URL not set in environment")
             return False
 
-        message = {
-            "s3_key": s3_key,
-            "language": language or "unknown",
-            "details": details,
-        }
+        message = {"media_id": media_id}
         try:
             return self._sqs_client.send_message(self._queue_url, message)
         except Exception as e:

@@ -92,6 +92,20 @@ def get_massechet_sefaria_name_raw(massechet_id: int) -> str | None:
     return None
 
 
+def get_massechet_bounds(massechet_id: int) -> tuple[int, int] | None:
+    """Return (massechet_start, massechet_end) daf numbers for a massechet, or None if not found."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("massechet_id") == massechet_id:
+            start = entry.get("massechet_start")
+            end = entry.get("massechet_end")
+            if start is not None and end is not None:
+                return start, end
+    return None
+
+
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
     query = text("""

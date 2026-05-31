@@ -59,23 +59,21 @@ class PortalMedia(MediaFetcher):
         return all_media
 
     def download_media(self, media: MediaEntry, path: Path) -> bool:
-        if media.file_type == "mp4":
-            mp4_path: Path | None = None
-            try:
-                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp4:
-                    mp4_path = Path(tmp4.name)
-                if not download_file(media.media_link, mp4_path):
-                    logger.warning("Download failed for media_id=%s", media.media_id)
-                    return False
-                if not extract_audio_from_mp4(mp4_path, path):
-                    logger.warning("Audio extraction failed for media_id=%s", media.media_id)
-                    return False
-                return True
-            finally:
-                if mp4_path:
-                    mp4_path.unlink(missing_ok=True)
-        else:
+        if media.file_type != "mp4":
             if not download_file(media.media_link, path):
                 logger.warning("Download failed for media_id=%s", media.media_id)
                 return False
             return True
+
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp4:
+            mp4_path = Path(tmp4.name)
+        try:
+            if not download_file(media.media_link, mp4_path):
+                logger.warning("Download failed for media_id=%s", media.media_id)
+                return False
+            if not extract_audio_from_mp4(mp4_path, path):
+                logger.warning("Audio extraction failed for media_id=%s", media.media_id)
+                return False
+            return True
+        finally:
+            mp4_path.unlink(missing_ok=True)
