@@ -33,3 +33,4 @@ class MediaEntry(BaseModel):
     transcription_bucket: str | None = None
     fixed_transcription_bucket: str | None = None
     subtitles_bucket: str | None = None
+    source: str | None = None

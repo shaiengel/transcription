@@ -49,6 +49,9 @@ class PortalMedia(MediaFetcher):
                 days_ago=days_ago
             )
 
+            for m in media_links:
+                m.source = "portal"
+
             if isinstance(self._media_source, DatabaseMediaSource):
                 calendar = get_calendar_window(days_ago=days_ago)
                 enrich_with_steinsaltz(media_links, calendar, self._text_fetcher)

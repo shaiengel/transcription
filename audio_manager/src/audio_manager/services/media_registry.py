@@ -39,6 +39,7 @@ class MediaRegistry:
                 daf_name=media.daf_name,
                 maggid_description=media.maggid_description,
                 media_duration=media.media_duration,
+                source=media.source,
             )
 
             if self._client.put_item(self._table_name, entry.to_dynamo_item()):

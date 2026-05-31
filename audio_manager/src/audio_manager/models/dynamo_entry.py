@@ -19,6 +19,7 @@ class DynamoDBMediaEntry:
     daf_name: str | None = None
     maggid_description: str | None = None
     media_duration: int | None = None
+    source: str | None = None
 
     def to_dynamo_item(self) -> dict:
         item: dict = {
@@ -49,4 +50,6 @@ class DynamoDBMediaEntry:
             item["maggid_description"] = {"S": self.maggid_description}
         if self.media_duration is not None:
             item["media_duration"] = {"N": str(self.media_duration)}
+        if self.source is not None:
+            item["source"] = {"S": self.source}
         return item

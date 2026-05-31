@@ -40,6 +40,7 @@ class YouTubeMedia(MediaFetcher):
                     language=entry.get("language", "hebrew"),
                     details=entry.get("details", ""),
                     file_type="mp3",
+                    source="youtube",
                 )
             )
         return media_list
