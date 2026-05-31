@@ -1,13 +1,8 @@
 import logging
-import os
 from pathlib import Path
-
-from dotenv import load_dotenv
 
 from audio_manager.infrastructure.s3_client import S3Client
 
-env_path = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -16,18 +11,11 @@ class S3Uploader:
 
     def __init__(self, s3_client: S3Client):
         self._s3_client = s3_client
-        self._bucket = os.getenv("S3_BUCKET")
 
-    def upload_file(self, file_path: Path, key: str) -> bool:
+    def upload_file(self, file_path: Path, bucket: str, key: str) -> bool:
         """Upload a file to S3."""
-        if not self._bucket:
-            logger.error("S3_BUCKET not set in environment")
-            return False
-        return self._s3_client.upload_file(file_path, self._bucket, key)
+        return self._s3_client.upload_file(file_path, bucket, key)
 
-    def upload_content(self, content: str, key: str) -> bool:
+    def upload_content(self, content: str, bucket: str, key: str) -> bool:
         """Upload string content to S3."""
-        if not self._bucket:
-            logger.error("S3_BUCKET not set in environment")
-            return False
-        return self._s3_client.upload_content(content, self._bucket, key)
+        return self._s3_client.upload_content(content, bucket, key)

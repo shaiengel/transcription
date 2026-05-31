@@ -15,10 +15,6 @@ from audio_manager.services.database import (
     get_media_links,
     get_calendar_entries,
 )
-from audio_manager.services.downloader import (
-    download_file,
-    extract_audio_from_mp4,
-)
 from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.services.s3_uploader import S3Uploader
 from audio_manager.services.sqs_publisher import SQSPublisher
@@ -287,49 +283,6 @@ def print_media_links(media_list: list[MediaEntry]) -> None:
         logger.info("  %s: %d (%s)", language, count, format_duration(duration))
 
 
-def download_media(media_list: list[MediaEntry], download_dir: Path) -> None:
-    """Download ALL media files and set downloaded_path on each.
-
-    Files that already have downloaded_path set (e.g., from LocalDiskMediaSource)
-    are skipped.
-    """
-    # Count files that need downloading
-    to_download = [m for m in media_list if m.downloaded_path is None]
-    if not to_download:
-        logger.info("All %d media files already have local paths", len(media_list))
-        return
-
-    logger.info("Downloading %d media files to %s", len(to_download), download_dir)
-
-    for media in to_download:
-        media_id = media.media_id
-        file_type = media.file_type
-        url = media.media_link
-
-        if file_type == "mp4":
-            # Download mp4, then extract to mp3
-            mp4_path = download_dir / f"{media_id}.mp4"
-            mp3_path = download_dir / f"{media_id}.mp3"
-
-            logger.info("Downloading %s...", mp4_path.name)
-            if download_file(url, mp4_path):
-                logger.info("Extracting audio from %s...", mp4_path.name)
-                if extract_audio_from_mp4(mp4_path, mp3_path):
-                    mp4_path.unlink()  # Remove mp4 after extraction
-                    media.downloaded_path = mp3_path
-                    logger.info("Saved: %s", mp3_path.name)
-                else:
-                    logger.warning("Failed to extract audio, removing mp4")
-                    mp4_path.unlink()  # Remove failed mp4
-        else:
-            # Download as-is (mp3)
-            dest_path = download_dir / f"{media_id}.{file_type}"
-            logger.info("Downloading %s...", dest_path.name)
-            if download_file(url, dest_path):
-                media.downloaded_path = dest_path
-                logger.info("Saved: %s", dest_path.name)
-        # break
-
 
 def upload_media_to_s3(
     media_list: list[MediaEntry],
@@ -345,16 +298,14 @@ def upload_media_to_s3(
         if media.language not in allowed_languages:
             continue
         if media.downloaded_path and media.downloaded_path.exists():
-            # Upload audio file
-            key = media.downloaded_path.name
-            if s3_uploader.upload_file(media.downloaded_path, key):
+            key = f"{media.media_id}{media.downloaded_path.suffix}"
+            if s3_uploader.upload_file(media.downloaded_path, media.audio_bucket or "", key):
                 uploaded += 1
 
-                # Upload system prompt template with same stem
                 if media.details and media.steinsaltz:
                     template_content = _render_system_prompt(media.details, media.steinsaltz)
-                    template_key = media.downloaded_path.stem + ".template.txt"
-                    s3_uploader.upload_content(template_content, template_key)
+                    template_key = f"{media.media_id}.template.txt"
+                    s3_uploader.upload_content(template_content, media.context_files_bucket or "", template_key)
 
     return uploaded
 
@@ -366,9 +317,8 @@ def publish_uploads_to_sqs(
 ) -> int:
     """Publish uploaded media to SQS. Returns count of published messages.
 
-    Skips files that have already been processed (VTT exists in FINAL_BUCKET).
+    Skips files that have already been processed (VTT exists in subtitles_bucket).
     """
-    final_bucket = os.getenv("FINAL_BUCKET")
     allowed_languages = get_allowed_languages()
     published = 0
     skipped = 0
@@ -377,15 +327,14 @@ def publish_uploads_to_sqs(
         if media.language not in allowed_languages:
             continue
         if media.downloaded_path and media.downloaded_path.exists():
-            stem = media.downloaded_path.stem
+            stem = str(media.media_id)
 
-            # Skip if already processed (VTT exists in FINAL_BUCKET)
-            if final_bucket and s3_client.file_exists(final_bucket, f"{stem}.vtt"):
+            if media.subtitles_bucket and s3_client.file_exists(media.subtitles_bucket, f"{stem}.vtt"):
                 logger.info("Skipping - already processed: %s.vtt", stem)
                 skipped += 1
                 continue
 
-            key = media.downloaded_path.name
+            key = f"{media.media_id}{media.downloaded_path.suffix}"
             if sqs_publisher.publish_upload(key, media.language, media.details):
                 published += 1
 

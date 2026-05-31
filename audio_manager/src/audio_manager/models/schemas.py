@@ -28,3 +28,8 @@ class MediaEntry(BaseModel):
     file_type: str | None
     downloaded_path: Path | None = None  # Set after download
     steinsaltz: str | None = None  # Steinsaltz commentary from Sefaria
+    audio_bucket: str | None = None
+    context_files_bucket: str | None = None
+    transcription_bucket: str | None = None
+    fixed_transcription_bucket: str | None = None
+    subtitles_bucket: str | None = None

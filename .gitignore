@@ -13,6 +13,7 @@ requirements.txt
 # Claude Code temp files
 tmpclaude-*
 settings.local.json
+*.mp3
 
 # Windows null device artifact
 nul

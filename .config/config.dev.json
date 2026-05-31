@@ -27,6 +27,9 @@
     "output_bucket": "final-transcription",
     "output_prefix": ""
   },
+  "dynamodb": {
+    "table_name": "transcription-tracker"
+  },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
     "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
