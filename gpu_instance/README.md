@@ -5,7 +5,7 @@ Dockerized GPU worker that transcribes Hebrew audio files using faster-whisper (
 ## Pipeline Position
 
 ```
-audio_manager → [audio-queue SQS] → gpu_instance → [portal-daf-yomi-transcription S3] → transcription_reviewer
+audio_manager → [audio-queue SQS] → gpu_instance → [S3] → transcription_reviewer
 ```
 
 ## AWS Trigger
@@ -20,13 +20,23 @@ audio_manager → [audio-queue SQS] → gpu_instance → [portal-daf-yomi-transc
 ## Architecture
 
 ```
-SQS (audio-queue) → Docker Container → S3 (portal-daf-yomi-transcription)
-                      ├── SQSReceiver (polls messages)
-                      ├── S3Downloader (fetches audio)
-                      ├── WhisperModel (faster-whisper transcription)
-                      ├── Formatters (VTT, TXT, TimedText)
-                      └── S3Uploader (saves transcriptions)
+SQS (audio-queue) → Docker Container → S3 (transcription bucket per media entry)
+                      ├── SQSReceiver    (polls messages — media_id only)
+                      ├── DynamoReader   (fetches media entry: source/dest buckets)
+                      ├── S3Downloader   (fetches audio from media_bucket_s3)
+                      ├── WhisperModel   (faster-whisper transcription)
+                      ├── Formatters     (TXT, TimedText)
+                      └── S3Uploader     (saves transcriptions to media_transcribed_bucket)
 ```
+
+### Message Flow
+
+1. SQS message contains only `media_id`
+2. Worker queries DynamoDB (`MEDIA_TABLE`) to get the full media entry
+3. Downloads audio from `entry.media_bucket_s3`
+4. Transcribes with faster-whisper
+5. Uploads output files to `entry.media_transcribed_bucket`
+6. Sets `status = "transcribed"` in DynamoDB
 
 ## Project Structure
 
@@ -41,32 +51,33 @@ gpu_instance/
     ├── config.py           # Environment configuration
     ├── models/
     │   ├── schemas.py      # SQSMessage, TranscriptionResult
-    │   └── formatter.py    # Abstract Formatter, SegmentData
+    │   ├── formatter.py    # Abstract Formatter, SegmentData
+    │   └── dynamo_entry.py # DynamoDBMediaEntry dataclass
     ├── handlers/
     │   └── transcription.py # Worker loop, message processing
     ├── services/
     │   ├── transcriber.py  # Whisper model loading/inference
     │   ├── s3_downloader.py
     │   ├── s3_uploader.py
-    │   └── sqs_receiver.py
+    │   ├── sqs_receiver.py
+    │   └── dynamo_reader.py # Reads/updates media entries
     └── infrastructure/
         ├── dependency_injection.py
         ├── s3_client.py
         ├── sqs_client.py
-        ├── vtt_formatter.py
+        ├── dynamodb_client.py
         ├── text_formatter.py
         └── timed_text_formatter.py
 ```
 
 ## Output Files
 
-For each audio file `{stem}.mp3`, written to `s3://portal-daf-yomi-transcription/`:
+For each audio file `{media_id}.mp3`, written to `entry.media_transcribed_bucket`:
 
 | File | Description |
 |------|-------------|
-| `{stem}.txt` | Plain text transcription |
-| `{stem}.vtt` | VTT subtitles with timestamps |
-| `{stem}.time` | Timed text (one line per segment with timestamp metadata) |
+| `{media_id}.txt` | Plain text transcription |
+| `{media_id}.time` | Timed text (one line per segment with timestamp metadata) |
 
 ## Docker Build & Push
 
@@ -140,18 +151,18 @@ The Whisper model must be at the path specified by `WHISPER_MODEL`. For HuggingF
 |------------|----------|
 | `ecr:GetAuthorizationToken` | `*` |
 | `ecr:BatchCheckLayerAvailability`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchGetImage` | ECR repo ARN |
-| `s3:GetObject` | `portal-daf-yomi-audio` |
-| `s3:PutObject` | `portal-daf-yomi-transcription` |
+| `s3:GetObject` | audio source bucket |
+| `s3:PutObject` | transcription destination bucket |
 | `sqs:ReceiveMessage`, `sqs:DeleteMessage` | `audio-queue` |
+| `dynamodb:GetItem`, `dynamodb:UpdateItem` | `MEDIA_TABLE` |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region |
-| `SOURCE_BUCKET` | `portal-daf-yomi-audio` | S3 bucket for audio input |
-| `DEST_BUCKET` | `portal-daf-yomi-transcription` | S3 bucket for transcriptions |
 | `SQS_QUEUE_URL` | — | SQS queue URL (`audio-queue`) |
+| `MEDIA_TABLE` | `transcription-tracker` | DynamoDB table with media entries |
 | `WHISPER_MODEL` | `/opt/models/...` | Path to Whisper CTranslate2 model |
 | `DEVICE` | `cuda` | `cuda` or `cpu` |
 | `COMPUTE_TYPE` | `float16` | `float16`, `int8`, `int8_float16` |

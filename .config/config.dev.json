@@ -40,7 +40,7 @@
     "device": "cuda",
     "compute_type": "float16",
     "language": "he",
-    "beam_size": "7"
+    "beam_size": "5"
   },
   "stable_whisper": {
     "model": "large-v3",

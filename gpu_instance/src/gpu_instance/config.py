@@ -24,10 +24,7 @@ class Config:
     )
     local_dev: bool = os.getenv("LOCAL_DEV", "false").lower() in ("true", "1", "yes")
 
-    # S3 Buckets
-    source_bucket: str = os.getenv("SOURCE_BUCKET", "portal-daf-yomi-audio")
-    dest_bucket: str = os.getenv("DEST_BUCKET", "portal-daf-yomi-transcription")
-    output_prefix: str = os.getenv("OUTPUT_PREFIX", "")
+    media_table: str = os.getenv("MEDIA_TABLE", "transcription-tracker")
 
     # SQS
     sqs_queue_url: str = os.getenv("SQS_QUEUE_URL", "")

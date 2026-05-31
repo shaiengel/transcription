@@ -63,9 +63,7 @@ class SQSReceiver:
             try:
                 body = json.loads(raw.get("Body", "{}"))
                 message = SQSMessage(
-                    s3_key=body.get("s3_key", ""),
-                    language=body.get("language", ""),
-                    details=body.get("details", ""),
+                    media_id=int(body["media_id"]),
                     receipt_handle=raw.get("ReceiptHandle"),
                 )
                 messages.append(message)

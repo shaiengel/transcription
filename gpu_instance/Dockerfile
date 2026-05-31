@@ -30,9 +30,7 @@ RUN mkdir -p /opt/models
 
 # AWS Configuration
 ENV AWS_REGION=us-east-1
-ENV SOURCE_BUCKET=portal-daf-yomi-audio
-ENV DEST_BUCKET=portal-daf-yomi-transcription
-ENV OUTPUT_PREFIX=
+ENV MEDIA_TABLE=transcription-tracker
 ENV SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription
 
 # Whisper Model Configuration

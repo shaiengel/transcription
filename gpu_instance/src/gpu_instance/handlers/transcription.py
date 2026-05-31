@@ -9,6 +9,7 @@ from gpu_instance.models.formatter import Formatter
 from gpu_instance.services.s3_downloader import S3Downloader
 from gpu_instance.services.s3_uploader import S3Uploader
 from gpu_instance.services.sqs_receiver import SQSReceiver
+from gpu_instance.services.dynamo_reader import DynamoReader
 from gpu_instance.services.transcriber import transcribe
 from gpu_instance.services.segment_collector import collect_segments
 
@@ -19,60 +20,58 @@ def process_message(
     message: SQSMessage,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
+    dynamo_reader: DynamoReader,
     formatters: list[Formatter],
     temp_dir: Path,
 ) -> TranscriptionResult:
-    """
-    Process a single SQS message (transcribe audio file).
+    """Process a single SQS message (transcribe audio file)."""
+    media_id = message.media_id
+    logger.info("Processing media_id=%s", media_id)
 
-    Args:
-        message: SQS message containing file info.
-        s3_downloader: S3 downloader service.
-        s3_uploader: S3 uploader service.
-        formatters: List of formatter instances.
-        temp_dir: Temporary directory for file operations.
+    entry = dynamo_reader.get_entry(media_id)
+    if not entry:
+        logger.error("No DynamoDB entry for media_id=%s, skipping", media_id)
+        return TranscriptionResult(source_key=str(media_id), success=False)
 
-    Returns:
-        TranscriptionResult with success status.
-    """
-    s3_key = message.s3_key
+    if not entry.media_bucket_s3:
+        logger.error("media_bucket_s3 is not set for media_id=%s", media_id)
+        return TranscriptionResult(source_key=str(media_id), success=False)
+
+    s3_key = f"{media_id}.mp3"
+    source_bucket = entry.media_bucket_s3
+    dest_bucket = entry.media_transcribed_bucket
+
     logger.info(
-        "Processing: %s (language=%s, details=%s)",
-        s3_key,
-        message.language,
-        message.details,
+        "Downloading s3://%s/%s -> transcribing -> uploading to s3://%s/",
+        source_bucket, s3_key, dest_bucket,
     )
 
     try:
-        # Download audio from S3
-        audio_path = s3_downloader.download_audio(s3_key, temp_dir)
+        audio_path = s3_downloader.download_audio(source_bucket, s3_key, temp_dir)
         if not audio_path:
             logger.error("Failed to download audio: %s", s3_key)
             return TranscriptionResult(source_key=s3_key, success=False)
 
-        # Transcribe
         segments_iter, info = transcribe(str(audio_path))
         if segments_iter is None:
             return TranscriptionResult(source_key=s3_key, success=False)
 
-        # Collect all segments
         segments = collect_segments(segments_iter)
         if not segments:
             return TranscriptionResult(source_key=s3_key, success=False)
 
-        # Format and upload directly to S3 (no disk save)
         audio_stem = audio_path.stem
         for formatter in formatters:
             content = formatter.format(segments)
             filename = f"{audio_stem}{formatter.extension}"
-            s3_uploader.upload_content(content, filename, s3_key)
+            s3_uploader.upload_content(content, filename, s3_key, dest_bucket)
 
-        logger.info("Successfully processed %s", s3_key)
-
+        dynamo_reader.set_status(media_id, "transcribed")
+        logger.info("Successfully processed media_id=%s", media_id)
         return TranscriptionResult(source_key=s3_key, success=True)
 
     except Exception as e:
-        logger.error("Failed to process %s: %s", s3_key, e, exc_info=True)
+        logger.error("Failed to process media_id=%s: %s", media_id, e, exc_info=True)
         return TranscriptionResult(source_key=s3_key, success=False)
 
 
@@ -80,17 +79,10 @@ def run_worker_loop(
     sqs_receiver: SQSReceiver,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
+    dynamo_reader: DynamoReader,
     formatters: list[Formatter],
 ) -> None:
-    """
-    Continuous worker loop that polls SQS and processes messages.
-
-    Args:
-        sqs_receiver: SQS receiver service.
-        s3_downloader: S3 downloader service.
-        s3_uploader: S3 uploader service.
-        formatters: List of formatter instances.
-    """
+    """Continuous worker loop that polls SQS and processes messages."""
     logger.info("Starting continuous worker loop...")
 
     success_count = 0
@@ -104,7 +96,6 @@ def run_worker_loop(
         logger.info("Using temp directory: %s", temp_path)
 
         while True:
-            # Poll for messages
             messages = sqs_receiver.receive_messages(max_messages=1, wait_time=20)
 
             if not messages:
@@ -116,6 +107,7 @@ def run_worker_loop(
                     message=message,
                     s3_downloader=s3_downloader,
                     s3_uploader=s3_uploader,
+                    dynamo_reader=dynamo_reader,
                     formatters=formatters,
                     temp_dir=temp_path,
                 )
@@ -125,9 +117,6 @@ def run_worker_loop(
                 else:
                     fail_count += 1
 
-                # Always delete message from queue
                 sqs_receiver.delete_message(message)
 
-                logger.info(
-                    "Stats: %d success, %d failed", success_count, fail_count
-                )
+                logger.info("Stats: %d success, %d failed", success_count, fail_count)
