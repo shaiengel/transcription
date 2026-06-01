@@ -81,17 +81,13 @@ For each audio file `{media_id}.mp3`, written to `entry.media_transcribed_bucket
 
 ## Docker Build & Push
 
+S3 is used instead of ECR to store the image in order to reduce cost.
+
 ```bash
-# Build
 cd gpu_instance
-docker build -t gpu-transcriber .
-
-# Authenticate to ECR
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
-
-# Tag and push
-docker tag gpu-transcriber:latest 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
-docker push 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+docker build -t whisper-transcribe:1 .
+docker save whisper-transcribe:1 | gzip > whisper-transcribe.tar.gz
+aws s3 cp whisper-transcribe.tar.gz s3://portal-docker-images/whisper-transcribe.tar.gz --profile portal
 ```
 
 ## Local Testing
@@ -131,9 +127,9 @@ docker run \
 #cloud-config
 runcmd:
   - cp -r /opt/models /opt/dlami/nvme/
-  - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 707072965202.dkr.ecr.us-east-1.amazonaws.com
-  - docker pull 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
-  - docker run -d --gpus all -v /opt/dlami/nvme/models:/opt/models:ro 707072965202.dkr.ecr.us-east-1.amazonaws.com/portal-daf-yomi/whisper-transcribe:1
+  - aws s3 cp s3://portal-docker-images/whisper-transcribe.tar.gz /tmp/whisper-transcribe.tar.gz
+  - docker load < /tmp/whisper-transcribe.tar.gz
+  - docker run -d --gpus all -v /opt/dlami/nvme/models:/opt/models:ro whisper-transcribe:1
 ```
 
 Use `-d` (detached) so cloud-init completes. Copy model to NVMe before running — EBS loads the 3 GB model in ~8 min, NVMe in ~30 sec. NVMe is ephemeral; copy on every boot via user data.
@@ -149,8 +145,7 @@ The Whisper model must be at the path specified by `WHISPER_MODEL`. For HuggingF
 
 | Permission | Resource |
 |------------|----------|
-| `ecr:GetAuthorizationToken` | `*` |
-| `ecr:BatchCheckLayerAvailability`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchGetImage` | ECR repo ARN |
+| `s3:GetObject` | `portal-docker-images` (image download) |
 | `s3:GetObject` | audio source bucket |
 | `s3:PutObject` | transcription destination bucket |
 | `sqs:ReceiveMessage`, `sqs:DeleteMessage` | `audio-queue` |

@@ -20,13 +20,14 @@ transcription_reviewer → [sqs-fix-transcribes SQS] → gpu_timestamp → [fina
 ## Architecture
 
 ```
-SQS (sqs-fix-transcribes) → Docker Container → S3 (final-transcription)
+SQS (sqs-fix-transcribes) → Docker Container → S3 (per-entry output bucket)
                               ├── SQSReceiver (polls messages)
-                              ├── S3Downloader (audio from portal-daf-yomi-audio, text from final-transcription)
+                              ├── DynamoReader (fetches bucket names + language from transcription-tracker)
+                              ├── S3Downloader (audio + text, buckets from DynamoDB)
                               ├── AlignmentEvaluator (pre-alignment DTW fix)
                               ├── Aligner (stable-whisper alignment)
                               ├── AlignmentEvaluator (post-alignment quality check)
-                              ├── SQSUploader (results to final-transcription)
+                              ├── S3Uploader (results to output bucket from DynamoDB)
                               └── SQSSender (completion to sqs-final-transcribes)
 ```
 
@@ -52,43 +53,51 @@ gpu_timestamp/
     │   └── sqs_sender.py
     ├── infrastructure/
     │   ├── dependency_injection.py
+    │   ├── dynamodb_client.py
     │   ├── s3_client.py
     │   └── sqs_client.py
+    ├── services/
+    │   └── dynamo_reader.py
     └── models/
-        └── schemas.py      # SQSMessage, AlignmentResult
+        ├── dynamo_entry.py  # DynamoDBMediaEntry — per-entry bucket config
+        └── schemas.py       # SQSMessage, AlignmentResult
 ```
 
 ## Processing Flow
 
-For each SQS message `{"filename": "{stem}.vtt", "language": "he"}`:
+For each SQS message `{"media_id": 151415}`:
 
-1. **Download audio** from `portal-daf-yomi-audio/{stem}.mp3`
-2. **Download corrected text** from `final-transcription/{stem}.txt`
-3. **Pre-alignment DTW fix** (if enabled) — compares old `.pre-fix.time` with corrected text to detect and remove hallucinated lines at the end
-4. **Align** — stable-whisper aligns text to audio, producing word-level timestamps
-5. **Post-alignment evaluation** — detects timestamp degradation using rolling average of word probabilities + CUSUM (cumulative sum control chart)
-6. **Truncate if needed** — if quality degrades, output is truncated at the cutoff point
-7. **Upload** `.json`, `.vtt`, `.srt` to `final-transcription`
-8. **Notify** — send completion message to `sqs-final-transcribes`
+1. **Fetch entry** — query DynamoDB `transcription-tracker` for `media_id` to get `audio_bucket`, `text_bucket`, `output_bucket`, and `language`
+2. **Download audio** from `{audio_bucket}/{stem}.mp3`
+3. **Download corrected text** from `{text_bucket}/{stem}.txt`
+4. **Pre-alignment DTW fix** (if enabled) — compares old `.pre-fix.time` with corrected text to detect and remove hallucinated lines at the end
+5. **Align** — stable-whisper aligns text to audio, producing word-level timestamps
+6. **Post-alignment evaluation** — detects timestamp degradation using rolling average of word probabilities + CUSUM (cumulative sum control chart)
+7. **Truncate if needed** — if quality degrades, output is truncated at the cutoff point
+8. **Upload** `.json`, `.vtt`, `.srt` to `{output_bucket}`
+9. **Set status** — update DynamoDB entry status to `"aligned"`
+10. **Notify** — send completion message to `sqs-final-transcribes`
 
 ## Output Files
 
-Written to `s3://final-transcription/`:
+Written to the per-entry `output_bucket` from DynamoDB (`media_subtitles` field):
 
 | File | Description |
 |------|-------------|
 | `{stem}.vtt` | VTT subtitles with corrected timestamps |
 | `{stem}.srt` | SRT subtitles |
 | `{stem}.json` | Detailed alignment output (word-level timestamps) |
+| `{stem}.dtw.txt` | DTW-filtered text used for alignment (if DTW enabled) |
+| `{stem}.analysis` | Truncation analysis (only written if truncation was applied) |
 
-## Docker Build & Run
+## Docker Build & Push
+
+S3 is used instead of ECR to store the image in order to reduce cost.
 
 ```bash
-# Build
-docker build -t gpu-timestamp .
-
-# Run (requires GPU)
-docker run --gpus all gpu-timestamp
+docker build -t whisper-timestamp:1 .
+docker save whisper-timestamp:1 | gzip > whisper-timestamp.tar.gz
+aws s3 cp whisper-timestamp.tar.gz s3://portal-docker-images/whisper-timestamp.tar.gz --profile portal
 ```
 
 ## EC2 Deployment
@@ -132,24 +141,29 @@ aws cloudwatch put-metric-alarm \
 
 ## Environment Variables
 
+Bucket names and language are resolved per-message from DynamoDB — not from environment variables.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AWS_REGION` | `us-east-1` | AWS region |
-| `AUDIO_BUCKET` | `portal-daf-yomi-audio` | Source audio bucket |
-| `TEXT_BUCKET` | `final-transcription` | Input corrected text bucket |
-| `OUTPUT_BUCKET` | `final-transcription` | Output bucket for VTT/JSON |
+| `MEDIA_TABLE` | `transcription-tracker` | DynamoDB table for per-entry bucket config |
 | `SQS_QUEUE_URL` | — | Input queue URL (`sqs-fix-transcribes`) |
 | `SQS_FINAL_QUEUE_URL` | — | Output notification queue (`sqs-final-transcribes`) |
 | `WHISPER_MODEL` | `large` | stable-whisper model size |
 | `WHISPER_CACHE` | `/opt/models/whisper` | Model cache directory |
 | `DEVICE` | `cuda` | `cuda` or `cpu` |
-| `LANGUAGE` | `he` | Language code (Hebrew) |
 | `TOKEN_STEP` | `200` | Alignment granularity |
+| `ROLLING_AVG_TARGET` | — | Target rolling average probability for quality evaluation |
 | `DTW_ENABLED` | `true` | Enable pre-alignment DTW fix |
 | `DTW_BAND_WIDTH` | `0` | Banded DTW (0 = no band) |
+| `DTW_WINDOW_TYPE` | — | DTW window type |
+| `DTW_STEP_PATTERN` | — | DTW step pattern |
 | `DTW_MATCH_THRESHOLD` | `0.5` | Text match confidence threshold |
 | `DTW_HIGH_DIST_THRESHOLD` | `0.7` | Distance threshold for mismatch detection |
+| `DTW_LOW_SCORE_THRESHOLD` | — | Low score threshold for mismatch detection |
 | `DTW_JUMP_THRESHOLD` | `40` | Max frame jump before flagging degradation |
+| `DTW_DROP_THRESHOLD` | — | Probability drop threshold for truncation |
+| `DTW_MA_WINDOW` | — | Moving average window size |
 
 ## Local Development
 

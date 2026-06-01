@@ -214,9 +214,8 @@ cmd /c ..\.config\render_env.bat dev --require-secrets
 # Run local test
 python local_test.py
 
-# Deploy to Lambda (build wheel first)
-uv build
-# Upload dist/*.whl to Lambda via AWS Console or CI
+# Deploy to Lambda
+./deploy/deploy.ps1
 ```
 
 ## IAM Role: `portal-reviewer-role`
