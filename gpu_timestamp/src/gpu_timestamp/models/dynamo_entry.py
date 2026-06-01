@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DynamoDBMediaEntry:
-    media_id: int
+    media_id: int | str
     media_url: str
     context_files_bucket_s3: str
     media_transcribed_bucket: str
@@ -24,7 +24,7 @@ class DynamoDBMediaEntry:
     @classmethod
     def from_dynamo_item(cls, item: dict) -> "DynamoDBMediaEntry":
         return cls(
-            media_id=int(item["media_id"]["S"]),
+            media_id=item["media_id"]["S"],
             media_url=item["media_url"]["S"],
             context_files_bucket_s3=item["context_files_bucket_s3"]["S"],
             media_transcribed_bucket=item["media_transcribed_bucket"]["S"],

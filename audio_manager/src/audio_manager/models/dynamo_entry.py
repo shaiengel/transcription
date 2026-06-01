@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DynamoDBMediaEntry:
-    media_id: int
+    media_id: int | str
     media_url: str
     context_files_bucket_s3: str
     media_transcribed_bucket: str

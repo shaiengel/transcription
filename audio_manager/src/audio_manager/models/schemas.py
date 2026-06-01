@@ -17,15 +17,15 @@ class CalendarWindow:
 
 
 class MediaEntry(BaseModel):
-    media_id: int
+    media_id: int | str
     media_link: str
-    maggid_description: str | None
-    massechet_name: str | None
-    daf_name: str | None
-    details: str | None
-    language: str | None
-    media_duration: int | None
-    file_type: str | None
+    maggid_description: str | None = None
+    massechet_name: str | None = None
+    daf_name: str | None = None
+    details: str | None = None
+    language: str | None = None
+    media_duration: int | None = None
+    file_type: str | None = None
     downloaded_path: Path | None = None  # Set after download
     steinsaltz: str | None = None  # Steinsaltz commentary from Sefaria
     audio_bucket: str | None = None

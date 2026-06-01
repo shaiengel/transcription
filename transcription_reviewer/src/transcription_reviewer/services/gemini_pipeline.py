@@ -281,7 +281,7 @@ class GeminiPipeline(LLMPipeline):
                 # Send SQS notification
                 try:
                     self._sqs_client.send_message(
-                        self._sqs_queue_url, {"media_id": int(stem)}
+                        self._sqs_queue_url, {"media_id": stem}
                     )
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")

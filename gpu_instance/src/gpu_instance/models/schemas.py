@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class SQSMessage(BaseModel):
     """Message received from SQS queue."""
 
-    media_id: int
+    media_id: int | str
     receipt_handle: str | None = None
 
 

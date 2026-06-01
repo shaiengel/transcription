@@ -11,7 +11,9 @@ from audio_manager.models.schemas import CalendarEntry, CalendarWindow, MediaEnt
 from audio_manager.models.daf_text_fetcher import DafTextFetcher
 from audio_manager.services.database import (
     get_connection,
+    get_chapters_for_daf,
     get_massechet_bounds,
+    get_massechet_data_by_name,
     get_massechet_sefaria_name_raw,
     get_media_links,
     get_calendar_entries,
@@ -245,6 +247,106 @@ def enrich_with_steinsaltz(
 
             media.steinsaltz = "\n\n".join(sections)
             break  # Only need to match one calendar entry
+
+
+_GEMATRIA: dict[str, int] = {
+    'א': 1, 'ב': 2, 'ג': 3, 'ד': 4, 'ה': 5, 'ו': 6, 'ז': 7, 'ח': 8, 'ט': 9,
+    'י': 10, 'כ': 20, 'ך': 20, 'ל': 30, 'מ': 40, 'ם': 40, 'נ': 50, 'ן': 50,
+    'ס': 60, 'ע': 70, 'פ': 80, 'ף': 80, 'צ': 90, 'ץ': 90,
+    'ק': 100, 'ר': 200, 'ש': 300, 'ת': 400,
+}
+
+
+def hebrew_to_int(s: str) -> int:
+    return sum(_GEMATRIA.get(c, 0) for c in s)
+
+
+def enrich_with_steinsaltz_by_daf(
+    media_list: list[MediaEntry],
+    text_fetcher: DafTextFetcher | None,
+) -> None:
+    """Enrich media entries with Steinsaltz commentary using massechet+daf from the entry itself.
+
+    Unlike enrich_with_steinsaltz, this does not use a calendar. The massechet and daf
+    are taken from media.massechet_name and media.daf_name (a Hebrew gematria numeral).
+    Adjacent dafs (daf±1) are included unless at massechet boundaries.
+    """
+    if not text_fetcher:
+        logger.warning("No text fetcher configured.")
+        return
+
+    adjacent_word_count = int(os.getenv("adjacent_word_count", "120"))
+
+    # Cache: (masechet_name, daf_id) → steinsaltz text
+    steinsaltz_cache: dict[tuple[str, int], str | None] = {}
+    # Cache: masechet_name → massechet data dict
+    massechet_info_cache: dict[str, dict] = {}
+
+    def _fetch(masechet_name: str, daf_id: int, sefaria_name: str) -> str | None:
+        key = (masechet_name, daf_id)
+        if key not in steinsaltz_cache:
+            text = text_fetcher.fetch_for_daf(sefaria_name, daf_id)
+            if text:
+                logger.info("Fetched Steinsaltz for %s daf %d (%d chars)", sefaria_name, daf_id, len(text))
+            else:
+                logger.warning("No Steinsaltz found for %s daf %d", sefaria_name, daf_id)
+            steinsaltz_cache[key] = text
+        return steinsaltz_cache[key]
+
+    for media in media_list:
+        if not media.massechet_name or not media.daf_name:
+            logger.warning("Missing massechet_name or daf_name on media %s", media.media_id)
+            continue
+
+        daf_id = hebrew_to_int(media.daf_name)
+
+        if media.massechet_name not in massechet_info_cache:
+            info = get_massechet_data_by_name(media.massechet_name)
+            if not info:
+                logger.warning("No massechet data found for '%s'", media.massechet_name)
+                continue
+            massechet_info_cache[media.massechet_name] = info
+        info = massechet_info_cache[media.massechet_name]
+
+        sefaria_name: str = info.get("massechet_english", "")
+        massechet_start: int = info.get("massechet_start", daf_id)
+        massechet_end: int = info.get("massechet_end", daf_id)
+
+        use_prev = daf_id > massechet_start
+        use_next = daf_id < massechet_end
+
+        today_text = _fetch(media.massechet_name, daf_id, sefaria_name)
+
+        massechet_id: int = info.get("massechet_id")
+        chapters = get_chapters_for_daf(massechet_id, daf_id)
+        chapter_parts = [
+            f"פרק {ch['chapter_name']} שהוא פרק {ch['chapter_count']}"
+            for ch in chapters
+        ]
+        chapter_str = "\n" + " and also ".join(chapter_parts) if chapter_parts else ""
+        media.details = (
+            f"a Talmud Massechet:{media.massechet_name} of Daf: {media.daf_name}"
+            + chapter_str
+        )
+
+        if not today_text:
+            continue
+
+        sections: list[str] = []
+
+        if use_prev:
+            prev_text = _fetch(media.massechet_name, daf_id - 1, sefaria_name)
+            if prev_text:
+                sections.append(_extract_words(prev_text, adjacent_word_count, from_end=True))
+
+        sections.append(today_text)
+
+        if use_next:
+            next_text = _fetch(media.massechet_name, daf_id + 1, sefaria_name)
+            if next_text:
+                sections.append(_extract_words(next_text, adjacent_word_count, from_end=False))
+
+        media.steinsaltz = "\n\n".join(sections)
 
 
 def print_media_links(media_list: list[MediaEntry]) -> None:

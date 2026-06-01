@@ -87,13 +87,7 @@ def process_transcriptions(
                 break
 
             # Look up DynamoDB entry by media_id (stem)
-            try:
-                media_id = int(trans.stem)
-            except ValueError:
-                logger.error("Cannot parse media_id from stem: %s", trans.stem)
-                failed_count += 1
-                continue
-
+            media_id = trans.stem
             dynamo_entry = dynamo_reader.get_entry(media_id)
             if not dynamo_entry:
                 logger.error("No DynamoDB entry for media_id=%s", media_id)

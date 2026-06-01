@@ -21,11 +21,11 @@ def _create_portal_media_fetcher(media_source, text_fetcher):
     return PortalMedia(media_source, text_fetcher)
 
 
-def _create_youtube_media_fetcher():
+def _create_youtube_media_fetcher(text_fetcher):
     from audio_manager.fetchers.youtube_media import YouTubeMedia
 
     json_path = Path(os.getenv("YOUTUBE_LINKS_JSON", "youtube_links.json"))
-    return YouTubeMedia(json_path)
+    return YouTubeMedia(json_path, text_fetcher)
 
 
 def _create_session() -> boto3.Session:
@@ -170,4 +170,4 @@ class DependenciesContainer(DeclarativeContainer):
     # Media Fetcher - Comment out one of the following two lines:
     # =========================================================================
     media_fetcher = providers.Singleton(_create_portal_media_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
-    # media_fetcher = providers.Singleton(_create_youtube_media_fetcher)
+    # media_fetcher = providers.Singleton(_create_youtube_media_fetcher, text_fetcher=daf_text_fetcher)
