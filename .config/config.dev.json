@@ -57,7 +57,7 @@
   "gemini": {
     "split_by_words": "true",
     "split_by_words_max": "5000",
-    "max_word_diff": "70",
+    "max_word_diff": "65",
     "thinking_budget": "1024"
   },
   "batch": {
@@ -85,7 +85,7 @@
     "branch": "main"
   },
   "dtw": {
-    "enabled": true,
+    "enabled": false,
     "band_width": 0,
     "window_type": "slantedband",
     "step_pattern": "asymmetric",

@@ -9,6 +9,7 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
 
+from gpu_timestamp.infrastructure.dynamodb_client import DynamoDBClient
 from gpu_timestamp.infrastructure.s3_client import S3Client
 from gpu_timestamp.infrastructure.sqs_client import SQSClient
 
@@ -24,7 +25,7 @@ def _create_session() -> boto3.Session:
     - Locally: uses ~/.aws/credentials
     """
     if config.local_dev:
-        profile = os.getenv("AWS_PROFILE_TIMESTAMP", "portal")
+        profile = os.getenv("AWS_PROFILE_TIMESTAMP", "timestamps")
         return boto3.Session(profile_name=profile, region_name=config.aws_region)
 
     return boto3.Session(region_name=config.aws_region)
@@ -56,6 +57,13 @@ def _create_sqs_sender(sqs_client: SQSClient):
     from gpu_timestamp.services.sqs_sender import SQSSender
 
     return SQSSender(sqs_client)
+
+
+def _create_dynamo_reader(dynamodb_client: DynamoDBClient):
+    """Factory for DynamoReader to avoid circular import."""
+    from gpu_timestamp.services.dynamo_reader import DynamoReader
+
+    return DynamoReader(dynamodb_client, config.media_table)
 
 
 class DependenciesContainer(DeclarativeContainer):
@@ -104,4 +112,20 @@ class DependenciesContainer(DeclarativeContainer):
     sqs_sender = providers.Singleton(
         _create_sqs_sender,
         sqs_client=sqs_client,
+    )
+
+    # DynamoDB dependency chain
+    dynamodb_boto_client = providers.Singleton(
+        lambda session: session.client("dynamodb"),
+        session=session,
+    )
+
+    dynamodb_client = providers.Singleton(
+        DynamoDBClient,
+        client=dynamodb_boto_client,
+    )
+
+    dynamo_reader = providers.Singleton(
+        _create_dynamo_reader,
+        dynamodb_client=dynamodb_client,
     )
