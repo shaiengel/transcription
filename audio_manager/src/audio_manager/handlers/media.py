@@ -33,6 +33,16 @@ _SYSTEM_PROMPT_FILENAMES = [
     "system_prompt.template.reasoning.md",
 ]
 
+_END_MASSECHET_TEXT: str | None = None
+
+
+def _get_end_massechet_text() -> str:
+    global _END_MASSECHET_TEXT
+    if _END_MASSECHET_TEXT is None:
+        path = Path(__file__).parent.parent / "end_massechet.txt"
+        _END_MASSECHET_TEXT = path.read_text(encoding="utf-8")
+    return _END_MASSECHET_TEXT
+
 
 def _get_system_prompt_template(filename: str) -> str:
     if filename not in _SYSTEM_PROMPT_TEMPLATES:
@@ -346,7 +356,10 @@ def enrich_with_steinsaltz_by_daf(
             if next_text:
                 sections.append(_extract_words(next_text, adjacent_word_count, from_end=False))
 
-        media.steinsaltz = "\n\n".join(sections)
+        steinsaltz = "\n\n".join(sections)
+        if not use_next:
+            steinsaltz += "\n" + _get_end_massechet_text()
+        media.steinsaltz = steinsaltz
 
 
 def print_media_links(media_list: list[MediaEntry]) -> None:

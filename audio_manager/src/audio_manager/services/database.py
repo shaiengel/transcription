@@ -103,6 +103,17 @@ def get_massechet_data_by_name(masechet_name: str) -> dict | None:
     return None
 
 
+def get_massechet_by_english_name(massechet_english: str) -> dict | None:
+    """Return the first massechet_data.json entry matching massechet_english, or None."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("massechet_english") == massechet_english:
+            return entry
+    return None
+
+
 def get_chapters_for_daf(massechet_id: int, daf_id: int) -> list[dict]:
     """Return massechet_data.json chapter entries that are active on the given daf."""
     data_path = Path(__file__).parent.parent / "massechet_data.json"
