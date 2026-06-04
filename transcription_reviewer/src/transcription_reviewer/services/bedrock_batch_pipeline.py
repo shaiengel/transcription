@@ -41,7 +41,7 @@ class BedrockBatchPipeline(LLMPipeline):
         self._max_tokens = max_tokens
         self._temperature = temperature
 
-    def prepare_data(self, files: list[TranscriptionFile]) -> list[BatchEntry]:
+    def prepare_data(self, files: list[TranscriptionFile], context=None) -> list[BatchEntry]:
         """Prepare batch entries with token counting and splitting."""
         entries: list[BatchEntry] = []
 
@@ -78,7 +78,7 @@ class BedrockBatchPipeline(LLMPipeline):
         logger.info(f"Prepared {len(entries)} batch entries")
         return entries
 
-    def invoke(self, prepared_data: list[BatchEntry]) -> str | None:
+    def invoke(self, prepared_data: list[BatchEntry], context=None, **kwargs) -> str | None:
         """Submit batch job to Bedrock."""
         job_id = str(uuid.uuid4())[:8]
         job_name = f"transcription-fix-{job_id}"

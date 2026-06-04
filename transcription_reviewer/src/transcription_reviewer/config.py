@@ -96,6 +96,12 @@ class Config:
 
     # SQS
     sqs_queue_url: str = _get_config("SQS_QUEUE_URL", "")
+    temporary_fix_bucket: str = _get_config("TEMPORARY_FIX_BUCKET", "temporary-fix-files")
+    fix_tracker_table: str = _get_config("FIX_TRACKER_TABLE", "transcription-fix-tracker")
+    dead_letter_bucket: str = _get_config("DEAD_LETTER_BUCKET", "transcription-dead-letter")
+    max_lambda_age_seconds: int = int(_get_config("MAX_LAMBDA_AGE_SECONDS", "1080"))
+    slow_llm_threshold_ms: int = int(_get_config("SLOW_LLM_THRESHOLD_MS", "840000"))
+    max_retries: int = int(_get_config("MAX_RETRIES", "4"))
 
     # Gemini splitting strategy
     split_by_words: bool = _get_config("SPLIT_BY_WORDS", "true").lower() in ("true", "1", "yes")

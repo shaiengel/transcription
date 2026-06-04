@@ -147,6 +147,45 @@ Processing can exceed the 15-minute Lambda limit. After each file, `context.get_
 
 - Local dev: `context` is `None` — timeout check is skipped, all files processed.
 
+## Crash Detection & Retry Logic (Gemini backend)
+
+The `transcription-fix-tracker` DynamoDB table prevents duplicate processing and lets a new Lambda resume a crashed one.
+
+**Table key**: `media_id`  
+**Fields**: `retry_number`, `lambda_started_at`, `lambda_time_remaining_ms`, `current_chunk`, `total_chunks`
+
+### Per-file flow
+
+1. **Claim** — `try_claim` writes the entry with `condition="attribute_not_exists(media_id)"`.
+   - Success → this Lambda owns the file, `retry_number=1`.
+   - Fail → another Lambda already claimed it, read the existing entry.
+
+2. **Active check** — if `now - lambda_started_at < 18 min`, another Lambda is still alive → skip.
+
+3. **Crashed** — elapsed ≥ 18 min means the previous Lambda died. Increment `retry_number`.
+
+4. **Slow LLM check** — if the dead Lambda had `lambda_time_remaining_ms > 14 min` when it last wrote, the LLM call itself was too slow (not a timeout issue):
+   - If `retry_number >= 4` → **dead-letter**: move source file to `transcription-dead-letter` and skip. This is the **only** case that triggers dead-lettering.
+   - If `retry_number < 4` → continue retrying normally.
+
+5. **Normal timeout** — Lambda ran out of time mid-chunk; **always retry, never dead-letter**, regardless of retry count.
+
+6. **Resume** — update tracker with new `retry_number`, `lambda_started_at`, and reset `current_chunk=1`. Each chunk re-loads its best S3 result (`{stem}_{i}.txt`) as a baseline before running new Gemini attempts.
+
+### Per-chunk retry
+
+`retry_number` is the attempt floor — `range(retry_number, 5)` so later Lambdas don't repeat already-passed attempts:
+- Lambda 1 (`retry_number=1`): 4 Gemini attempts
+- Lambda 2 (`retry_number=2`): 3 attempts
+- Lambda 3 (`retry_number=3`): 2 attempts
+- Lambda 4 (`retry_number=4`): dead-letter (slow LLM) or 1 attempt (timeout)
+
+**S3 as source of truth** — whenever a Gemini attempt produces a better result (lower word-count diff vs original), it overwrites `{stem}_{i}.txt` in `temporary-fix-files`. A resuming Lambda loads that file first; it only runs new attempts if the existing result doesn't yet meet the threshold.
+
+### Cleanup
+
+On success, `delete_entry` removes the tracker row. The file is then deleted from the transcription bucket so the next Lambda invocation skips it.
+
 ## Output Files
 
 For each transcription `{stem}.txt` (Gemini output, written to `media_fixed_transcribed_bucket`):

@@ -2,9 +2,11 @@
 
 import hashlib
 import logging
-import re
 import time
+from datetime import datetime, timezone
 from typing import Optional
+
+from transcription_reviewer.config import config as global_config
 
 from google import genai
 from google.genai import types
@@ -13,14 +15,11 @@ from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFile
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
+from transcription_reviewer.services.fix_tracker import FixTrackerEntry, FixTrackerService
 from transcription_reviewer.utils.batch_jsonl import BatchEntry
-from transcription_reviewer.utils.vtt_converter import convert_to_vtt
 
 logger = logging.getLogger(__name__)
 
-TIMED_LINE_PATTERN = re.compile(
-    r"^(\[\d+\]\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+-\s+\d{2}:\d{2}:\d{2}\.\d{3}:\s*)(.*)$"
-)
 
 
 class GeminiPipeline(LLMPipeline):
@@ -32,120 +31,215 @@ class GeminiPipeline(LLMPipeline):
         sqs_client: SQSClient,
         api_key: str,
         sqs_queue_url: str,
+        temporary_fix_bucket: str,
         model_name: str = "gemini-2.5-flash",
         temperature: float = 0.1,
         max_tokens: int = 60000,
-        split_by_words: bool = True,
         split_by_words_max: int = 5000,
         max_word_diff: int = 100,
         thinking_budget: int = 1024,
+        fix_tracker: FixTrackerService | None = None,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
         self._sqs_queue_url = sqs_queue_url
+        self._temporary_fix_bucket = temporary_fix_bucket
         self._model_name = model_name
         self._temperature = temperature
         self._max_tokens = max_tokens
-        self._split_by_words = split_by_words
         self._split_by_words_max = split_by_words_max
         self._max_word_diff = max_word_diff
         self._thinking_budget = thinking_budget
+        self._fix_tracker = fix_tracker
 
-        # Create client
         self._client = genai.Client(api_key=api_key)
+
+        # Captured once at instantiation — used as lambda_started_at for all files this invocation
+        self._invocation_started_at: str = self._now_iso()
+
+        # Set per-invocation by invoke(); used by _is_running_out_of_time()
+        self._context = None
+
+        # Set by prepare_data(); consumed by invoke()
+        self._tracker_entry: FixTrackerEntry | None = None
 
         # Cache management: maps system_prompt -> (cached_content_name, expiry_time)
         self._prompt_caches: dict[str, tuple[str, float]] = {}
 
-    def prepare_data(self, files: list[TranscriptionFile]) -> list[BatchEntry]:
-        """Prepare batch entries with token counting and splitting."""
+    def prepare_data(self, files: list[TranscriptionFile], context=None) -> list[BatchEntry]:
+        """Claim/resume tracker entry then prepare batch entries with token counting.
+
+        Returns an empty list if the file should be skipped (active lambda, dead-lettered).
+        """
+        self._tracker_entry = None
+
+        if self._fix_tracker and files:
+            f = files[0]
+            time_remaining_ms = context.get_remaining_time_in_millis() if context else 999_999_999
+            tracker_entry, should_skip = self._resolve_tracker_entry(
+                media_id=f.stem,
+                transcription_bucket=f.transcription_bucket,
+                time_remaining_ms=time_remaining_ms,
+            )
+            if should_skip:
+                return []
+            self._tracker_entry = tracker_entry
+
         entries: list[BatchEntry] = []
 
         for f in files:
-            # Count tokens using Gemini API
             total_tokens = self._count_tokens(f.content)
-            logger.info(f"File {f.stem}, words {len(f.content.split())}: {total_tokens} tokens")
+            word_count = len(f.content.split())
+            logger.info(f"File {f.stem}: {word_count} words, {total_tokens} tokens")
 
-            # Split if over the limit
-            chunks = self._split_content(f.content, total_tokens)
-            if len(chunks) > 1:
-                logger.info(f"Split {f.stem} into {len(chunks)} chunks")
-
-            for i, (chunk_content, chunk_tokens) in enumerate(chunks, start=1):
-                record_id = f.stem if len(chunks) == 1 else f"{f.stem}_{i}"
-                entries.append(
-                    BatchEntry(
-                        record_id=record_id,
-                        system_prompt=f.system_prompt,
-                        content=chunk_content,
-                        token_count=chunk_tokens,
-                        transcription_bucket=f.transcription_bucket,
-                        output_bucket=f.output_bucket,
-                    )
+            entries.append(
+                BatchEntry(
+                    record_id=f.stem,
+                    system_prompt=f.system_prompt,
+                    content=f.content,
+                    token_count=total_tokens,
+                    transcription_bucket=f.transcription_bucket,
+                    output_bucket=f.output_bucket,
                 )
+            )
 
         logger.info(f"Prepared {len(entries)} batch entries for Gemini")
         return entries
 
-    def invoke(self, prepared_data: list[BatchEntry]) -> list[tuple[str, str, bool]]:
-        """Call Gemini for each entry using cached system prompts.
-        
-        """
+    def invoke(
+        self,
+        prepared_data: list[BatchEntry],
+        context=None,
+        **kwargs,
+    ) -> list[tuple[str, str, bool]]:
+        """Call Gemini for each entry using cached system prompts."""
+        self._context = context
         results = []
 
         for entry in prepared_data:
             try:
                 cache_name = self._get_or_create_cache(entry.system_prompt)
                 config = self._build_config(cache_name, entry.system_prompt)
-                
-                record_id, fixed_text, success = self._invoke_entry(entry, config)
+                record_id, fixed_text, success = self._invoke_entry(entry, config, self._tracker_entry)
                 results.append((record_id, fixed_text, success))
+            except TimeoutError:
+                raise
             except Exception as e:
                 logger.error(f"Failed to process {entry.record_id}: {e}")
                 results.append((entry.record_id, "", False))
 
         return results
 
-    def _invoke_entry(self, entry: BatchEntry, config: types.GenerateContentConfig) -> tuple[str, str, bool]:
-        """Process a single entry, splitting into word chunks if enabled.
+    def _get_time_remaining_ms(self) -> int:
+        if self._context is None:
+            return 999_999_999
+        return self._context.get_remaining_time_in_millis()
 
-        Retries each chunk up to 4 times if the word count difference between
-        the original and fixed chunk exceeds max_word_diff, keeping the best result.
-        """
+    def _is_running_out_of_time(self) -> bool:
+        """Return True if Lambda has less than the configured threshold of time remaining."""
+        if self._context is None:
+            return False
+        remaining_ms = self._context.get_remaining_time_in_millis()
+        if remaining_ms < global_config.timeout_threshold_ms:
+            logger.warning("Running low on time: %d ms remaining (threshold: %d ms)",
+                           remaining_ms, global_config.timeout_threshold_ms)
+            return True
+        return False
+
+    def _invoke_entry(
+        self,
+        entry: BatchEntry,
+        config: types.GenerateContentConfig,
+        tracker_entry: FixTrackerEntry | None = None,
+    ) -> tuple[str, str, bool]:
+        """Process a single entry, splitting into word chunks and persisting progress to S3/DynamoDB."""
         logger.info(f"Processing {entry.record_id} with Gemini")
+        stem = entry.record_id
 
-        if self._split_by_words:
-            chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
-            if len(chunks) > 1:
-                logger.info(f"Split {entry.record_id} into {len(chunks)} word-chunks")
+        chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
+        if len(chunks) > 1:
+            logger.info(f"Split {stem} into {len(chunks)} word-chunks")
 
-            chunk_results = []
-            for i, chunk in enumerate(chunks, start=1):
-                if len(chunks) > 1:
-                    logger.info(f"  Processing chunk {i}/{len(chunks)} of {entry.record_id}")
+        resume_from = tracker_entry.current_chunk if tracker_entry else 1
+        retry_number = tracker_entry.retry_number if tracker_entry else 1
 
-                fixed_chunk = self._invoke_chunk_with_retries(
-                    chunk, config, f"{entry.record_id}[chunk {i}/{len(chunks)}]"
-                )
-                chunk_results.append(fixed_chunk)
-
-            fixed_text = "\n".join(chunk_results)
-        else:
-            fixed_text = self._invoke_chunk_with_retries(
-                entry.content, config, entry.record_id
+        chunk_results = []
+        for i in range(1, resume_from):
+            existing = self._s3_client.get_object_content(
+                self._temporary_fix_bucket, f"{stem}_{i}.txt"
             )
+            if existing is None:
+                logger.warning(f"  {stem}[chunk {i}/{len(chunks)}]: expected prior S3 result but found none, will reprocess")
+                resume_from = i
+                break
+            logger.info(f"  {stem}[chunk {i}/{len(chunks)}]: loaded prior result from S3")
+            chunk_results.append(existing)
 
-        logger.info(f"Successfully processed {entry.record_id}")
-        return entry.record_id, fixed_text, True
+        for i, chunk in enumerate(chunks, start=1):
+            if i < resume_from:
+                continue
 
-    def _invoke_chunk_with_retries(self, chunk: str, config: types.GenerateContentConfig, label: str) -> str:
-        """Call Gemini for a single chunk, retrying up to 4 times on word count drift."""
+            label = f"{stem}[chunk {i}/{len(chunks)}]"
+
+            if self._is_running_out_of_time():
+                logger.warning(f"{stem}: stopping at chunk {i}/{len(chunks)} — time limit reached")
+                raise TimeoutError(f"Time limit reached before chunk {i}/{len(chunks)} of {stem}")
+
+            # Checkpoint current chunk position in DynamoDB before starting work
+            if self._fix_tracker:
+                self._fix_tracker.update_progress(
+                    stem, i, len(chunks), self._get_time_remaining_ms()
+                )
+
+            if len(chunks) > 1:
+                logger.info(f"  Processing chunk {i}/{len(chunks)} of {stem}")
+
+            fixed_chunk = self._invoke_chunk_with_retries(chunk, config, label, stem, i, retry_number)
+            chunk_results.append(fixed_chunk)
+
+        fixed_text = "\n".join(chunk_results)
+        logger.info(f"Successfully processed {stem}")
+        return stem, fixed_text, True
+
+    def _invoke_chunk_with_retries(
+        self,
+        chunk: str,
+        config: types.GenerateContentConfig,
+        label: str,
+        stem: str,
+        split_idx: int,
+        retry_number: int = 1,
+    ) -> str:
+        """Call Gemini for a single chunk, retrying up to 4 times on word count drift.
+
+        Loads the best result from a prior lambda invocation (if any) from S3 as the
+        starting baseline, then runs fresh attempts and overrides only when a better
+        result is found.
+        """
         max_retries = 4
         original_word_count = len(chunk.split())
-        best_text: str | None = None
-        best_diff = float("inf")
 
-        for attempt in range(1, max_retries + 1):
+        # Load best result written by any prior lambda invocation
+        existing_text = self._s3_client.get_object_content(
+            self._temporary_fix_bucket, f"{stem}_{split_idx}.txt"
+        )
+        if existing_text is not None:
+            best_diff: float = abs(len(existing_text.split()) - original_word_count)
+            best_text: str | None = existing_text
+            logger.info(f"  {label}: loaded prior best from S3, diff={best_diff}")
+            if best_diff <= self._max_word_diff:
+                logger.info(f"  {label}: prior result already meets threshold, skipping Gemini")
+                return best_text
+        else:
+            best_diff = float("inf")
+            best_text = None
+
+        start_attempt = retry_number
+        for attempt in range(start_attempt, max_retries + 1):
+            if self._is_running_out_of_time():
+                logger.warning(f"{label}: stopping retries at attempt {attempt} — time limit reached")
+                return best_text
+
             try:
                 fixed_text = self._call_gemini(chunk, config)
             except Exception as e:
@@ -157,8 +251,11 @@ class GeminiPipeline(LLMPipeline):
             if diff < best_diff:
                 best_diff = diff
                 best_text = fixed_text
+                self._s3_client.put_object_content(
+                    self._temporary_fix_bucket, f"{stem}_{split_idx}.txt", fixed_text
+                )
 
-            if diff <= self._max_word_diff:
+            if best_diff <= self._max_word_diff:
                 break
 
             logger.warning(
@@ -168,19 +265,21 @@ class GeminiPipeline(LLMPipeline):
             )
         else:
             logger.warning(
-                f"{label}: all {max_retries} attempts exceeded word diff limit, "
+                f"{label}: all attempts exhausted (retry_number={retry_number}, max_retries={max_retries}), "
                 f"using best result with diff {best_diff}"
             )
 
         fixed_word_count = len(best_text.split()) if best_text else 0
-        logger.info(f"{label}: final word diff = {best_diff} "
-                    f"(original={original_word_count}, fixed={fixed_word_count})")
+        logger.info(
+            f"{label}: final word diff = {best_diff} "
+            f"(original={original_word_count}, fixed={fixed_word_count})"
+        )
         return best_text
 
     def _build_config(self, cache_name: Optional[str], system_prompt: str) -> types.GenerateContentConfig:
         """Build Gemini config with cache or system instruction fallback."""
         kwargs = {
-            "temperature": self._temperature,            
+            "temperature": self._temperature,
             "top_p": 0.1,
             "top_k": 1,
             "max_output_tokens": self._max_tokens,
@@ -200,6 +299,8 @@ class GeminiPipeline(LLMPipeline):
             contents=content,
             config=config,
         )
+        # from types import SimpleNamespace
+        # response = SimpleNamespace(text="1")
         if response.text is None:
             raise ValueError(
                 f"Gemini returned empty response (finish_reason="
@@ -238,22 +339,13 @@ class GeminiPipeline(LLMPipeline):
         return chunks
 
     def post_process(self, llm_response: list[tuple[str, str, bool]], original_files: list[BatchEntry]) -> ReviewResult:
-        """Match timestamps, create VTT, upload to S3, send SQS."""
+        """Upload fixed text to S3, send SQS notification, clean up temp files and tracker."""
         fixed_count = 0
         failed_count = 0
 
-        # Build a stem -> BatchEntry lookup for per-file bucket resolution
-        entry_by_stem: dict[str, BatchEntry] = {}
-        for entry in original_files:
-            stem = entry.record_id.rsplit("_", 1)[0] if (
-                "_" in entry.record_id and entry.record_id.rsplit("_", 1)[1].isdigit()
-            ) else entry.record_id
-            entry_by_stem.setdefault(stem, entry)
+        entry_by_stem = {entry.record_id: entry for entry in original_files}
 
-        # Group split records back together (stem_1, stem_2 -> stem)
-        grouped_results = self._group_split_records(llm_response)
-
-        for stem, fixed_text, success in grouped_results:
+        for stem, fixed_text, success in llm_response:
             if not success:
                 failed_count += 1
                 continue
@@ -263,26 +355,22 @@ class GeminiPipeline(LLMPipeline):
             output_bucket = batch_entry.output_bucket if batch_entry else ""
 
             try:
-                # 1. Upload TXT file (fixed text for timestamps alignment)
-                if not self._s3_client.put_object_content(
-                    output_bucket, f"{stem}.txt", fixed_text
-                ):
+                if not self._s3_client.put_object_content(output_bucket, f"{stem}.txt", fixed_text):
                     failed_count += 1
                     continue
 
-                # Copy .time file as pre-fix transcription to output bucket before cleanup
                 time_key = f"{stem}.time"
                 pre_fix_key = f"{stem}.pre-fix.time"
                 self._s3_client.copy_object(transcription_bucket, time_key, output_bucket, pre_fix_key)
 
-                # Cleanup source files
                 self._s3_client.delete_objects_by_prefix(transcription_bucket, f"{stem}.")
+                self._s3_client.delete_objects_by_prefix(self._temporary_fix_bucket, f"{stem}_")
 
-                # Send SQS notification
+                if self._fix_tracker:
+                    self._fix_tracker.delete_entry(stem)
+
                 try:
-                    self._sqs_client.send_message(
-                        self._sqs_queue_url, {"media_id": stem}
-                    )
+                    self._sqs_client.send_message(self._sqs_queue_url, {"media_id": stem})
                 except Exception as e:
                     logger.error(f"SQS notification failed: {e}")
 
@@ -294,69 +382,118 @@ class GeminiPipeline(LLMPipeline):
                 failed_count += 1
 
         return ReviewResult(
-            total_found=len(grouped_results),
+            total_found=len(llm_response),
             fixed=fixed_count,
             failed=failed_count,
             batch_job_arn=None,
         )
 
-    def _group_split_records(self, llm_response: list[tuple[str, str, bool]]) -> list[tuple[str, str, bool]]:
-        """Group split records (stem_1, stem_2) back into single stem."""
-        from collections import defaultdict
+    # --- Distributed locking / fix-tracker helpers ---
 
-        # Group by stem (remove _N suffix)
-        groups: dict[str, list[tuple[int, str, bool]]] = defaultdict(list)
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat()
 
-        for record_id, fixed_text, success in llm_response:
-            # Extract stem and part number
-            if "_" in record_id and record_id.rsplit("_", 1)[1].isdigit():
-                stem = record_id.rsplit("_", 1)[0]
-                part_num = int(record_id.rsplit("_", 1)[1])
-            else:
-                stem = record_id
-                part_num = 1
+    def _move_to_dead_letter(self, stem: str, transcription_bucket: str) -> None:
+        """Move all {stem}.* files to dead-letter bucket and clean up temp + tracker."""
+        dead_letter_bucket = global_config.dead_letter_bucket
+        objects = self._s3_client.list_objects(transcription_bucket, prefix=f"{stem}.")
+        for obj in objects:
+            key = obj["Key"]
+            self._s3_client.copy_object(transcription_bucket, key, dead_letter_bucket, key)
+            self._s3_client.delete_object(transcription_bucket, key)
+        if objects:
+            logger.info("Moved %d files for %s to dead letter bucket %s", len(objects), stem, dead_letter_bucket)
+        self._s3_client.delete_objects_by_prefix(self._temporary_fix_bucket, f"{stem}_")
+        self._fix_tracker.delete_entry(stem)
+        logger.info("Dead-lettered %s: cleaned up temp files and tracker entry", stem)
 
-            groups[stem].append((part_num, fixed_text, success))
+    def _resolve_tracker_entry(
+        self,
+        media_id: str,
+        transcription_bucket: str,
+        time_remaining_ms: int,
+    ) -> tuple[FixTrackerEntry | None, bool]:
+        """Claim or resume tracker entry for media_id.
 
-        # Merge splits
-        merged = []
-        for stem, parts in groups.items():
-            # Sort by part number
-            parts.sort(key=lambda x: x[0])
+        Returns (tracker_entry, should_skip).
+        should_skip=True means the file must not be processed this invocation.
+        """
+        started_at = self._invocation_started_at
+        claimed, existing = self._fix_tracker.try_claim(media_id, time_remaining_ms, started_at)
 
-            # Check if all parts succeeded
-            all_success = all(success for _, _, success in parts)
+        if claimed:
+            entry = FixTrackerEntry(
+                media_id=media_id,
+                retry_number=1,
+                lambda_started_at=started_at,
+                lambda_time_remaining_ms=time_remaining_ms,
+                current_chunk=1,
+                total_chunks=1,
+            )
+            return entry, False
 
-            # Merge text
-            merged_text = "\n".join(text for _, text, _ in parts if text)
+        if existing is None:
+            logger.error("Could not fetch existing tracker entry for %s, skipping", media_id)
+            return None, True
 
-            merged.append((stem, merged_text, all_success))
+        elapsed = existing.elapsed_seconds()
 
-        return merged
+        if elapsed < global_config.max_lambda_age_seconds:
+            logger.info(
+                "Skipping %s: another lambda has been working on it for %.0f seconds",
+                media_id, elapsed,
+            )
+            return None, True
+
+        # Previous lambda crashed — always increment retry
+        new_retry = existing.retry_number + 1
+
+        if existing.lambda_time_remaining_ms > global_config.slow_llm_threshold_ms:
+            logger.warning(
+                "%s: previous lambda had %d ms remaining when it last wrote — LLM call was too slow",
+                media_id, existing.lambda_time_remaining_ms,
+            )
+            if new_retry >= global_config.max_retries:
+                logger.error(
+                    "%s: reached max retries (%d), moving to dead letter bucket",
+                    media_id, global_config.max_retries,
+                )
+                self._move_to_dead_letter(media_id, transcription_bucket)
+                return None, True
+        else:
+            logger.info(
+                "%s: previous lambda timed out normally (had %d ms remaining)",
+                media_id, existing.lambda_time_remaining_ms,
+            )
+
+        self._fix_tracker.update_retry(media_id, new_retry, time_remaining_ms, started_at)
+        logger.info("%s: retry %d/%d — resuming processing", media_id, new_retry, global_config.max_retries - 1)
+
+        existing.retry_number = new_retry
+        existing.lambda_started_at = started_at
+        existing.lambda_time_remaining_ms = time_remaining_ms
+        return existing, False
+
+    # --- Gemini caching helpers ---
 
     def _get_or_create_cache(self, system_prompt: str) -> Optional[str]:
         """Get or create a cached content for the given system prompt.
 
-        Returns the cache name to pass to cached_content, or None if caching failed.
+        Returns the cache name, or None if caching failed.
         """
-        # Normalize prompt for cache key (strip whitespace, normalize line endings)
         normalized_prompt = "\n".join(line.strip() for line in system_prompt.strip().splitlines())
 
-        # Check if we have a valid cache for this prompt
         if normalized_prompt in self._prompt_caches:
             cached_name, expiry = self._prompt_caches[normalized_prompt]
-            # Check if cache is still valid (5 min buffer before expiry)
             if time.time() < (expiry - 300):
                 logger.debug(f"Reusing existing cache: {cached_name}")
                 return cached_name
             else:
                 logger.info(f"Cache expired: {cached_name}")
 
-        # Create new cache
         try:
             logger.info(f"Creating cache for system prompt: {system_prompt[:50]}...")
-
-            # Hash the prompt for a short display name
             prompt_hash = hashlib.md5(system_prompt.encode()).hexdigest()[:8]
 
             cache_response = self._client.caches.create(
@@ -364,7 +501,7 @@ class GeminiPipeline(LLMPipeline):
                 config=types.CreateCachedContentConfig(
                     display_name=f"transcription_fix_{prompt_hash}",
                     system_instruction=system_prompt,
-                    ttl="3600s",  # 1 hour
+                    ttl="3600s",
                 ),
             )
 
@@ -377,7 +514,6 @@ class GeminiPipeline(LLMPipeline):
 
         except Exception as e:
             logger.warning(f"Failed to create cache: {e}, falling back to uncached")
-            # Return None to signal fallback to system_instruction
             return None
 
     def _count_tokens(self, content: str) -> int:
@@ -390,58 +526,5 @@ class GeminiPipeline(LLMPipeline):
             return response.total_tokens
         except Exception as e:
             logger.warning(f"Token counting failed, using word estimate: {e}")
-            # Fallback to word-based estimation (4x for Hebrew text)
             word_count = len(content.split())
             return int(word_count * 4)
-
-    def _split_content(self, content: str, total_tokens: int) -> list[tuple[str, int]]:
-        """Split content by tokens if over limit.
-
-        When split_by_words is enabled, word-based splitting happens in invoke(),
-        so this always returns a single chunk. When disabled, this performs
-        token-based splitting.
-        """
-        if self._split_by_words:
-            return [(content.strip(), total_tokens)]
-
-        lines = content.strip().split("\n")
-        if not lines or total_tokens <= self._max_tokens:
-            return [(content.strip(), total_tokens)]
-
-        tokens_per_line = total_tokens / len(lines)
-        chunks = []
-        current_lines = []
-        current_tokens = 0.0
-
-        for line in lines:
-            if current_tokens + tokens_per_line > self._max_tokens and current_lines:
-                chunks.append(("\n".join(current_lines), int(current_tokens)))
-                current_lines = [line]
-                current_tokens = tokens_per_line
-            else:
-                current_lines.append(line)
-                current_tokens += tokens_per_line
-
-        if current_lines:
-            chunks.append(("\n".join(current_lines), int(current_tokens)))
-
-        return chunks
-
-    def _inject_timestamps(self, fixed_text: str, timed_content: str) -> str | None:
-        """Inject timestamps from timed_content into fixed_text."""
-        fixed_lines = [l.strip() for l in fixed_text.strip().split("\n") if l.strip()]
-        timed_lines = [l.strip() for l in timed_content.strip().split("\n") if l.strip()]
-
-        if len(fixed_lines) != len(timed_lines):
-            logger.warning(f"Line mismatch: {len(fixed_lines)} vs {len(timed_lines)}")
-            return None
-
-        result = []
-        for fixed_line, timed_line in zip(fixed_lines, timed_lines):
-            match = TIMED_LINE_PATTERN.match(timed_line)
-            if match:
-                result.append(f"{match.group(1)}{fixed_line}")
-            else:
-                result.append(fixed_line)
-
-        return "\n".join(result)

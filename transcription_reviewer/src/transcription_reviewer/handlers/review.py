@@ -37,26 +37,9 @@ def process_transcriptions(
     bucket: str,
     context=None,
 ) -> ReviewResult:
-    """
-    Process transcriptions using three-step pipeline:
-    1. prepare_data() - Prepare files for LLM
-    2. invoke() - Call LLM
-    3. post_process() - Process results
-
-    Args:
-        s3_reader: S3Reader service for listing/reading transcriptions.
-        pipeline: LLMPipeline implementation (Bedrock or Gemini).
-        transcription_fixer: TranscriptionFixer service for fetching system prompts.
-        dynamo_reader: DynamoReader for per-file bucket lookup and status updates.
-        bucket: S3 bucket containing transcriptions.
-        context: Lambda context object for checking remaining execution time.
-
-    Returns:
-        ReviewResult with counts of found, fixed, failed, and optional batch_job_arn.
-    """
+    """Process transcriptions using three-step pipeline: prepare_data → invoke → post_process."""
     logger.info("Processing transcriptions from s3://%s", bucket)
 
-    # 1. List transcription files
     transcriptions = s3_reader.list_transcriptions(
         bucket=bucket,
         prefix="",
@@ -69,14 +52,12 @@ def process_transcriptions(
 
     logger.info("Found %d transcription files", len(transcriptions))
 
-    # 2. Process each file individually through the full pipeline
     fixed_count = 0
     failed_count = 0
     timed_out = False
 
     for trans in transcriptions:
         try:
-            # Check remaining time before starting a new file
             if _is_running_out_of_time(context):
                 timed_out = True
                 logger.info(
@@ -86,8 +67,9 @@ def process_transcriptions(
                 )
                 break
 
-            # Look up DynamoDB entry by media_id (stem)
             media_id = trans.stem
+
+            # --- DynamoDB media entry lookup ---
             dynamo_entry = dynamo_reader.get_entry(media_id)
             if not dynamo_entry:
                 logger.error("No DynamoDB entry for media_id=%s", media_id)
@@ -102,27 +84,27 @@ def process_transcriptions(
                 )
                 continue
 
-            # Load file content
+            # --- Load file content ---
             content = s3_reader.get_transcription_content(trans)
             if not content:
                 logger.error("Failed to read: %s", trans.key)
                 failed_count += 1
                 continue
 
-            # Check for long segments in .time file and truncate if needed
-            time_content = s3_reader.get_content_from_bucket(
-                trans.filename_time,
-                bucket=trans.bucket,
-            )
-            if time_content:
-                content = truncate_content_at_long_segment(
-                    content=content,
-                    time_content=time_content,
-                    max_duration_seconds=config.max_segment_duration_seconds,
-                    stem=trans.stem,
-                )
+            # Truncate at long segments if a .time file is present
+            # time_content = s3_reader.get_content_from_bucket(
+            #     trans.filename_time,
+            #     bucket=trans.bucket,
+            # )
+            # if time_content:
+            #     content = truncate_content_at_long_segment(
+            #         content=content,
+            #         time_content=time_content,
+            #         max_duration_seconds=config.max_segment_duration_seconds,
+            #         stem=trans.stem,
+            #     )
 
-            # Fetch system prompt from per-entry template bucket
+            # --- Fetch system prompt ---
             system_prompt = transcription_fixer.get_system_prompt(
                 trans.key,
                 template_bucket=dynamo_entry.context_files_bucket_s3,
@@ -145,19 +127,21 @@ def process_transcriptions(
                 output_bucket=dynamo_entry.media_fixed_transcribed_bucket,
             )
 
-            # Process THIS file through full pipeline before moving to next
+            # --- Run full pipeline for this file ---
             logger.info("Processing file: %s", trans.stem)
 
             logger.info("  Step 1: Preparing data...")
-            prepared_data = pipeline.prepare_data([transcription_file])
+            prepared_data = pipeline.prepare_data([transcription_file], context=context)
+            if not prepared_data:
+                logger.info("  Skipping %s (tracker signalled skip)", media_id)
+                continue
 
             logger.info("  Step 2: Invoking LLM...")
-            llm_response = pipeline.invoke(prepared_data)
+            llm_response = pipeline.invoke(prepared_data, context=context)
 
             logger.info("  Step 3: Post-processing results...")
             result = pipeline.post_process(llm_response, prepared_data)
 
-            # Aggregate counts
             fixed_count += result.fixed
             failed_count += result.failed
 

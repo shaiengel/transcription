@@ -99,6 +99,14 @@
   "lambda": {
     "timeout_threshold_ms": 240000
   },
+  "fix_tracker": {
+    "table": "transcription-fix-tracker",
+    "temporary_fix_bucket": "temporary-fix-files",
+    "dead_letter_bucket": "transcription-dead-letter",
+    "max_lambda_age_seconds": 1080,
+    "slow_llm_threshold_ms": 840000,
+    "max_retries": 4
+  },
   "statistics": {
     "max_segment_duration_seconds": 100
   }

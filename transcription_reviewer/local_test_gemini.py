@@ -36,8 +36,18 @@ class MockS3Client:
         logger.info("[MockS3] delete_objects_by_prefix skipped locally: %s/%s", bucket, prefix)
 
     def get_object_content(self, bucket: str, key: str) -> str | None:
-        logger.info("[MockS3] get_object_content not expected in local test: %s/%s", bucket, key)
+        path = OUTPUT_DIR / key
+        if path.exists():
+            logger.info("[MockS3] get_object_content: %s", path)
+            return path.read_text(encoding="utf-8")
         return None
+
+    def list_objects(self, bucket: str, prefix: str = "", suffix: str = "") -> list[dict]:
+        results = []
+        for path in OUTPUT_DIR.iterdir():
+            if path.name.startswith(prefix) and (not suffix or path.name.endswith(suffix)):
+                results.append({"Key": path.name})
+        return results
 
 
 class MockSQSClient:
@@ -68,13 +78,11 @@ def main():
         s3_client=MockS3Client(),
         sqs_client=MockSQSClient(),
         api_key=config.google_api_key,
-        transcription_bucket="local-transcription",
-        output_bucket="local-output",
         sqs_queue_url="local-sqs",
+        temporary_fix_bucket="local-temp",
         model_name=config.gemini_model,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
-        split_by_words=config.split_by_words,
         split_by_words_max=config.split_by_words_max,
         max_word_diff=config.max_word_diff,
         thinking_budget=config.thinking_budget,

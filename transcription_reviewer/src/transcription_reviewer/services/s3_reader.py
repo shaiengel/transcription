@@ -1,9 +1,12 @@
 """S3 reader service for fetching timed transcriptions."""
 
 import logging
+import re
 
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.models.schemas import TimedTranscription
+
+_TRANSCRIPTION_FILENAME_RE = re.compile(r"^[^.]+\.txt$")
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,8 @@ class S3Reader:
         for obj in objects:
             key = obj["Key"]
             filename = key.split("/")[-1]
+            if not _TRANSCRIPTION_FILENAME_RE.match(filename):
+                continue
             transcriptions.append(
                 TimedTranscription(
                     bucket=bucket,
