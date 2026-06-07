@@ -201,7 +201,13 @@ class GeminiPipeline(LLMPipeline):
             chunk_results.append(fixed_chunk)
 
         fixed_text = "\n".join(chunk_results)
-        logger.info(f"Successfully processed {stem}")
+        original_word_count = len(entry.content.split())
+        fixed_word_count = len(fixed_text.split())
+        total_diff = abs(fixed_word_count - original_word_count)
+        logger.info(
+            f"Successfully processed {stem}: total word diff = {total_diff} "
+            f"(original={original_word_count}, fixed={fixed_word_count})"
+        )
         return stem, fixed_text, True
 
     def _invoke_chunk_with_retries(
@@ -224,10 +230,11 @@ class GeminiPipeline(LLMPipeline):
         original_word_count = len(chunk.split())
 
         # Load best result written by any prior lambda invocation
-        existing_text = self._s3_client.get_object_content(
-            self._temporary_fix_bucket, f"{stem}_{split_idx}.txt"
-        )
-        if existing_text is not None:
+        chunk_key = f"{stem}_{split_idx}.txt"
+        if self._s3_client.file_exists(self._temporary_fix_bucket, chunk_key):
+            existing_text = self._s3_client.get_object_content(
+                self._temporary_fix_bucket, chunk_key
+            )
             best_diff: float = abs(len(existing_text.split()) - original_word_count)
             best_text: str | None = existing_text
             logger.info(f"  {label}: loaded prior best from S3, diff={best_diff}")
@@ -288,7 +295,7 @@ class GeminiPipeline(LLMPipeline):
 
         fixed_word_count = len(best_text.split()) if best_text else 0
         logger.info(
-            f"{label}: final word diff = {best_diff} "
+            f"{label}: word diff = {best_diff} "
             f"(original={original_word_count}, fixed={fixed_word_count})"
         )
         return best_text
