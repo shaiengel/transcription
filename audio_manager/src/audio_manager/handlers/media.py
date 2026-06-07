@@ -358,7 +358,8 @@ def enrich_with_steinsaltz_by_daf(
 
         steinsaltz = "\n\n".join(sections)
         if not use_next:
-            steinsaltz += "\n" + _get_end_massechet_text()
+            end_text = _get_end_massechet_text().format(media.massechet_name, media.massechet_name, media.massechet_name)
+            steinsaltz += "\n" + end_text
         media.steinsaltz = steinsaltz
 
 
