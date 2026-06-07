@@ -107,7 +107,7 @@ class Config:
     split_by_words: bool = _get_config("SPLIT_BY_WORDS", "true").lower() in ("true", "1", "yes")
     split_by_words_max: int = int(_get_config("SPLIT_BY_WORDS_MAX", "5000"))
     max_word_diff: int = int(_get_config("MAX_WORD_DIFF", "100"))
-    thinking_budget: int = int(_get_config("THINKING_BUDGET", "1024"))
+    thinking_budget: int = int(_get_config("THINKING_BUDGET", "8192"))
 
     # Processing
     max_segment_duration_seconds: float = float(

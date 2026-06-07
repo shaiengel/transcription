@@ -33,6 +33,7 @@ class BatchEntry:
     token_count: int = 0
     transcription_bucket: str = ""
     output_bucket: str = ""
+    context_files_bucket: str = ""
 
 
 def _split_content_by_tokens(

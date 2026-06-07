@@ -125,6 +125,7 @@ def process_transcriptions(
                 word_count=word_count,
                 transcription_bucket=dynamo_entry.media_transcribed_bucket,
                 output_bucket=dynamo_entry.media_fixed_transcribed_bucket,
+                context_files_bucket=dynamo_entry.context_files_bucket_s3,
             )
 
             # --- Run full pipeline for this file ---

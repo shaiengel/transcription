@@ -75,7 +75,7 @@ class GeminiPipeline(LLMPipeline):
 
         if self._fix_tracker and files:
             f = files[0]
-            time_remaining_ms = context.get_remaining_time_in_millis() if context else 999_999_999
+            time_remaining_ms = context.get_remaining_time_in_millis() if context else 600_000
             tracker_entry, should_skip = self._resolve_tracker_entry(
                 media_id=f.stem,
                 transcription_bucket=f.transcription_bucket,
@@ -100,6 +100,7 @@ class GeminiPipeline(LLMPipeline):
                     token_count=total_tokens,
                     transcription_bucket=f.transcription_bucket,
                     output_bucket=f.output_bucket,
+                    context_files_bucket=f.context_files_bucket,
                 )
             )
 
@@ -132,7 +133,7 @@ class GeminiPipeline(LLMPipeline):
 
     def _get_time_remaining_ms(self) -> int:
         if self._context is None:
-            return 999_999_999
+            return 600_000
         return self._context.get_remaining_time_in_millis()
 
     def _is_running_out_of_time(self) -> bool:
@@ -178,6 +179,8 @@ class GeminiPipeline(LLMPipeline):
         for i, chunk in enumerate(chunks, start=1):
             if i < resume_from:
                 continue
+            # Only use retry_number for the chunk we're resuming; subsequent chunks start fresh
+            chunk_retry = retry_number if i == resume_from else 1
 
             label = f"{stem}[chunk {i}/{len(chunks)}]"
 
@@ -192,9 +195,9 @@ class GeminiPipeline(LLMPipeline):
                 )
 
             if len(chunks) > 1:
-                logger.info(f"  Processing chunk {i}/{len(chunks)} of {stem}")
-
-            fixed_chunk = self._invoke_chunk_with_retries(chunk, config, label, stem, i, retry_number)
+                logger.info(f"  Processing chunk {i}/{len(chunks)} of {stem}")            
+            
+            fixed_chunk = self._invoke_chunk_with_retries(chunk, config, label, stem, i, chunk_retry, entry.context_files_bucket)
             chunk_results.append(fixed_chunk)
 
         fixed_text = "\n".join(chunk_results)
@@ -209,6 +212,7 @@ class GeminiPipeline(LLMPipeline):
         stem: str,
         split_idx: int,
         retry_number: int = 1,
+        context_files_bucket: str = "",
     ) -> str:
         """Call Gemini for a single chunk, retrying up to 4 times on word count drift.
 
@@ -240,8 +244,21 @@ class GeminiPipeline(LLMPipeline):
                 logger.warning(f"{label}: stopping retries at attempt {attempt} — time limit reached")
                 return best_text
 
+            # Checkpoint retry position before each attempt
+            if self._fix_tracker:
+                self._fix_tracker.update_retry(
+                    stem, attempt, self._get_time_remaining_ms(), self._invocation_started_at
+                )
+
+            attempt_config = config
+            if attempt == max_retries and context_files_bucket:
+                reasoning_config = self._get_reasoning_config(stem, context_files_bucket)
+                if reasoning_config is not None:
+                    attempt_config = reasoning_config
+                    logger.info(f"{label}: last attempt — switching to reasoning config")
+
             try:
-                fixed_text = self._call_gemini(chunk, config)
+                fixed_text = self._call_gemini(chunk, attempt_config)
             except Exception as e:
                 logger.warning(f"{label}: Gemini call failed on attempt {attempt}/{max_retries}: {e}")
                 continue
@@ -283,7 +300,6 @@ class GeminiPipeline(LLMPipeline):
             "top_p": 0.1,
             "top_k": 1,
             "max_output_tokens": self._max_tokens,
-            "thinking_config": types.ThinkingConfig(thinking_budget=self._thinking_budget),
             "automatic_function_calling": types.AutomaticFunctionCallingConfig(disable=True),
         }
         if cache_name:
@@ -291,6 +307,17 @@ class GeminiPipeline(LLMPipeline):
         else:
             kwargs["system_instruction"] = system_prompt
         return types.GenerateContentConfig(**kwargs)
+
+    def _get_reasoning_config(self, stem: str, context_files_bucket: str) -> Optional[types.GenerateContentConfig]:
+        """Fetch reasoning system prompt from S3 and build an uncached config with thinking enabled."""
+        reasoning_key = f"{stem}.template.reasoning.txt"
+        reasoning_prompt = self._s3_client.get_object_content(context_files_bucket, reasoning_key)
+        if not reasoning_prompt:
+            logger.warning(f"Reasoning template not found: s3://{context_files_bucket}/{reasoning_key}, using normal config")
+            return None
+        config = self._build_config(cache_name=None, system_prompt=reasoning_prompt)
+        config.thinking_config = types.ThinkingConfig(thinking_budget=self._thinking_budget)
+        return config
 
     def _call_gemini(self, content: str, config: types.GenerateContentConfig) -> str:
         """Send content to Gemini and return the response text."""

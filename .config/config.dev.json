@@ -58,7 +58,7 @@
     "split_by_words": "true",
     "split_by_words_max": "5000",
     "max_word_diff": "65",
-    "thinking_budget": "1024"
+    "thinking_budget": "8192"
   },
   "batch": {
     "min_entries": "100",
