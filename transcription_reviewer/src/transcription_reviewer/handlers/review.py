@@ -151,6 +151,10 @@ def process_transcriptions(
 
             logger.info("  Completed: fixed=%d, failed=%d", result.fixed, result.failed)
 
+        except TimeoutError:
+            logger.info("Time limit reached while processing %s", trans.key)
+            timed_out = True
+            break
         except Exception:
             logger.exception("Unexpected error processing %s", trans.key)
             failed_count += 1

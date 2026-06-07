@@ -226,7 +226,7 @@ class GeminiPipeline(LLMPipeline):
         starting baseline, then runs fresh attempts and overrides only when a better
         result is found.
         """
-        max_retries = 4
+        max_retries = global_config.max_retries
         original_word_count = len(chunk.split())
 
         # Load best result written by any prior lambda invocation
@@ -249,7 +249,7 @@ class GeminiPipeline(LLMPipeline):
         for attempt in range(start_attempt, max_retries + 1):
             if self._is_running_out_of_time():
                 logger.warning(f"{label}: stopping retries at attempt {attempt} — time limit reached")
-                return best_text
+                raise TimeoutError(f"Time limit reached at retry {attempt}/{max_retries} of {label}")
 
             # Checkpoint retry position before each attempt
             if self._fix_tracker:
@@ -294,8 +294,9 @@ class GeminiPipeline(LLMPipeline):
             )
 
         fixed_word_count = len(best_text.split()) if best_text else 0
+        word_diff = fixed_word_count - original_word_count
         logger.info(
-            f"{label}: word diff = {best_diff} "
+            f"{label}: final word diff = {word_diff} "
             f"(original={original_word_count}, fixed={fixed_word_count})"
         )
         return best_text
