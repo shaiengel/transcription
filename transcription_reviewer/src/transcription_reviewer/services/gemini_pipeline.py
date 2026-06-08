@@ -522,23 +522,36 @@ class GeminiPipeline(LLMPipeline):
         Returns the cache name, or None if caching failed.
         """
         normalized_prompt = "\n".join(line.strip() for line in system_prompt.strip().splitlines())
+        prompt_hash = hashlib.md5(normalized_prompt.encode()).hexdigest()[:8]
+        display_name = f"transcription_fix_{prompt_hash}"
 
+        # Check in-memory cache first (reuse within same invocation)
         if normalized_prompt in self._prompt_caches:
             cached_name, expiry = self._prompt_caches[normalized_prompt]
-            if time.time() < (expiry - 300):
+            if time.time() < (expiry - 480):
                 logger.debug(f"Reusing existing cache: {cached_name}")
                 return cached_name
-            else:
-                logger.info(f"Cache expired: {cached_name}")
+            logger.info(f"Cache expired: {cached_name}")
+
+        # Check Gemini API for an existing cache with the same display name (reuse across invocations)
+        try:
+            for existing in self._client.caches.list():
+                if existing.display_name == display_name:
+                    expiry_ts = existing.expire_time.timestamp()
+                    if time.time() < (expiry_ts - 480):
+                        self._prompt_caches[normalized_prompt] = (existing.name, expiry_ts)
+                        logger.info(f"Reusing existing Gemini cache: {existing.name}")
+                        return existing.name
+        except Exception as e:
+            logger.warning(f"Failed to list caches: {e}")
 
         try:
             logger.info(f"Creating cache for system prompt: {system_prompt[:50]}...")
-            prompt_hash = hashlib.md5(system_prompt.encode()).hexdigest()[:8]
 
             cache_response = self._client.caches.create(
                 model=self._model_name,
                 config=types.CreateCachedContentConfig(
-                    display_name=f"transcription_fix_{prompt_hash}",
+                    display_name=display_name,
                     system_instruction=system_prompt,
                     ttl="3600s",
                 ),
