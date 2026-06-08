@@ -54,6 +54,7 @@ def process_transcriptions(
 
     fixed_count = 0
     failed_count = 0
+    skipped_count = 0
     timed_out = False
 
     for trans in transcriptions:
@@ -135,6 +136,7 @@ def process_transcriptions(
             prepared_data = pipeline.prepare_data([transcription_file], context=context)
             if not prepared_data:
                 logger.info("  Skipping %s (tracker signalled skip)", media_id)
+                skipped_count += 1
                 continue
 
             logger.info("  Step 2: Invoking LLM...")
@@ -158,6 +160,13 @@ def process_transcriptions(
         except Exception:
             logger.exception("Unexpected error processing %s", trans.key)
             failed_count += 1
+
+    if skipped_count > 0:
+        logger.info(
+            "Skipped %d files (claimed by another lambda), will re-invoke to retry later",
+            skipped_count,
+        )
+        timed_out = True
 
     return ReviewResult(
         total_found=len(transcriptions),
