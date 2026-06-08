@@ -105,16 +105,22 @@ class FixTrackerService:
         current_chunk: int,
         total_chunks: int,
         time_remaining_ms: int,
+        retry_number: int | None = None,
     ) -> bool:
+        expr = "SET current_chunk = :cc, total_chunks = :tc, lambda_time_remaining_ms = :tr"
+        values = {
+            ":cc": {"N": str(current_chunk)},
+            ":tc": {"N": str(total_chunks)},
+            ":tr": {"N": str(time_remaining_ms)},
+        }
+        if retry_number is not None:
+            expr += ", retry_number = :r"
+            values[":r"] = {"N": str(retry_number)}
         return self._client.update_item(
             table_name=self._table_name,
             key={"media_id": {"S": media_id}},
-            update_expression="SET current_chunk = :cc, total_chunks = :tc, lambda_time_remaining_ms = :tr",
-            expression_values={
-                ":cc": {"N": str(current_chunk)},
-                ":tc": {"N": str(total_chunks)},
-                ":tr": {"N": str(time_remaining_ms)},
-            },
+            update_expression=expr,
+            expression_values=values,
         )
 
     def update_retry(
@@ -124,19 +130,18 @@ class FixTrackerService:
         time_remaining_ms: int,
         lambda_started_at: str,
     ) -> bool:
-        """Update tracker when a new lambda is taking over a crashed file."""
+        """Update retry number and time remaining for the current attempt."""
         return self._client.update_item(
             table_name=self._table_name,
             key={"media_id": {"S": media_id}},
             update_expression=(
                 "SET retry_number = :r, lambda_time_remaining_ms = :tr, "
-                "lambda_started_at = :sa, current_chunk = :cc"
+                "lambda_started_at = :sa"
             ),
             expression_values={
                 ":r": {"N": str(retry_number)},
                 ":tr": {"N": str(time_remaining_ms)},
                 ":sa": {"S": lambda_started_at},
-                ":cc": {"N": "1"},
             },
         )
 

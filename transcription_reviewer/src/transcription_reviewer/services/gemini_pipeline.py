@@ -184,15 +184,18 @@ class GeminiPipeline(LLMPipeline):
 
             label = f"{stem}[chunk {i}/{len(chunks)}]"
 
+            # Checkpoint current chunk position in DynamoDB before starting work
+            # Reset retry_number to 1 for chunks past the resumed one (fresh start)
+            if self._fix_tracker:
+                reset_retry = 1 if i > resume_from else None
+                if not self._fix_tracker.update_progress(
+                    stem, i, len(chunks), self._get_time_remaining_ms(), reset_retry
+                ):
+                    logger.warning(f"{stem}: failed to update progress (chunk {i}/{len(chunks)}) in persistence layer")
+
             if self._is_running_out_of_time():
                 logger.warning(f"{stem}: stopping at chunk {i}/{len(chunks)} — time limit reached")
-                raise TimeoutError(f"Time limit reached before chunk {i}/{len(chunks)} of {stem}")
-
-            # Checkpoint current chunk position in DynamoDB before starting work
-            if self._fix_tracker:
-                self._fix_tracker.update_progress(
-                    stem, i, len(chunks), self._get_time_remaining_ms()
-                )
+                raise TimeoutError(f"Time limit reached before chunk {i}/{len(chunks)} of {stem}")            
 
             if len(chunks) > 1:
                 logger.info(f"  Processing chunk {i}/{len(chunks)} of {stem}")            
@@ -253,9 +256,10 @@ class GeminiPipeline(LLMPipeline):
 
             # Checkpoint retry position before each attempt
             if self._fix_tracker:
-                self._fix_tracker.update_retry(
+                if not self._fix_tracker.update_retry(
                     stem, attempt, self._get_time_remaining_ms(), self._invocation_started_at
-                )
+                ):
+                    logger.warning(f"{label}: failed to update retry ({attempt}) in persistence layer")
 
             attempt_config = config
             if attempt == max_retries and context_files_bucket:
