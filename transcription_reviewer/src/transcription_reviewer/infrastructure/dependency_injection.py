@@ -112,6 +112,9 @@ def _create_gemini_pipeline(
         max_word_diff=config.max_word_diff,
         thinking_budget=config.thinking_budget,
         fix_tracker=fix_tracker,
+        cache_enabled=config.gemini_cache_enabled,
+        cache_ttl_seconds=config.gemini_cache_ttl_seconds,
+        cache_guard_seconds=config.gemini_cache_guard_seconds,
     )
 
 

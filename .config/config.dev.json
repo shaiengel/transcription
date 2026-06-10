@@ -58,7 +58,10 @@
     "split_by_words": "true",
     "split_by_words_max": "5000",
     "max_word_diff": "65",
-    "thinking_budget": "8192"
+    "thinking_budget": "8192",
+    "cache_enabled": "true",
+    "cache_ttl_seconds": "4800",
+    "cache_guard_seconds": "480"
   },
   "batch": {
     "min_entries": "100",
@@ -105,7 +108,7 @@
     "dead_letter_bucket": "transcription-dead-letter",
     "max_lambda_age_seconds": 1080,
     "slow_llm_threshold_ms": 840000,
-    "max_retries": 4
+    "max_retries": 3
   },
   "statistics": {
     "max_segment_duration_seconds": 100

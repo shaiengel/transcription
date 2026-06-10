@@ -39,6 +39,9 @@ class GeminiPipeline(LLMPipeline):
         max_word_diff: int = 100,
         thinking_budget: int = 1024,
         fix_tracker: FixTrackerService | None = None,
+        cache_enabled: bool = True,
+        cache_ttl_seconds: int = 3600,
+        cache_guard_seconds: int = 480,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -51,6 +54,9 @@ class GeminiPipeline(LLMPipeline):
         self._max_word_diff = max_word_diff
         self._thinking_budget = thinking_budget
         self._fix_tracker = fix_tracker
+        self._cache_enabled = cache_enabled
+        self._cache_ttl_seconds = cache_ttl_seconds
+        self._cache_guard_seconds = cache_guard_seconds
 
         self._client = genai.Client(api_key=api_key)
 
@@ -119,7 +125,7 @@ class GeminiPipeline(LLMPipeline):
 
         for entry in prepared_data:
             try:
-                cache_name = self._get_or_create_cache(entry.system_prompt)
+                cache_name = self._get_or_create_cache(entry.system_prompt) if self._cache_enabled else None
                 config = self._build_config(cache_name, entry.system_prompt)
                 record_id, fixed_text, success = self._invoke_entry(entry, config, self._tracker_entry)
                 results.append((record_id, fixed_text, success))
@@ -528,7 +534,7 @@ class GeminiPipeline(LLMPipeline):
         # Check in-memory cache first (reuse within same invocation)
         if normalized_prompt in self._prompt_caches:
             cached_name, expiry = self._prompt_caches[normalized_prompt]
-            if time.time() < (expiry - 480):
+            if time.time() < (expiry - self._cache_guard_seconds):
                 logger.debug(f"Reusing existing cache: {cached_name}")
                 return cached_name
             logger.info(f"Cache expired: {cached_name}")
@@ -538,7 +544,7 @@ class GeminiPipeline(LLMPipeline):
             for existing in self._client.caches.list():
                 if existing.display_name == display_name:
                     expiry_ts = existing.expire_time.timestamp()
-                    if time.time() < (expiry_ts - 480):
+                    if time.time() < (expiry_ts - self._cache_guard_seconds):
                         self._prompt_caches[normalized_prompt] = (existing.name, expiry_ts)
                         logger.info(f"Reusing existing Gemini cache: {existing.name}")
                         return existing.name
@@ -553,12 +559,12 @@ class GeminiPipeline(LLMPipeline):
                 config=types.CreateCachedContentConfig(
                     display_name=display_name,
                     system_instruction=system_prompt,
-                    ttl="3600s",
+                    ttl=f"{self._cache_ttl_seconds}s",
                 ),
             )
 
             cached_name = cache_response.name
-            expiry = time.time() + 3600
+            expiry = time.time() + self._cache_ttl_seconds
             self._prompt_caches[normalized_prompt] = (cached_name, expiry)
 
             logger.info(f"Cache created: {cached_name}")

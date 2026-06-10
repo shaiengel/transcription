@@ -109,6 +109,11 @@ class Config:
     max_word_diff: int = int(_get_config("MAX_WORD_DIFF", "100"))
     thinking_budget: int = int(_get_config("THINKING_BUDGET", "8192"))
 
+    # Gemini caching
+    gemini_cache_enabled: bool = _get_config("GEMINI_CACHE_ENABLED", "true").lower() in ("true", "1", "yes")
+    gemini_cache_ttl_seconds: int = int(_get_config("GEMINI_CACHE_TTL_SECONDS", "3600"))
+    gemini_cache_guard_seconds: int = int(_get_config("GEMINI_CACHE_GUARD_SECONDS", "480"))
+
     # Processing
     max_segment_duration_seconds: float = float(
         _get_config("MAX_SEGMENT_DURATION_SECONDS", "100.0")
