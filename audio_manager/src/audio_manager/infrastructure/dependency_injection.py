@@ -32,7 +32,7 @@ def _create_portal_media_by_daf_fetcher(media_source, text_fetcher):
     from audio_manager.fetchers.portal_media_by_daf import PortalMediaByDaf
 
     daf_list: list[tuple[str, int]] = [
-        # ("Berakhot", 2),  # massechet_english from massechet_data.json, numeric daf_id
+        ("Berakhot", 43),  # massechet_english from massechet_data.json, numeric daf_id
     ]
     return PortalMediaByDaf(media_source, text_fetcher, daf_list)
 
@@ -185,7 +185,7 @@ class DependenciesContainer(DeclarativeContainer):
     # =========================================================================
     # Media Fetcher - Comment out one of the following two lines:
     # =========================================================================
-    media_fetcher = providers.Singleton(_create_portal_media_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
-    # media_fetcher = providers.Singleton(_create_portal_media_by_daf_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
+    # media_fetcher = providers.Singleton(_create_portal_media_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
+    media_fetcher = providers.Singleton(_create_portal_media_by_daf_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
     # media_fetcher = providers.Singleton(_create_youtube_media_fetcher, text_fetcher=daf_text_fetcher)
     # media_fetcher = providers.Singleton(_create_folder_media_fetcher)
