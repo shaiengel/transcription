@@ -89,13 +89,13 @@ def save_outputs(result, output_dir: Path, stem: str) -> tuple[Path, Path, Path]
 
 
 def test_align_local_files(
-    text_path: str = r"C:\Users\z0050yye\Downloads\154556.txt",
-    audio_path: str = r"C:\Users\z0050yye\Downloads\154556.mp3",
-    json_path: str = r"C:\Users\z0050yye\Downloads\154556.json",
-    vtt_path: str = r"C:\Users\z0050yye\Downloads\154556.vtt",
+    text_path: str = r"C:\Users\z0050yye\Downloads\303598.txt",
+    audio_path: str = r"C:\Users\z0050yye\Downloads\303598.mp3",
+    json_path: str = r"C:\Users\z0050yye\Downloads\303598.json",
+    vtt_path: str = r"C:\Users\z0050yye\Downloads\303598.vtt",
     language: str = "he",
     model_name: str = "large",
-    device: str = "cpu",
+    device: str = "cuda",
     token_step: int = 200,
 ) -> None:
     """
@@ -135,10 +135,10 @@ def test_align_local_files(
         ma_window=config.dtw_ma_window,
         rolling_avg_target=config.rolling_avg_target,
     )
-    prefix_time_path = output_dir / f"{stem}.pre-fix.time"
+    prefix_time_path = output_dir / f"{stem}.pre-fix.txt1"
     if prefix_time_path.exists():
         prefix_time_content = prefix_time_path.read_text(encoding="utf-8")
-        text_content = evaluator.pre_alignment_fix(prefix_time_content, text_content)
+        text_content_ = evaluator.pre_alignment_fix(prefix_time_content, text_content)
         logger.info("Applied DTW pre-alignment fix")
 
     # Load model if not already loaded

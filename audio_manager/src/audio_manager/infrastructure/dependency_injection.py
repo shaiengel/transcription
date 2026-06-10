@@ -6,12 +6,43 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 from dotenv import load_dotenv
 
+from audio_manager.infrastructure.dynamodb_client import DynamoDBClient
 from audio_manager.infrastructure.gitlab_client import GitLabClient
 from audio_manager.infrastructure.s3_client import S3Client
 from audio_manager.infrastructure.sqs_client import SQSClient
 
 env_path = Path(__file__).parent.parent.parent.parent / ".env"
 load_dotenv(env_path, override=True)
+
+
+def _create_portal_media_fetcher(media_source, text_fetcher):
+    from audio_manager.fetchers.portal_media import PortalMedia
+
+    return PortalMedia(media_source, text_fetcher)
+
+
+def _create_youtube_media_fetcher(text_fetcher):
+    from audio_manager.fetchers.youtube_media import YouTubeMedia
+
+    json_path = Path(os.getenv("YOUTUBE_LINKS_JSON", "youtube_links.json"))
+    return YouTubeMedia(json_path, text_fetcher)
+
+
+def _create_portal_media_by_daf_fetcher(media_source, text_fetcher):
+    from audio_manager.fetchers.portal_media_by_daf import PortalMediaByDaf
+
+    daf_list: list[tuple[str, int]] = [
+        ("Berakhot", 43),  # massechet_english from massechet_data.json, numeric daf_id
+    ]
+    return PortalMediaByDaf(media_source, text_fetcher, daf_list)
+
+
+def _create_folder_media_fetcher():
+    from audio_manager.fetchers.folder_media import FolderMedia
+
+    folder = Path(os.getenv("MEDIA_FOLDER", "media"))
+    return FolderMedia(folder)
+
 
 def _create_session() -> boto3.Session:
     """Create boto3 session using profile from environment."""
@@ -48,8 +79,14 @@ def _create_sqs_publisher(sqs_client: SQSClient):
     return SQSPublisher(sqs_client)
 
 
+def _create_media_registry(dynamodb_client: DynamoDBClient):
+    from audio_manager.services.media_registry import MediaRegistry
+
+    return MediaRegistry(dynamodb_client)
+
+
 def _create_gitlab_client() -> GitLabClient | None:
-    """Factory for GitLabClient."""    
+    """Factory for GitLabClient."""
     url = os.getenv("GITLAB_URL", "https://gitlab.com")
     project_id = os.getenv("GITLAB_PROJECT_ID", "")
     private_token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
@@ -58,6 +95,23 @@ def _create_gitlab_client() -> GitLabClient | None:
         return None
 
     return GitLabClient(url, private_token, project_id)
+
+
+def _create_sefaria_url_fetcher():
+    """Factory for SefariaUrlDafTextFetcher."""
+    from audio_manager.services.sefaria_fetcher import SefariaUrlDafTextFetcher
+
+    return SefariaUrlDafTextFetcher()
+
+
+def _create_gitlab_fetcher(gitlab_client: GitLabClient | None):
+    """Factory for GitLabDafTextFetcher."""
+    if not gitlab_client:
+        return None
+    from audio_manager.services.sefaria_fetcher import GitLabDafTextFetcher
+
+    branch = os.getenv("GITLAB_BRANCH", "main")
+    return GitLabDafTextFetcher(gitlab_client, branch)
 
 
 class DependenciesContainer(DeclarativeContainer):
@@ -103,5 +157,35 @@ class DependenciesContainer(DeclarativeContainer):
         sqs_client=sqs_client,
     )
 
+    # DynamoDB
+    dynamodb_boto_client = providers.Singleton(
+        lambda session: session.client("dynamodb"),
+        session=session,
+    )
+
+    dynamodb_client = providers.Singleton(
+        DynamoDBClient,
+        client=dynamodb_boto_client,
+    )
+
+    media_registry = providers.Singleton(
+        _create_media_registry,
+        dynamodb_client=dynamodb_client,
+    )
+
     # GitLab
     gitlab_client = providers.Singleton(_create_gitlab_client)
+
+    # =========================================================================
+    # Daf Text Fetcher - Comment out one of the following two lines:
+    # =========================================================================
+    daf_text_fetcher = providers.Singleton(_create_sefaria_url_fetcher)
+    # daf_text_fetcher = providers.Singleton(_create_gitlab_fetcher, gitlab_client=gitlab_client)
+
+    # =========================================================================
+    # Media Fetcher - Comment out one of the following two lines:
+    # =========================================================================
+    # media_fetcher = providers.Singleton(_create_portal_media_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
+    media_fetcher = providers.Singleton(_create_portal_media_by_daf_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
+    # media_fetcher = providers.Singleton(_create_youtube_media_fetcher, text_fetcher=daf_text_fetcher)
+    # media_fetcher = providers.Singleton(_create_folder_media_fetcher)

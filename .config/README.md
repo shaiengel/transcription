@@ -1,6 +1,8 @@
 # Configuration Management
 
-This directory contains configuration files for the transcription pipeline.
+Central configuration directory for the transcription pipeline. Used by: `transcription_reviewer`, `audio_manager`, `gpu_instance`, `gpu_timestamp`, `transcribe_reader`.
+
+Config files live at `C:\portal\transcription\.config\`. Each subproject renders its own `.env` file from these templates using `render_env.py`.
 
 ## File Structure
 

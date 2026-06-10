@@ -27,25 +27,21 @@ def main():
 
     logger.info("=" * 60)
     logger.info("Starting GPU Transcription Worker")
-    logger.info("=" * 60)    
+    logger.info("=" * 60)
 
-    # Initialize DI container
     logger.info("Initializing dependency injection container...")
     container = DependenciesContainer()
 
-    # Pre-load Whisper model
     logger.info("Pre-loading Whisper model...")
     load_model()
     logger.info("Model ready")
 
-    # Resolve dependencies from container
     sqs_receiver = container.sqs_receiver()
     s3_downloader = container.s3_downloader()
     s3_uploader = container.s3_uploader()
+    dynamo_reader = container.dynamo_reader()
     formatters = container.formatters()
 
-    logger.info("Source bucket: %s", s3_downloader.source_bucket)
-    logger.info("Destination bucket: %s", s3_uploader.dest_bucket)
     logger.info("SQS queue: %s", sqs_receiver.queue_url)
     logger.info("Formatters: %d loaded", len(formatters))
 
@@ -54,7 +50,7 @@ def main():
     logger.info("=" * 60)
 
     try:
-        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader, formatters)
+        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader, dynamo_reader, formatters)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)

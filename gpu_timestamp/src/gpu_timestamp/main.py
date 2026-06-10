@@ -50,23 +50,21 @@ def main():
 
     # Resolve dependencies from container
     sqs_receiver = container.sqs_receiver()
+    dynamo_reader = container.dynamo_reader()
     s3_downloader = container.s3_downloader()
     s3_uploader = container.s3_uploader()
     sqs_sender = container.sqs_sender()
 
-    logger.info("Audio bucket: %s", s3_downloader.audio_bucket)
-    logger.info("Text bucket: %s", s3_downloader.text_bucket)
-    logger.info("Output bucket: %s", s3_uploader.output_bucket)
+    logger.info("DynamoDB table: %s", config.media_table)
     logger.info("SQS input queue: %s", sqs_receiver.queue_url)
     logger.info("SQS final queue: %s", sqs_sender.queue_url)
-    logger.info("Language: %s", config.language)
 
     logger.info("=" * 60)
     logger.info("Starting SQS worker loop...")
     logger.info("=" * 60)
 
     try:
-        run_worker_loop(sqs_receiver, s3_downloader, s3_uploader, sqs_sender)
+        run_worker_loop(sqs_receiver, dynamo_reader, s3_downloader, s3_uploader, sqs_sender)
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)

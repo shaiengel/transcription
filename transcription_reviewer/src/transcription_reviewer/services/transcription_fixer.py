@@ -1,7 +1,6 @@
 """Service for fixing transcriptions using Bedrock."""
 
 import logging
-import os
 import re
 from pathlib import Path
 
@@ -10,10 +9,6 @@ from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.utils.vtt_converter import convert_to_vtt
 
 logger = logging.getLogger(__name__)
-
-TEMPLATE_BUCKET = os.getenv("TEMPLATE_BUCKET", "portal-daf-yomi-audio")
-OUTPUT_BUCKET = os.getenv("OUTPUT_BUCKET", "final-transcription")
-TRANSCRIPTION_BUCKET = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
 
 # Pattern to match timed lines: [1] 00:00:00.000 - 00:00:03.300: text
 TIMED_LINE_PATTERN = re.compile(
@@ -104,17 +99,18 @@ class TranscriptionFixer:
         stem = path.stem
         return f"{stem}.time"
 
-    def get_system_prompt(self, transcription_key: str) -> str | None:
+    def get_system_prompt(self, transcription_key: str, template_bucket: str) -> str | None:
         """Get system prompt for a transcription.
 
         Args:
             transcription_key: S3 key of the transcription file.
+            template_bucket: S3 bucket containing the template file.
 
         Returns:
             System prompt content, or None if failed.
         """
         template_key = self._get_template_key(transcription_key)
-        return self._s3_client.get_object_content(TEMPLATE_BUCKET, template_key)
+        return self._s3_client.get_object_content(template_bucket, template_key)
 
     def fix_transcription(self, content: str, transcription_key: str) -> str | None:
         """
@@ -133,12 +129,17 @@ class TranscriptionFixer:
         Returns:
             VTT content, or None if failed.
         """
+        import os
+        template_bucket = os.getenv("TEMPLATE_BUCKET", "portal-daf-yomi-audio")
+        transcription_bucket = os.getenv("TRANSCRIPTION_BUCKET", "portal-daf-yomi-transcription")
+        output_bucket = os.getenv("OUTPUT_BUCKET", "final-transcription")
+
         # Read system prompt from S3 template
         template_key = self._get_template_key(transcription_key)
-        system_prompt = self._s3_client.get_object_content(TEMPLATE_BUCKET, template_key)
+        system_prompt = self._s3_client.get_object_content(template_bucket, template_key)
 
         if not system_prompt:
-            logger.error("Failed to read template: s3://%s/%s", TEMPLATE_BUCKET, template_key)
+            logger.error("Failed to read template: s3://%s/%s", template_bucket, template_key)
             return None
 
         logger.info("Fixing transcription, input length: %d chars", len(content))
@@ -157,10 +158,10 @@ class TranscriptionFixer:
 
         # Read the .time file with timestamps
         time_file_key = self._get_time_file_key(transcription_key)
-        timed_content = self._s3_client.get_object_content(TRANSCRIPTION_BUCKET, time_file_key)
+        timed_content = self._s3_client.get_object_content(transcription_bucket, time_file_key)
 
         if not timed_content:
-            logger.error("Failed to read time file: s3://%s/%s", TRANSCRIPTION_BUCKET, time_file_key)
+            logger.error("Failed to read time file: s3://%s/%s", transcription_bucket, time_file_key)
             return None
 
         # Try to inject timestamps back into the fixed text
@@ -179,18 +180,18 @@ class TranscriptionFixer:
 
         # Upload TXT (Bedrock result with timestamps) to output bucket
         txt_key = f"{stem}.txt"
-        if self._s3_client.put_object_content(OUTPUT_BUCKET, txt_key, txt_content):
-            logger.info("Saved TXT to s3://%s/%s", OUTPUT_BUCKET, txt_key)
+        if self._s3_client.put_object_content(output_bucket, txt_key, txt_content):
+            logger.info("Saved TXT to s3://%s/%s", output_bucket, txt_key)
         else:
-            logger.error("Failed to save TXT to s3://%s/%s", OUTPUT_BUCKET, txt_key)
+            logger.error("Failed to save TXT to s3://%s/%s", output_bucket, txt_key)
             return None
 
         # Upload VTT to output bucket
         vtt_key = f"{stem}.vtt"
-        if self._s3_client.put_object_content(OUTPUT_BUCKET, vtt_key, vtt_content):
-            logger.info("Saved VTT to s3://%s/%s", OUTPUT_BUCKET, vtt_key)
+        if self._s3_client.put_object_content(output_bucket, vtt_key, vtt_content):
+            logger.info("Saved VTT to s3://%s/%s", output_bucket, vtt_key)
         else:
-            logger.error("Failed to save VTT to s3://%s/%s", OUTPUT_BUCKET, vtt_key)
+            logger.error("Failed to save VTT to s3://%s/%s", output_bucket, vtt_key)
             return None
 
         return vtt_content

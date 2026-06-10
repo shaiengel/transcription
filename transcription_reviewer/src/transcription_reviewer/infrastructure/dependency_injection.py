@@ -7,12 +7,14 @@ from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 
 from transcription_reviewer.config import Config
+from transcription_reviewer.infrastructure.dynamodb_client import DynamoDBClient
 from transcription_reviewer.infrastructure.s3_client import S3Client
 from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
 from transcription_reviewer.services.gemini_pipeline import GeminiPipeline
+from transcription_reviewer.services.fix_tracker import FixTrackerService
 
 # Lazy imports for Bedrock pipeline (avoids tiktoken dependency when using Gemini)
 # from transcription_reviewer.services.token_counter import TokenCounter
@@ -77,9 +79,23 @@ def _create_bedrock_pipeline(
     )
 
 
+def _create_dynamo_reader(dynamodb_client: DynamoDBClient):
+    """Factory for DynamoReader."""
+    from transcription_reviewer.services.dynamo_reader import DynamoReader
+
+    config = Config()
+    return DynamoReader(dynamodb_client, config.media_table)
+
+
+def _create_fix_tracker(dynamodb_client: DynamoDBClient) -> FixTrackerService:
+    config = Config()
+    return FixTrackerService(dynamodb_client, config.fix_tracker_table)
+
+
 def _create_gemini_pipeline(
     s3_client: S3Client,
     sqs_client: SQSClient,
+    fix_tracker: FixTrackerService,
 ) -> LLMPipeline:
     """Create Gemini pipeline."""
     config = Config()
@@ -87,16 +103,18 @@ def _create_gemini_pipeline(
         s3_client=s3_client,
         sqs_client=sqs_client,
         api_key=config.google_api_key,
-        transcription_bucket=config.transcription_bucket,
-        output_bucket=config.output_bucket,
         sqs_queue_url=config.sqs_queue_url,
+        temporary_fix_bucket=config.temporary_fix_bucket,
         model_name=config.gemini_model,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
-        split_by_words=config.split_by_words,
         split_by_words_max=config.split_by_words_max,
         max_word_diff=config.max_word_diff,
         thinking_budget=config.thinking_budget,
+        fix_tracker=fix_tracker,
+        cache_enabled=config.gemini_cache_enabled,
+        cache_ttl_seconds=config.gemini_cache_ttl_seconds,
+        cache_guard_seconds=config.gemini_cache_guard_seconds,
     )
 
 
@@ -105,6 +123,27 @@ class DependenciesContainer(DeclarativeContainer):
 
     # Session (Lambda execution role or local AWS profile)
     session = providers.Singleton(_create_session)
+
+    # DynamoDB dependency chain
+    dynamodb_boto_client = providers.Singleton(
+        lambda session: session.client("dynamodb"),
+        session=session,
+    )
+
+    dynamodb_client = providers.Singleton(
+        DynamoDBClient,
+        client=dynamodb_boto_client,
+    )
+
+    dynamo_reader = providers.Singleton(
+        _create_dynamo_reader,
+        dynamodb_client=dynamodb_client,
+    )
+
+    fix_tracker = providers.Singleton(
+        _create_fix_tracker,
+        dynamodb_client=dynamodb_client,
+    )
 
     # S3 dependency chain
     s3_boto_client = providers.Singleton(
@@ -182,4 +221,5 @@ class DependenciesContainer(DeclarativeContainer):
         _create_gemini_pipeline,
         s3_client=s3_client,
         sqs_client=sqs_client,
+        fix_tracker=fix_tracker,
     )

@@ -1,15 +1,10 @@
 """S3 upload service for alignment output files."""
 
 import logging
-import os
 from pathlib import Path
-
-from dotenv import load_dotenv
 
 from gpu_timestamp.infrastructure.s3_client import S3Client
 
-env_path = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(env_path, override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -17,24 +12,13 @@ class S3Uploader:
     """Handles uploading alignment output files to S3."""
 
     def __init__(self, s3_client: S3Client):
-        """
-        Initialize S3 uploader.
-
-        Args:
-            s3_client: S3Client instance.
-        """
         self._s3_client = s3_client
-        self._output_bucket = os.getenv("OUTPUT_BUCKET", "final-transcription")
-
-    @property
-    def output_bucket(self) -> str:
-        """Get the output bucket name."""
-        return self._output_bucket
 
     def upload_file(
         self,
         local_path: Path,
         s3_key: str,
+        output_bucket: str,
         source_audio: str | None = None,
     ) -> bool:
         """
@@ -68,7 +52,7 @@ class S3Uploader:
 
             success = self._s3_client.upload_file(
                 local_path=local_path,
-                bucket=self._output_bucket,
+                bucket=output_bucket,
                 key=s3_key,
                 content_type=content_type,
                 metadata=metadata if metadata else None,
@@ -84,19 +68,9 @@ class S3Uploader:
         self,
         content: str,
         s3_key: str,
+        output_bucket: str,
         source_audio: str | None = None,
     ) -> bool:
-        """
-        Upload string content directly to S3.
-
-        Args:
-            content: String content to upload.
-            s3_key: S3 object key.
-            source_audio: Original audio file key (for metadata).
-
-        Returns:
-            True if upload succeeded, False otherwise.
-        """
         try:
             content_types = {
                 ".vtt": "text/vtt",
@@ -113,7 +87,7 @@ class S3Uploader:
                 metadata["source_audio"] = source_audio
 
             success = self._s3_client.put_object(
-                bucket=self._output_bucket,
+                bucket=output_bucket,
                 key=s3_key,
                 body=content.encode("utf-8"),
                 content_type=content_type,

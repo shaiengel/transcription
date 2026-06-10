@@ -1,3 +1,4 @@
+import json
 import os
 from contextlib import contextmanager
 from datetime import date, timedelta
@@ -78,6 +79,83 @@ def get_massechet_sefaria_name(conn: Connection, massechet_id: int) -> str | Non
     """)
     result = conn.execute(query, {"massechet_id": massechet_id}).fetchone()
     return result[0].lower() if result else None
+
+
+def get_massechet_sefaria_name_raw(massechet_id: int) -> str | None:
+    """Get the Sefaria name for a massechet from massechet_data.json (original casing for Sefaria API URLs)."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("massechet_id") == massechet_id:
+            return entry.get("massechet_english")
+    return None
+
+
+def get_massechet_data_by_name(masechet_name: str) -> dict | None:
+    """Return the first massechet_data.json entry matching masechet_name (Hebrew), or None."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("masechet_name") == masechet_name:
+            return entry
+    return None
+
+
+def get_massechet_by_english_name(massechet_english: str) -> dict | None:
+    """Return the first massechet_data.json entry matching massechet_english, or None."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("massechet_english") == massechet_english:
+            return entry
+    return None
+
+
+def get_chapters_for_daf(massechet_id: int, daf_id: int) -> list[dict]:
+    """Return massechet_data.json chapter entries that are active on the given daf."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    chapters = [
+        c for c in data
+        if c.get("massechet_id") == massechet_id
+        and c.get("chapter_start_daf") is not None
+    ]
+    chapters.sort(key=lambda c: (c["chapter_start_daf"], c["chapter_start_amud"]))
+
+    daf_start = daf_id * 2
+    daf_end = daf_id * 2 + 1
+
+    active = []
+    for i, ch in enumerate(chapters):
+        ch_pos = ch["chapter_start_daf"] * 2 + (ch["chapter_start_amud"] - 1)
+        if ch_pos > daf_end:
+            break
+        next_pos = (
+            chapters[i + 1]["chapter_start_daf"] * 2 + (chapters[i + 1]["chapter_start_amud"] - 1)
+            if i + 1 < len(chapters)
+            else float("inf")
+        )
+        if next_pos > daf_start:
+            active.append(ch)
+    return active
+
+
+def get_massechet_bounds(massechet_id: int) -> tuple[int, int] | None:
+    """Return (massechet_start, massechet_end) daf numbers for a massechet, or None if not found."""
+    data_path = Path(__file__).parent.parent / "massechet_data.json"
+    with open(data_path, encoding="utf-8") as f:
+        data = json.load(f)
+    for entry in data:
+        if entry.get("massechet_id") == massechet_id:
+            start = entry.get("massechet_start")
+            end = entry.get("massechet_end")
+            if start is not None and end is not None:
+                return start, end
+    return None
 
 
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:

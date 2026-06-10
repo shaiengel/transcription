@@ -13,6 +13,7 @@ from gpu_timestamp.services.alignment_evaluator import (
     truncate_srt_file,
     truncate_vtt_file,
 )
+from gpu_timestamp.services.dynamo_reader import DynamoReader
 from gpu_timestamp.services.s3_downloader import S3Downloader
 from gpu_timestamp.services.s3_uploader import S3Uploader
 from gpu_timestamp.services.sqs_receiver import SQSReceiver
@@ -23,49 +24,59 @@ logger = logging.getLogger(__name__)
 
 def process_message(
     message: SQSMessage,
+    dynamo_reader: DynamoReader,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
     sqs_sender: SQSSender,
     temp_dir: Path,
 ) -> AlignmentResult:
-    """
-    Process a single SQS message (align audio with text).
-
-    Args:
-        message: SQS message containing file info.
-        s3_downloader: S3 downloader service.
-        s3_uploader: S3 uploader service.
-        sqs_sender: SQS sender service for completion notifications.
-        temp_dir: Temporary directory for file operations.
-
-    Returns:
-        AlignmentResult with success status.
-    """
-    s3_key = message.s3_key
-    stem = Path(s3_key).stem
-    logger.info(
-        "Processing: %s (language=%s)",
-        s3_key,
-        message.language,
-    )
+    media_id = message.media_id
+    stem = str(media_id)
+    logger.info("Processing media_id=%s", media_id)
 
     try:
-        # Download audio from S3
-        audio_path = s3_downloader.download_audio(stem + ".mp3", temp_dir)
-        if not audio_path:
-            logger.error("Failed to download audio: %s", s3_key)
+        # Fetch per-entry bucket configuration from DynamoDB
+        entry = dynamo_reader.get_entry(media_id)
+        if not entry:
             return AlignmentResult(
-                source_key=s3_key,
+                source_key=stem,
+                success=False,
+                error=f"No DynamoDB entry for media_id={media_id}",
+            )
+        if not entry.media_bucket_s3:
+            logger.error("media_bucket_s3 not set for media_id=%s", media_id)
+            return AlignmentResult(
+                source_key=stem,
+                success=False,
+                error="media_bucket_s3 not set in DynamoDB entry",
+            )
+
+        audio_bucket = entry.media_bucket_s3
+        text_bucket = entry.media_fixed_transcribed_bucket
+        output_bucket = entry.media_subtitles
+        language = entry.language or "he"
+
+        logger.info(
+            "media_id=%s audio_bucket=%s text_bucket=%s output_bucket=%s language=%s",
+            media_id, audio_bucket, text_bucket, output_bucket, language,
+        )
+
+        # Download audio from S3
+        audio_path = s3_downloader.download_audio(f"{stem}.mp3", temp_dir, audio_bucket)
+        if not audio_path:
+            logger.error("Failed to download audio for media_id=%s", media_id)
+            return AlignmentResult(
+                source_key=stem,
                 success=False,
                 error="Failed to download audio",
             )
 
-        # Download text from S3
-        text_content = s3_downloader.download_text(s3_key + ".txt")
+        # Download corrected text from S3
+        text_content = s3_downloader.download_text(f"{stem}.txt", text_bucket)
         if not text_content:
-            logger.error("Failed to download text for: %s", stem)
+            logger.error("Failed to download text for media_id=%s", media_id)
             return AlignmentResult(
-                source_key=s3_key,
+                source_key=stem,
                 success=False,
                 error="Failed to download text",
             )
@@ -84,20 +95,20 @@ def process_message(
             rolling_avg_target=config.rolling_avg_target,
         )
         if config.dtw_enabled:
-            prefix_time_content = s3_downloader.download_text(stem + ".pre-fix.time")
+            prefix_time_content = s3_downloader.download_text(f"{stem}.pre-fix.time", text_bucket)
             if prefix_time_content:
                 text_content = evaluator.pre_alignment_fix(prefix_time_content, text_content)
             else:
-                logger.warning("No pre-fix .time file for %s, skipping DTW fix", stem)
+                logger.warning("No pre-fix .time file for media_id=%s, skipping DTW fix", media_id)
         else:
-            logger.info("DTW disabled, using raw text for %s", stem)
+            logger.info("DTW disabled, using raw text for media_id=%s", media_id)
 
         # Align audio with text
-        result = align_audio(str(audio_path), text_content, message.language, config.token_step)
+        result = align_audio(str(audio_path), text_content, language, config.token_step)
         if result is None:
-            logger.error("Alignment failed for: %s", s3_key)
+            logger.error("Alignment failed for media_id=%s", media_id)
             return AlignmentResult(
-                source_key=s3_key,
+                source_key=stem,
                 success=False,
                 error="Alignment returned None",
             )
@@ -110,8 +121,8 @@ def process_message(
         if analysis_result and analysis_result.get("should_truncate"):
             truncate_point = analysis_result["truncate_point"]
             logger.warning(
-                "Degradation detected for %s: rolling_avg=%d, dtw_cutoff=%s, truncating at %d",
-                stem,
+                "Degradation detected for media_id=%s: rolling_avg=%d, dtw_cutoff=%s, truncating at %d",
+                media_id,
                 analysis_result["rolling_avg_method"],
                 analysis_result["dtw_cutoff_index"],
                 truncate_point,
@@ -120,26 +131,27 @@ def process_message(
             truncate_srt_file(srt_path, truncate_point)
 
         # Upload JSON, VTT, and SRT to S3
+        source_audio = f"{stem}.mp3"
         json_uploaded = s3_uploader.upload_file(
-            json_path, f"{stem}.json", source_audio=s3_key
+            json_path, f"{stem}.json", output_bucket, source_audio=source_audio
         )
         vtt_uploaded = s3_uploader.upload_file(
-            vtt_path, f"{stem}.vtt", source_audio=s3_key
+            vtt_path, f"{stem}.vtt", output_bucket, source_audio=source_audio
         )
         srt_uploaded = s3_uploader.upload_file(
-            srt_path, f"{stem}.srt", source_audio=s3_key
+            srt_path, f"{stem}.srt", output_bucket, source_audio=source_audio
         )
         if config.dtw_enabled:
             txt_uploaded = s3_uploader.upload_content(
-                text_content, f"{stem}.dtw.txt", source_audio=s3_key
+                text_content, f"{stem}.dtw.txt", output_bucket, source_audio=source_audio
             )
         else:
             txt_uploaded = True
 
         if not json_uploaded or not vtt_uploaded or not srt_uploaded or not txt_uploaded:
-            logger.error("Failed to upload outputs for: %s", s3_key)
+            logger.error("Failed to upload outputs for media_id=%s", media_id)
             return AlignmentResult(
-                source_key=s3_key,
+                source_key=stem,
                 success=False,
                 error="Failed to upload outputs",
             )
@@ -149,30 +161,33 @@ def process_message(
             analysis_uploaded = s3_uploader.upload_content(
                 json.dumps(analysis_result, indent=2, default=str),
                 f"{stem}.analysis",
-                source_audio=s3_key,
+                output_bucket,
+                source_audio=source_audio,
             )
             if not analysis_uploaded:
-                logger.error("Failed to upload analysis file for: %s", s3_key)
+                logger.error("Failed to upload analysis file for media_id=%s", media_id)
 
         # Send completion notification to final queue
         sqs_sender.send_completion_message(
             stem=stem,
-            source_audio=s3_key,
+            source_audio=source_audio,
             vtt_key=f"{stem}.vtt",
             json_key=f"{stem}.json",
         )
 
-        logger.info("Successfully processed %s", s3_key)
+        dynamo_reader.set_status(media_id, "aligned")
+
+        logger.info("Successfully processed media_id=%s", media_id)
         return AlignmentResult(
-            source_key=s3_key,
+            source_key=stem,
             success=True,
             output_key=f"{stem}.vtt",
         )
 
     except Exception as e:
-        logger.error("Failed to process %s: %s", s3_key, e, exc_info=True)
+        logger.error("Failed to process media_id=%s: %s", media_id, e, exc_info=True)
         return AlignmentResult(
-            source_key=s3_key,
+            source_key=stem,
             success=False,
             error=str(e),
         )
@@ -180,19 +195,11 @@ def process_message(
 
 def run_worker_loop(
     sqs_receiver: SQSReceiver,
+    dynamo_reader: DynamoReader,
     s3_downloader: S3Downloader,
     s3_uploader: S3Uploader,
     sqs_sender: SQSSender,
 ) -> None:
-    """
-    Continuous worker loop that polls SQS and processes messages.
-
-    Args:
-        sqs_receiver: SQS receiver service.
-        s3_downloader: S3 downloader service.
-        s3_uploader: S3 uploader service.
-        sqs_sender: SQS sender service for completion notifications.
-    """
     logger.info("Starting continuous worker loop...")
 
     success_count = 0
@@ -206,7 +213,6 @@ def run_worker_loop(
         logger.info("Using temp directory: %s", temp_path)
 
         while True:
-            # Poll for messages
             messages = sqs_receiver.receive_messages(max_messages=1, wait_time=20)
 
             if not messages:
@@ -216,6 +222,7 @@ def run_worker_loop(
             for message in messages:
                 result = process_message(
                     message=message,
+                    dynamo_reader=dynamo_reader,
                     s3_downloader=s3_downloader,
                     s3_uploader=s3_uploader,
                     sqs_sender=sqs_sender,

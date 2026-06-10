@@ -27,6 +27,9 @@
     "output_bucket": "final-transcription",
     "output_prefix": ""
   },
+  "dynamodb": {
+    "table_name": "transcription-tracker"
+  },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
     "fix_transcribes_queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-fix-transcribes",
@@ -37,7 +40,7 @@
     "device": "cuda",
     "compute_type": "float16",
     "language": "he",
-    "beam_size": "7"
+    "beam_size": "5"
   },
   "stable_whisper": {
     "model": "large-v3",
@@ -54,8 +57,11 @@
   "gemini": {
     "split_by_words": "true",
     "split_by_words_max": "5000",
-    "max_word_diff": "70",
-    "thinking_budget": "1024"
+    "max_word_diff": "65",
+    "thinking_budget": "8192",
+    "cache_enabled": "true",
+    "cache_ttl_seconds": "4800",
+    "cache_guard_seconds": "480"
   },
   "batch": {
     "min_entries": "100",
@@ -82,7 +88,7 @@
     "branch": "main"
   },
   "dtw": {
-    "enabled": true,
+    "enabled": false,
     "band_width": 0,
     "window_type": "slantedband",
     "step_pattern": "asymmetric",
@@ -95,6 +101,14 @@
   },
   "lambda": {
     "timeout_threshold_ms": 240000
+  },
+  "fix_tracker": {
+    "table": "transcription-fix-tracker",
+    "temporary_fix_bucket": "temporary-fix-files",
+    "dead_letter_bucket": "transcription-dead-letter",
+    "max_lambda_age_seconds": 1080,
+    "slow_llm_threshold_ms": 840000,
+    "max_retries": 3
   },
   "statistics": {
     "max_segment_duration_seconds": 100

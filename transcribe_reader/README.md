@@ -2,6 +2,20 @@
 
 CLI tool to sync VTT transcription files from S3 to GitLab. Reads today's media IDs from the database, fetches corresponding VTT files from S3, and uploads them to a GitLab repository.
 
+## Pipeline Position
+
+```
+gpu_timestamp → [final-transcription S3] → transcribe_reader → GitLab repository
+```
+
+## AWS Trigger
+
+**Manual / daily cron** — not event-driven. Run after the full transcription pipeline completes (i.e., after `gpu_timestamp` has uploaded final VTT files to `final-transcription`). Typically the last step in the daily workflow.
+
+- Runs on: developer machine or on-prem server
+- Reads from: `s3://portal-daf-yomi-transcription/` (VTT files keyed by `{media_id}.vtt`)
+- Writes to: GitLab `backend/data/portal_transcriptions/` (batch commit)
+
 ## Architecture
 
 ```
