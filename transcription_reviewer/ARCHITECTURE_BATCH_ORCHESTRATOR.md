@@ -1,8 +1,8 @@
-# Architecture: Batch Orchestrator for Transcription Review
+# Architecture: Orchestrators for Transcription Review
 
 ## Problem
 
-`process_transcriptions()` in `handlers/review.py` is coupled to per-file synchronous processing. Each file goes through `prepare_data → invoke → post_process` individually. This works for on-demand Gemini calls but is inefficient and structurally incompatible with batch APIs (Gemini Batch, Bedrock Batch) where you want to:
+`process_transcriptions()` in `handlers/review.py` is coupled to per-file synchronous processing. Each file goes through `prepare_data → invoke → post_process` individually. This works for on-demand Gemini calls but is inefficient and structurally incompatible with batch APIs (Gemini Batch) where you want to:
 
 1. Collect all work upfront
 2. Submit one batch request
@@ -10,50 +10,39 @@
 4. Potentially iterate (retry/reasoning) at batch level
 5. Finalize all files at once (S3 + SQS)
 
-## Solution: Two-Layer Architecture
+## Solution: Single-Layer Orchestrator Architecture
 
-### Layer 1: ReviewOrchestrator (NEW — controls lifecycle)
-
-Abstract class with two implementations. Sits ABOVE `LLMPipeline`. Controls when and how `process_transcriptions` runs.
+Each orchestrator is self-contained — owns its entire lifecycle in a single `start()` method. No separate pipeline classes for batch. Shared Gemini API + DynamoDB operations extracted to a composition helper (`GeminiBatchService`).
 
 ```
 ReviewOrchestrator (abstract)
-  ├── prepare(s3_reader, transcription_fixer, dynamo_reader, bucket, context)
-  ├── start()
-  │
   ├── OnDemandOrchestrator
-  │     uses: GeminiPipeline (existing)
+  │     uses: GeminiPipeline (existing LLMPipeline)
   │
-  └── BatchOrchestrator
-        uses: GeminiBatchPipeline (NEW)
-```
+  ├── GeminiBatchOrchestrator
+  │     uses: GeminiBatchService (shared helper)
+  │
+  └── GeminiBatchRetriggerOrchestrator
+        uses: GeminiBatchService (shared helper)
 
-### Layer 2: LLMPipeline (EXISTING — handles LLM interaction)
-
-```
-LLMPipeline (abstract)
-  ├── GeminiPipeline         ← existing, on-demand
-  ├── GeminiBatchPipeline    ← NEW, builds JSONL + submits batch
-  └── BedrockBatchPipeline   ← existing, batch
+GeminiBatchService (composition — not an orchestrator)
+  Encapsulates: Gemini client, caching, JSONL build/upload/submit,
+                result fetch/parse, GCS cleanup,
+                FIX_TRACKER_TABLE + BATCH_JOBS_TABLE operations
 ```
 
 ---
 
 ## Orchestrator API
 
-All orchestrator methods use `config.py` for S3 buckets, DynamoDB table, and other environment params. No need to pass infrastructure dependencies into `prepare()`/`start()`.
+All orchestrators use `config.py` for S3 buckets, DynamoDB table, and other environment params.
 
 ```python
 class ReviewOrchestrator(ABC):
 
     @abstractmethod
-    def prepare(self, context=None) -> PrepareResult:
-        """Collect files, validate, build work items. May invoke pipeline."""
-        pass
-
-    @abstractmethod
     def start(self) -> StartResult:
-        """Execute the processing. Returns immediately for batch (async)."""
+        """Execute the full processing lifecycle. Returns immediately for batch (async)."""
         pass
 ```
 
@@ -61,81 +50,222 @@ class ReviewOrchestrator(ABC):
 
 ```python
 class OnDemandOrchestrator(ReviewOrchestrator):
-    """Wraps existing process_transcriptions() flow. All deps resolved from DI container."""
+    """Per-file synchronous processing. Absorbs the process_transcriptions loop."""
 
-    def prepare(self, context=None):
-        # No-op — on-demand processes files one by one during start()
-        self._context = context
-        return PrepareResult(file_count=0, action="deferred")
+    def __init__(
+        self,
+        s3_reader: S3Reader,
+        pipeline: LLMPipeline,  # GeminiPipeline
+        transcription_fixer: TranscriptionFixer,
+        dynamo_reader: DynamoReader,
+    ): ...
 
-    def start(self):
-        # Calls existing process_transcriptions() unchanged
-        # s3_reader, pipeline, transcription_fixer, dynamo_reader, bucket
-        # all resolved internally from DI container / config
-        result = process_transcriptions(...)
-        return StartResult.from_review_result(result)
+    def start(self) -> StartResult:
+        # Full lifecycle:
+        # 1. List .txt files from S3 (transcription_bucket)
+        # 2. For each file:
+        #    a. DynamoDB gate — skip if status != "transcribed"
+        #    b. Fetch content from S3
+        #    c. Fetch system prompt
+        #    d. Build TranscriptionFile
+        #    e. pipeline.prepare_data([file], context)
+        #    f. pipeline.invoke(prepared, context)
+        #    g. pipeline.post_process(response, prepared)
+        #    h. Update DynamoDB status to "fixed" if successful
+        #    i. Timeout check — if Lambda running low, break and set timed_out
+        # 3. Return StartResult with counts
+        ...
 ```
 
-### BatchOrchestrator
+### GeminiBatchOrchestrator
 
 ```python
-class BatchOrchestrator(ReviewOrchestrator):
-    """Batch mode. All deps resolved from DI container."""
+class GeminiBatchOrchestrator(ReviewOrchestrator):
+    """Initial trigger: collect files → build JSONL → submit Gemini batch."""
 
-    def prepare(self, context=None):
-        # Phase 1: Collect all files
-        #   - list files from S3 (config.transcription_bucket)
-        #   - DynamoDB gate (status == "transcribed")
-        #   - fetch system prompts
-        #   - build TranscriptionFile list
-        #   - split files > 5000 words into chunks
-        # Phase 2: Feed all files to GeminiBatchPipeline
-        #   - pipeline.prepare_data(all_files) → builds JSONL entries
-        #   - register each entry in DynamoDB (batch_entries table)
-        #   - stores entries internally
-        self._batch_entries = self._collect_and_prepare(...)
-        return PrepareResult(file_count=len(self._batch_entries), action="batch_ready")
+    def __init__(
+        self,
+        s3_reader: S3Reader,
+        s3_client: S3Client,
+        dynamo_reader: DynamoReader,
+        transcription_fixer: TranscriptionFixer,
+        batch_service: GeminiBatchService,
+    ): ...
 
-    def start(self):
-        # Submit batch to Gemini Batch API
-        job_ref = self._pipeline.invoke(self._batch_entries)
-        return StartResult(job_ref=job_ref, mode="async")
+    def start(self) -> StartResult:
+        # 1. List .txt files from S3
+        # 2. DynamoDB gate (status == "transcribed")
+        # 3. Fetch system prompts
+        # 4. Split files > split_by_words_max into chunks → BatchEntry list
+        # 5. Store original chunks to TEMPORARY_FIX_BUCKET/{record_id}.original.txt
+        # 6. Register each entry in FIX_TRACKER_TABLE
+        # 7. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
+        # 8. Build JSONL from entries
+        # 9. Upload JSONL to GCS via Gemini Files API
+        # 10. Submit batch to Gemini Batch API → get batch_job_id
+        # 11. Store in BATCH_JOBS_TABLE
+        # Return StartResult(mode="async", job_ref=batch_job_name)
+        ...
+```
+
+### GeminiBatchRetriggerOrchestrator
+
+```python
+class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
+    """Result trigger: fetch batch results → diff eval → retry or finalize."""
+
+    def __init__(
+        self,
+        s3_client: S3Client,
+        sqs_client: SQSClient,
+        dynamo_reader: DynamoReader,
+        batch_service: GeminiBatchService,
+        batch_job_id: str,  # passed at construction
+    ): ...
+
+    def start(self) -> StartResult:
+        # --- Retrieval ---
+        # 1. Look up batch_job_id in BATCH_JOBS_TABLE → result_file_s3, gcs_file_name
+        # 2. Fetch results: from S3 (if result_file_s3 set) or Gemini API
+        #    - Check batchStats.failedRequestCount for batch-level failures
+        # 3. Parse result JSONL — each line is either GenerateContentResponse or error status
+        # 4. Clean up: delete old GCS input file, delete result file from S3, delete BATCH_JOBS row
+        #
+        # --- Evaluation (per result entry) ---
+        # 5. Get tracker from FIX_TRACKER_TABLE
+        # 6. Check for errors first:
+        #    ├── ERROR (no response_text, or "error" in result):
+        #    │     - Dead-letter the entire media (all chunks of that stem):
+        #    │       a. Copy original media files ({stem}.*) to DEAD_LETTER_BUCKET
+        #    │       b. Copy any existing fixed chunks ({stem}*.txt) from TEMPORARY_FIX_BUCKET to DEAD_LETTER_BUCKET
+        #    │       c. Delete all tracker entries for that stem from FIX_TRACKER_TABLE
+        #    │       d. Delete temp files for that stem from TEMPORARY_FIX_BUCKET
+        #    │       e. Mark stem as failed, skip all remaining chunks of that stem
+        #    │
+        #    Then calculate new_diff = word_count_diff(response_text, original_word_count)
+        #    ├── new_diff <= max_word_diff (GOOD):
+        #    │     Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt
+        #    │     Update tracker: completed=true, diff_value=new_diff
+        #    │
+        #    ├── new_diff < stored diff_value (BETTER but not good enough):
+        #    │     Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt
+        #    │     Update tracker: diff_value=new_diff, retry_number++
+        #    │     Add to retry accumulator (with ORIGINAL chunk)
+        #    │     If last retry → use reasoning prompt
+        #    │
+        #    └── new_diff >= stored diff_value (WORSE or equal):
+        #          Keep existing in TEMPORARY_FIX_BUCKET
+        #          Update tracker: retry_number++
+        #          Add to retry accumulator (with ORIGINAL chunk)
+        #          If last retry → use reasoning prompt
+        #
+        # --- Retry or Finalize ---
+        # 7. If retry entries accumulated:
+        #    a. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
+        #    b. Build JSONL from retry entries
+        #    c. Upload + submit new batch
+        #    d. Store new batch_job_id in BATCH_JOBS_TABLE
+        #    Return StartResult(mode="async", job_ref=new_batch_job_name)
+        #
+        # 8. If no retry entries (all chunks done):
+        #    a. Merge split chunks: read {stem}_{1..N}.txt → concatenate → {stem}.txt
+        #    b. Upload merged {stem}.txt to dynamo_entry.media_fixed_transcribed_bucket
+        #    c. Copy .time → .pre-fix.time
+        #    d. Send SQS messages for all completed media_ids
+        #    e. Update MEDIA_TABLE status to "fixed"
+        #    f. Clean up: source files, temporary-fix-files, FIX_TRACKER_TABLE entries
+        #    Return StartResult(mode="completed", fixed=N, failed=M)
+        ...
 ```
 
 ---
 
-## GeminiBatchPipeline (NEW)
+## GeminiBatchService (Shared Helper)
 
-New child of `LLMPipeline`. Analogous to `BedrockBatchPipeline` but targets Gemini Batch API.
-
-Input JSONL is uploaded to GCS via the [Gemini Files API](https://ai.google.dev/gemini-api/docs/files). The Files API handles storage — no separate GCS bucket setup needed.
+Composition helper used by both batch orchestrators. Encapsulates Gemini API client, caching, JSONL operations, and DynamoDB table operations. Not an orchestrator — no lifecycle methods.
 
 ```python
-class GeminiBatchPipeline(LLMPipeline):
+class GeminiBatchService:
+    """Gemini Batch API operations + DynamoDB table ops for batch orchestrators."""
 
-    def prepare_data(self, files: list[TranscriptionFile], context=None) -> list[BatchEntry]:
-        # Token counting, split files > 5000 words into chunks
-        # Returns BatchEntry list (no JSONL yet)
+    def __init__(self, dynamodb_client: DynamoDBClient):
+        self._client = genai.Client(api_key=config.google_api_key)
+        self._dynamodb_client = dynamodb_client
+        self._prompt_caches: dict[str, tuple[str, float]] = {}
+
+    # --- Gemini API ---
+
+    def get_or_create_cache(self, system_prompt: str) -> str | None:
+        """Get or create a cached content entry for the system prompt."""
         ...
 
-    def invoke(self, prepared_data: list[BatchEntry], context=None) -> str:
-        # 1. Group entries by system_prompt
-        # 2. For each unique system_prompt (if GEMINI_CACHE_ENABLED):
-        #    - Create cached content via Gemini API (same as GeminiPipeline._get_or_create_cache)
-        #    - Store cache name for JSONL generation
-        # 3. Create JSONL — each entry includes cached_content reference
-        #    (entries with reasoning prompt are NOT cached — different system prompt)
-        # 4. Upload JSONL to GCS via Gemini Files API
-        # 5. Register each entry in FIX_TRACKER_TABLE
-        # 6. Submit batch job to Gemini Batch API
-        # 7. Store batch_job_id in BATCH_JOBS_TABLE
-        #    (with gcs_file_name, status="submitted")
-        # 8. Return batch job ID/name
+    def build_and_submit_batch(
+        self,
+        entries: list[BatchEntry],
+        reasoning_prompts: set[str] | None = None,
+    ) -> tuple[str, str]:
+        """Build JSONL, upload to GCS, submit batch. Returns (job_name, gcs_file_name)."""
         ...
 
-    def post_process(self, llm_response, original_files) -> ReviewResult:
-        # Called by result trigger path, not inline
-        # Returns ReviewResult with batch reference
+    def fetch_batch_results(self, batch_job_name: str) -> list[dict]:
+        """Fetch and parse results from completed batch job."""
+        ...
+
+    def delete_gcs_file(self, gcs_file_name: str) -> None:
+        """Delete input JSONL from GCS via Files API."""
+        ...
+
+    # --- JSONL ---
+
+    @staticmethod
+    def build_jsonl(entries: list[BatchEntry], cache_map: dict) -> str: ...
+
+    @staticmethod
+    def parse_result_jsonl(content: str) -> list[dict]: ...
+
+    @staticmethod
+    def split_by_words(content: str, max_words: int) -> list[str]: ...
+
+    # --- FIX_TRACKER_TABLE ---
+
+    def register_fix_tracker_entry(
+        self, record_id: str, stem: str, original_word_count: int, total_chunks: int
+    ) -> None: ...
+
+    def get_fix_tracker(self, record_id: str) -> dict | None: ...
+
+    def update_fix_tracker(
+        self, record_id: str,
+        completed: bool | None = None,
+        diff_value: int | None = None,
+        retry_number: int | None = None,
+    ) -> None: ...
+
+    def delete_fix_tracker(self, record_id: str) -> None: ...
+
+    def collect_completed_stems(self) -> dict[str, list[str]]:
+        """Scan tracker for all completed entries, grouped by stem."""
+        ...
+
+    # --- BATCH_JOBS_TABLE ---
+
+    def store_batch_job(self, batch_job_id: str, gcs_file_name: str) -> None: ...
+    def get_batch_job(self, batch_job_id: str) -> dict | None: ...
+    def delete_batch_job(self, batch_job_id: str) -> None: ...
+
+    # --- Cache Cleanup ---
+
+    def delete_prompt_caches(self) -> None:
+        """Delete all cached content created during this batch lifecycle via client.caches.delete()."""
+        ...
+
+    # --- Dead Letter ---
+
+    def dead_letter_media(
+        self, stem: str, record_ids: list[str],
+        transcription_bucket: str, temp_fix_bucket: str, dead_letter_bucket: str,
+    ) -> None:
+        """Copy original media + fixed chunks to dead-letter bucket, clean up tracker + temp files."""
         ...
 ```
 
@@ -151,8 +281,8 @@ Gemini Batch API supports `cached_content` in JSONL entries ([docs](https://ai.g
 **JSONL entry format (cached):**
 ```json
 {
+  "key": "151415_1",
   "request": {
-    "model": "models/gemini-2.5-flash",
     "cached_content": "cachedContents/abc123",
     "contents": [{"role": "user", "parts": [{"text": "...transcription chunk..."}]}],
     "generation_config": {"temperature": 0.1, "top_p": 0.1, "top_k": 1, "max_output_tokens": 60000}
@@ -163,8 +293,8 @@ Gemini Batch API supports `cached_content` in JSONL entries ([docs](https://ai.g
 **JSONL entry format (uncached — reasoning or cache disabled):**
 ```json
 {
+  "key": "151415_1",
   "request": {
-    "model": "models/gemini-2.5-flash",
     "system_instruction": {"parts": [{"text": "...reasoning system prompt..."}]},
     "contents": [{"role": "user", "parts": [{"text": "...transcription chunk..."}]}],
     "generation_config": {"temperature": 0.1, "top_p": 0.1, "top_k": 1, "max_output_tokens": 60000}
@@ -174,7 +304,7 @@ Gemini Batch API supports `cached_content` in JSONL entries ([docs](https://ai.g
 
 ### Diff Strategy (Quality Check)
 
-Word-count diff logic extracted to `utils/word_diff.py` (shared by both on-demand `GeminiPipeline` and `GeminiBatchPipeline`):
+Word-count diff logic in `utils/word_diff.py` (shared by both on-demand `GeminiPipeline` and batch orchestrators):
 
 ```python
 # utils/word_diff.py
@@ -182,21 +312,11 @@ def word_count_diff(text: str, original_word_count: int) -> int:
     return abs(len(text.split()) - original_word_count)
 ```
 
-- `original_word_count` is stored in FIX_TRACKER_TABLE at initial trigger time
+- `original_word_count` stored in FIX_TRACKER_TABLE at initial trigger time
 - `max_word_diff` threshold (default 100) from config determines "good enough"
-- JSONL always sends the **original chunk** (never a previous LLM result) — the goal is to get the best single-pass fix
-- Each result trigger compares `new_diff` against the stored `diff_value` in FIX_TRACKER_TABLE to decide whether to keep the new result or the previous best
-- Best result per chunk stored at `TEMPORARY_FIX_BUCKET/{stem}_{chunk_idx}.txt` (split files) or `TEMPORARY_FIX_BUCKET/{stem}.txt` (unsplit)
-
-### Key difference from BedrockBatchPipeline
-
-| Aspect | BedrockBatchPipeline | GeminiBatchPipeline |
-|--------|---------------------|---------------------|
-| Storage | S3 JSONL | GCS via Gemini Files API |
-| Submission | `CreateModelInvocationJob` | Gemini Batch API |
-| Results | `post_inference` Lambda | Webhook Lambda → reviewer Lambda |
-| Retry logic | None (single pass) | Multi-iteration with quality check |
-| System prompt | Per-entry in JSONL | Cached content (or inline for reasoning/disabled) |
+- JSONL always sends the **original chunk** (never a previous LLM result) — goal is best single-pass fix
+- Each result trigger compares `new_diff` against stored `diff_value` to decide keep/replace
+- Best result per chunk stored at `TEMPORARY_FIX_BUCKET/{stem}_{chunk_idx}.txt` (split) or `TEMPORARY_FIX_BUCKET/{stem}.txt` (unsplit)
 
 ---
 
@@ -226,119 +346,6 @@ Gemini Batch Complete (webhook callback)
          └── event has "batch_job_id"            → RESULT TRIGGER
 ```
 
-### Initial Trigger Flow (batch mode)
-
-```
-1. List .txt files from S3
-2. DynamoDB gate on MEDIA_TABLE (status == "transcribed")
-3. Fetch system prompts
-4. Split files > 5000 words into chunks
-5. Build JSONL entries
-6. Register each entry in FIX_TRACKER_TABLE:
-   - record_id (PK), retry_number=1, completed=false,
-     diff_value=999999, original_word_count=len(chunk.split())
-8. Upload JSONL to GCS via Gemini Files API
-9. Submit batch to Gemini Batch API → get batch_job_id
-10. Store in BATCH_JOBS_TABLE:
-    - batch_job_id (PK), gcs_file_name, result_file_s3=null, status="submitted"
-```
-
-### Result Trigger Flow
-
-```
-Reviewer Lambda receives { "batch_job_id": "..." }
-         ↓
-    1. Look up batch_job_id in BATCH_JOBS_TABLE
-       → get result_file_s3, gcs_file_name
-         ↓
-    2. Read result file from S3
-         ↓
-    3. Delete input JSONL from GCS (via Gemini Files API, using gcs_file_name)
-         ↓
-    4. Delete result file from S3
-         ↓
-    5. Delete batch_job_id row from BATCH_JOBS_TABLE
-         ↓
-    6. Per-entry diff calculation:
-       - Use utils/word_diff.py: word_count_diff(result_text, original_word_count)
-       - Compare against max_word_diff threshold (default 100, from config)
-       - Parse errors / empty responses treated as diff=999999
-         ↓
-    7. For each entry:
-       - Read stored diff_value and original_word_count from FIX_TRACKER_TABLE
-       - Calculate new_diff = abs(len(result_text.split()) - original_word_count)
-       - JSONL always contains the ORIGINAL chunk text, never a previous result
-       │
-       ├── new_diff <= max_word_diff (GOOD):
-       │     - Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt
-       │     - Update FIX_TRACKER_TABLE: completed=true, diff_value=new_diff
-       │     - No retry needed
-       │
-       ├── new_diff < stored diff_value (BETTER but not good enough):
-       │     - Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt (replace previous)
-       │     - Update FIX_TRACKER_TABLE: diff_value=new_diff, retry_number++
-       │     - Add to retry JSONL (with ORIGINAL chunk, not result)
-       │     - If last retry → use reasoning prompt for this chunk
-       │
-       └── new_diff >= stored diff_value (WORSE or equal):
-             - Keep existing file in TEMPORARY_FIX_BUCKET unchanged
-             - Update FIX_TRACKER_TABLE: retry_number++ (diff_value stays)
-             - Add to retry JSONL (with ORIGINAL chunk)
-             - If last retry → use reasoning prompt for this chunk
-         ↓
-    8. After processing all entries:
-       ├── Retry JSONL not empty:
-       │     - Upload new JSONL to GCS via Files API
-       │     - Submit new batch to Gemini → new batch_job_id
-       │     - Insert new row in BATCH_JOBS_TABLE
-       └── Retry JSONL empty (all chunks done):
-             - Merge split chunks: read {stem}_{1..N}.txt → concatenate → {stem}.txt
-             - Upload merged {stem}.txt to dynamo_entry.media_fixed_transcribed_bucket
-             - Copy .time → .pre-fix.time
-             - Send SQS messages for all completed media_ids
-             - Update MEDIA_TABLE status to "fixed"
-             - Clean up: source files, temporary-fix-files, FIX_TRACKER_TABLE entries
-```
-
-### DynamoDB Tables
-
-Three tables involved in batch processing:
-
-#### 1. MEDIA_TABLE (existing)
-
-Already used by `TranscriptionFile` / `DynamoReader`. No schema changes.
-
-| Field | Used for |
-|-------|----------|
-| `media_id` (PK) | Gate: only process if status == `"transcribed"` |
-| `status` | Updated to `"fixed"` on completion |
-| `context_files_bucket_s3` | System prompt + reasoning prompt location |
-| `media_transcribed_bucket` | Source bucket for `.time` file |
-| `media_fixed_transcribed_bucket` | Destination for merged fixed `.txt` |
-
-#### 2. FIX_TRACKER_TABLE (existing, reused for batch)
-
-Same table used by on-demand `FixTrackerService`. In batch mode, tracks per-chunk retry state.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `record_id` | S (PK) | `{stem}` or `{stem}_{chunk_idx}` if split |
-| `retry_number` | N | Current retry (starts at 1) |
-| `completed` | BOOL | Whether chunk passed quality check |
-| `diff_value` | N | Best word-count diff so far (initialized to 999999) |
-| `original_word_count` | N | Word count of original chunk (for diff calculation) |
-
-#### 3. BATCH_JOBS_TABLE (NEW)
-
-Tracks active batch jobs. Row deleted after result processing.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `batch_job_id` | S (PK) | Gemini batch job identifier |
-| `gcs_file_name` | S | Input JSONL file name in GCS (via Files API) |
-| `result_file_s3` | S | S3 key of result file (set by webhook Lambda) |
-| `status` | S | `submitted` → `received` (row deleted after processing) |
-
 ---
 
 ## Modified Lambda Handler
@@ -348,23 +355,19 @@ Tracks active batch jobs. Row deleted after result processing.
 
 def lambda_handler(event, context):
     container = DependenciesContainer()
-    orchestrator = container.orchestrator()
-
-    # Detect invocation type
     batch_job_id = event.get("batch_job_id") if isinstance(event, dict) else None
 
     if batch_job_id:
-        # RESULT TRIGGER — webhook Lambda forwarded batch_job_id after Gemini completed
-        result = orchestrator.handle_batch_results(batch_job_id, context)
+        # RESULT TRIGGER — use retrigger orchestrator
+        orchestrator = container.gemini_batch_retrigger_orchestrator(batch_job_id)
     else:
-        # INITIAL TRIGGER — CloudWatch alarm or manual invocation
-        prepare_result = orchestrator.prepare(context=context)
-        start_result = orchestrator.start()
+        # INITIAL TRIGGER — config selects on-demand vs batch
+        orchestrator = container.orchestrator()
 
-        if start_result.timed_out:
-            _reinvoke_self(context)
+    result = orchestrator.start()
 
-        result = start_result
+    if result.timed_out:
+        _reinvoke_self(context, event)
 
     return {"statusCode": 200, "result": result.to_dict()}
 ```
@@ -405,80 +408,231 @@ def lambda_handler(event, context):
 
 ---
 
+## Initial Trigger Flow (GeminiBatchOrchestrator)
+
+```
+GeminiBatchOrchestrator.start():
+  1. List .txt files from S3
+  2. DynamoDB gate on MEDIA_TABLE (status == "transcribed")
+  3. Fetch system prompts
+  4. Split file > 5000 words into chunks → BatchEntry list
+  5. Store original chunk to TEMPORARY_FIX_BUCKET/{record_id}.original.txt
+  6. Register each entry in FIX_TRACKER_TABLE:
+     record_id (PK), retry_number=1, completed=false,
+     diff_value=999999, original_word_count=len(chunk.split())
+  7. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
+  8. Build final JSONL from entries
+  9. Upload JSONL to GCS via Gemini Files API
+  10. Submit batch to Gemini Batch API → get batch_job_id
+  11. Store in BATCH_JOBS_TABLE:
+      batch_job_id (PK), gcs_file_name, result_file_s3=null, status="submitted"
+  Return StartResult(mode="async", job_ref=batch_job_name)
+```
+
+## Result Trigger Flow (GeminiBatchRetriggerOrchestrator)
+
+```
+Reviewer Lambda receives { "batch_job_id": "..." }
+         ↓
+    GeminiBatchRetriggerOrchestrator(batch_job_id) created via DI
+         ↓
+    start():
+
+      --- Retrieval Phase ---
+      1. Look up batch_job_id in BATCH_JOBS_TABLE → result_file_s3, gcs_file_name
+      2. Fetch results: from S3 (if cached by webhook) or Gemini API directly
+      3. Parse result JSONL → list of {key, response_text} entries
+      4. Delete old GCS input file (via Gemini Files API)
+      5. Delete result file from S3 (if exists)
+      6. Delete batch_job_id row from BATCH_JOBS_TABLE
+
+      --- Error Handling Phase (per result entry) ---
+      7. Check batchStats.failedRequestCount from job response
+      8. For each result entry, check if response is error (status object, not
+         GenerateContentResponse):
+         │
+         └── ERROR:
+               - Identify stem from record_id (strip chunk suffix)
+               - Copy original media from TRANSCRIPTION_BUCKET/{stem}.txt
+                 to DEAD_LETTER_BUCKET/{stem}.txt
+               - Copy all fixed chunks for that stem from
+                 TEMPORARY_FIX_BUCKET/{stem}*.txt to DEAD_LETTER_BUCKET/
+               - Delete all FIX_TRACKER_TABLE entries for that stem
+               - Delete temp files for that stem from TEMPORARY_FIX_BUCKET
+               - Mark stem as dead-lettered (skip in evaluation + finalize)
+               - Log error details for observability
+
+      --- Evaluation Phase (per non-error result entry) ---
+      9. Get tracker from FIX_TRACKER_TABLE
+      10. Calculate new_diff = word_count_diff(response_text, original_word_count)
+         │
+         ├── new_diff <= max_word_diff (GOOD):
+         │     - Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt
+         │     - Update FIX_TRACKER_TABLE: completed=true, diff_value=new_diff
+         │
+         ├── new_diff < stored diff_value (BETTER but not good enough):
+         │     - Write result to TEMPORARY_FIX_BUCKET/{record_id}.txt (replace previous)
+         │     - Update FIX_TRACKER_TABLE: diff_value=new_diff, retry_number++
+         │     - Add to retry accumulator (with ORIGINAL chunk from
+         │       TEMPORARY_FIX_BUCKET/{record_id}.original.txt)
+         │     - If last retry → use reasoning prompt for this chunk
+         │
+         └── new_diff >= stored diff_value (WORSE or equal):
+               - Keep existing file in TEMPORARY_FIX_BUCKET unchanged
+               - Update FIX_TRACKER_TABLE: retry_number++ (diff_value stays)
+               - Add to retry accumulator (with ORIGINAL chunk)
+               - If last retry → use reasoning prompt for this chunk
+
+      --- Retry or Finalize ---
+      11. If retry entries accumulated:
+           a. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
+           b. Build JSONL from retry entries
+           c. Upload to GCS via Files API
+           d. Submit new batch to Gemini → new batch_job_id
+           e. Store new batch_job_id in BATCH_JOBS_TABLE
+           Return StartResult(mode="async", job_ref=new_batch_job_name)
+
+      12. If no retry entries (all chunks done):
+           a. Merge split chunks: read {stem}_{1..N}.txt → concatenate → {stem}.txt
+           b. Upload merged {stem}.txt to dynamo_entry.media_fixed_transcribed_bucket
+           c. Copy .time → .pre-fix.time
+           d. Send SQS messages for all completed media_ids
+           e. Update MEDIA_TABLE status to "fixed"
+           f. Clean up: source files, temporary-fix-files, FIX_TRACKER_TABLE entries
+           g. Delete cached content: client.caches.delete(cache.name) 
+           Return StartResult(mode="completed", fixed=N, failed=M)
+```
+
+---
+
+## DynamoDB Tables
+
+Three tables involved in batch processing:
+
+#### 1. MEDIA_TABLE (existing)
+
+Already used by `TranscriptionFile` / `DynamoReader`. No schema changes.
+
+| Field | Used for |
+|-------|----------|
+| `media_id` (PK) | Gate: only process if status == `"transcribed"` |
+| `status` | Updated to `"fixed"` on completion |
+| `context_files_bucket_s3` | System prompt + reasoning prompt location |
+| `media_transcribed_bucket` | Source bucket for `.time` file |
+| `media_fixed_transcribed_bucket` | Destination for merged fixed `.txt` |
+
+#### 2. FIX_TRACKER_TABLE (existing, reused for batch)
+
+Same table used by on-demand `FixTrackerService`. In batch mode, tracks per-chunk retry state.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `media_id` | S (PK) | `{stem}` or `{stem}_{chunk_idx}` if split |
+| `retry_number` | N | Current retry (starts at 1) |
+| `completed` | BOOL | Whether chunk passed quality check |
+| `diff_value` | N | Best word-count diff so far (initialized to 999999) |
+| `original_word_count` | N | Word count of original chunk (for diff calculation) |
+
+#### 3. BATCH_JOBS_TABLE (NEW)
+
+Tracks active batch jobs. Row deleted after result processing.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `batch_job_id` | S (PK) | Gemini batch job identifier |
+| `gcs_file_name` | S | Input JSONL file name in GCS (via Files API) |
+| `result_file_s3` | S | S3 key of result file (set by webhook Lambda) |
+| `status` | S | `submitted` → `received` (row deleted after processing) |
+
+---
+
 ## File Changes Summary
 
 ### New Files
 
 | File | Description |
 |------|-------------|
-| `models/review_orchestrator.py` | `ReviewOrchestrator` abstract class + `PrepareResult`, `StartResult` |
-| `handlers/on_demand_orchestrator.py` | `OnDemandOrchestrator` — wraps existing flow |
-| `handlers/batch_orchestrator.py` | `BatchOrchestrator` — collect → batch → async |
-| `services/gemini_batch_pipeline.py` | `GeminiBatchPipeline(LLMPipeline)` |
-| `webhook_handler.py` | Webhook Lambda — receives Gemini callback, writes S3, invokes reviewer |
-| `utils/word_diff.py` | Shared word-count diff function (extracted from `GeminiPipeline`) |
+| `models/review_orchestrator.py` | `ReviewOrchestrator` abstract class (start only) + `StartResult` |
+| `handlers/on_demand_orchestrator.py` | `OnDemandOrchestrator` — absorbs process_transcriptions loop |
+| `handlers/gemini_batch_orchestrator.py` | `GeminiBatchOrchestrator` — initial trigger, self-contained |
+| `handlers/gemini_batch_retrigger_orchestrator.py` | `GeminiBatchRetriggerOrchestrator` — result trigger, self-contained |
+| `services/gemini_batch_service.py` | `GeminiBatchService` — shared Gemini API + DynamoDB helper |
+| `utils/word_diff.py` | Shared word-count diff function |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `handler.py` | Detect invocation type (initial vs result trigger), use orchestrator |
-| `infrastructure/dependency_injection.py` | Add orchestrator factory, `GeminiBatchPipeline` wiring |
+| `handler.py` | Detect invocation type (initial vs result trigger), route to correct orchestrator |
+| `infrastructure/dependency_injection.py` | Add `GeminiBatchService`, `GeminiBatchOrchestrator`, `GeminiBatchRetriggerOrchestrator` wiring |
 | `config.py` | Add batch_jobs_table name, results bucket |
-| `handlers/review.py` | No change — `process_transcriptions()` still used by `OnDemandOrchestrator` |
+
+### Deleted Files
+
+| File | Reason |
+|------|--------|
+| `handlers/review.py` | `process_transcriptions()` absorbed into `OnDemandOrchestrator.start()` |
+| `handlers/batch_orchestrator.py` | Split into two orchestrators |
+| `services/gemini_batch_pipeline.py` | Absorbed into `GeminiBatchService` + orchestrators |
 
 ### Unchanged Files
 
 | File | Reason |
 |------|--------|
-| `services/gemini_pipeline.py` | Refactored to use `utils/word_diff.py` for diff calculation |
+| `services/gemini_pipeline.py` | On-demand pipeline, used by `OnDemandOrchestrator` |
+| `models/llm_pipeline.py` | Abstract stays, `GeminiPipeline` extends it |
 | `services/bedrock_batch_pipeline.py` | Separate backend, unaffected |
-| `models/llm_pipeline.py` | Abstract interface unchanged |
-| `handlers/review.py` | Reused by `OnDemandOrchestrator.start()` |
 
 ---
 
 ## Migration Path
 
-### Phase 1: Orchestrator Scaffold
-1. Create `ReviewOrchestrator` abstract class
-2. Implement `OnDemandOrchestrator` wrapping existing flow
+### Phase 1: Orchestrator Scaffold + OnDemandOrchestrator
+1. Create `ReviewOrchestrator` abstract class with `start()` only
+2. Implement `OnDemandOrchestrator` absorbing `process_transcriptions()` loop
 3. Update `handler.py` to use orchestrator
 4. **Zero behavior change** — on-demand path works exactly as before
 
-### Phase 2: Gemini Batch Pipeline
-1. Implement `GeminiBatchPipeline` (JSONL creation + Gemini Batch API submission)
-2. Implement `BatchOrchestrator` (collect files → delegate to pipeline)
-3. Add DI wiring + config flag
+### Phase 2: GeminiBatchService
+1. Create `services/gemini_batch_service.py`
+2. Extract shared code: Gemini caching, JSONL build/upload/submit, result fetch/parse, DynamoDB table ops
+3. Wire in DI container
 
-### Phase 3: Result Trigger + DynamoDB
-1. Add result trigger detection in `handler.py` (batch_job_id in event)
-2. Implement `BatchOrchestrator.handle_batch_results()`:
-   - Quality check per chunk (word-diff threshold)
-   - Reasoning prompt on last retry
-   - Re-batch failures or finalize (merge chunks → upload → SQS)
-3. Create BATCH_JOBS_TABLE in DynamoDB
-4. Reuse FIX_TRACKER_TABLE for per-chunk retry tracking
-5. Cleanup logic: delete batch_job row, S3 result file, GCS input JSONL
+### Phase 3: GeminiBatchOrchestrator (Initial Trigger)
+1. Create `handlers/gemini_batch_orchestrator.py`
+2. `start()` does: file listing → splitting → tracker registration → batch submission
+3. Uses `GeminiBatchService` for Gemini API + DynamoDB
+4. Wire in DI, add config flag selection
 
-### Phase 4: Webhook Lambda (LATER)
+### Phase 4: GeminiBatchRetriggerOrchestrator (Result Trigger)
+1. Create `handlers/gemini_batch_retrigger_orchestrator.py`
+2. `start()` does: result fetch → diff eval → retry submit or finalize
+3. Update `handler.py` to route `batch_job_id` events to retrigger orchestrator
+4. Wire in DI
+
+### Phase 5: Cleanup
+1. Delete `handlers/review.py`
+2. Delete `handlers/batch_orchestrator.py`
+3. Delete `services/gemini_batch_pipeline.py`
+4. Remove old factories from DI container
+
+### Phase 6: Webhook Lambda (LATER)
 1. Implement `webhook_handler.py` (lightweight Lambda)
 2. Deploy webhook Lambda + API Gateway endpoint
 3. Wire Gemini batch callback URL
-
-### Phase 5: Cleanup
-1. Remove `BedrockBatchPipeline` if fully migrated (optional)
-2. Update README.md with new architecture diagram
-3. Add integration tests for batch flow
 
 ---
 
 ## Design Decisions
 
-- **No dead-lettering in batch mode.** Chunks always finalize with best-effort result after max retries.
-- **Reasoning prompt on last retry.** When a chunk reaches its last retry, use `{stem}.template.reasoning.txt` from `context_files_bucket_s3` (same as on-demand last-attempt logic).
-- **Chunk merge on finalize.** Split chunks (`{stem}_{1..N}.txt`) are concatenated in order → single `{stem}.txt` → uploaded to `dynamo_entry.media_fixed_transcribed_bucket`.
-- **Cleanup per result trigger.** Each invocation deletes: batch_job_id row from BATCH_JOBS_TABLE, result file from S3, input JSONL from GCS.
+- **No two-layer abstraction.** Each orchestrator owns its full lifecycle — no separate pipeline classes for batch.
+- **GeminiBatchService for shared code.** Composition over inheritance. Both batch orchestrators use it, but each controls when/how to call its methods.
+- **batch_job_id as constructor param.** `GeminiBatchRetriggerOrchestrator` is constructed with the specific job to process. Single-purpose, testable.
+- **Dead-letter on Gemini errors.** When Gemini batch returns errors (status object instead of GenerateContentResponse), the entire media (all chunks of that stem) is copied to `DEAD_LETTER_BUCKET` along with any fixed chunks. Tracker entries and temp files for that stem are cleaned up. Non-error chunks of other stems proceed normally.
+- **Reasoning prompt on last retry.** When a chunk reaches its last retry, use `{stem}.template.reasoning.txt` from `context_files_bucket_s3`.
+- **Chunk merge on finalize.** Split chunks (`{stem}_{1..N}.txt`) concatenated in order → single `{stem}.txt` → uploaded.
+- **Cleanup per result trigger.** Each invocation deletes: BATCH_JOBS row, result file from S3, input JSONL from GCS.
+- **JSONL always sends original chunk.** Never a previous LLM result. Goal is best single-pass fix.
 
 ## Open Questions
 
