@@ -61,6 +61,36 @@ class DynamoDBClient:
             logger.error("DynamoDB put_item_conditional failed: %s", e)
             raise
 
+    def scan(
+        self,
+        table_name: str,
+        filter_expression: str | None = None,
+        expression_values: dict | None = None,
+        expression_names: dict | None = None,
+    ) -> list[dict]:
+        """Scan table with optional filter. Handles pagination."""
+        items: list[dict] = []
+        kwargs: dict = {"TableName": table_name}
+        if filter_expression:
+            kwargs["FilterExpression"] = filter_expression
+        if expression_values:
+            kwargs["ExpressionAttributeValues"] = expression_values
+        if expression_names:
+            kwargs["ExpressionAttributeNames"] = expression_names
+
+        try:
+            while True:
+                response = self._client.scan(**kwargs)
+                items.extend(response.get("Items", []))
+                last_key = response.get("LastEvaluatedKey")
+                if not last_key:
+                    break
+                kwargs["ExclusiveStartKey"] = last_key
+        except Exception as e:
+            logger.error("DynamoDB scan failed: %s", e)
+
+        return items
+
     def delete_item(self, table_name: str, key: dict) -> bool:
         try:
             self._client.delete_item(TableName=table_name, Key=key)

@@ -28,7 +28,8 @@
     "output_prefix": ""
   },
   "dynamodb": {
-    "table_name": "transcription-tracker"
+    "table_name": "transcription-tracker",
+    "batch_jobs_table": "transcription-batch-jobs"
   },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
@@ -61,7 +62,8 @@
     "thinking_budget": "8192",
     "cache_enabled": "true",
     "cache_ttl_seconds": "4800",
-    "cache_guard_seconds": "480"
+    "cache_guard_seconds": "480",
+    "batch_webhook_url": "your-webhook-url"
   },
   "batch": {
     "min_entries": "100",

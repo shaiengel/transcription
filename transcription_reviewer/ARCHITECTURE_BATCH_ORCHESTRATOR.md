@@ -25,10 +25,11 @@ ReviewOrchestrator (abstract)
   └── GeminiBatchRetriggerOrchestrator
         uses: GeminiBatchService (shared helper)
 
-GeminiBatchService (composition — not an orchestrator)
-  Encapsulates: Gemini client, caching, JSONL build/upload/submit,
+GeminiBatchService (composition — not an orchestrator, stateless)
+  Encapsulates: Gemini client, JSONL build/upload/submit,
                 result fetch/parse, GCS cleanup,
                 FIX_TRACKER_TABLE + BATCH_JOBS_TABLE operations
+  Cache dict owned by orchestrators, passed to service methods
 ```
 
 ---
@@ -125,11 +126,10 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
 
     def start(self) -> StartResult:
         # --- Retrieval ---
-        # 1. Look up batch_job_id in BATCH_JOBS_TABLE → result_file_s3, gcs_file_name
-        # 2. Fetch results: from S3 (if result_file_s3 set) or Gemini API
-        #    - Check batchStats.failedRequestCount for batch-level failures
-        # 3. Parse result JSONL — each line is either GenerateContentResponse or error status
-        # 4. Clean up: delete old GCS input file, delete result file from S3, delete BATCH_JOBS row
+        # 1. Look up batch_job_id in BATCH_JOBS_TABLE → gcs_input_file, output_file_uri, caches
+        # 2. Download and parse output file (output_file_uri) from GCS
+        # 3. Parse results — each entry has key, response (GenerateContentResponse), error
+        # 4. Clean up: delete GCS input file (via Files API), delete BATCH_JOBS row
         #
         # --- Evaluation (per result entry) ---
         # 5. Get tracker from FIX_TRACKER_TABLE
@@ -182,46 +182,61 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
 
 ## GeminiBatchService (Shared Helper)
 
-Composition helper used by both batch orchestrators. Encapsulates Gemini API client, caching, JSONL operations, and DynamoDB table operations. Not an orchestrator — no lifecycle methods.
+Composition helper used by both batch orchestrators. Encapsulates Gemini API client, JSONL operations, and DynamoDB table operations. Not an orchestrator — no lifecycle methods. Stateless with respect to caches: orchestrators own the `caches: dict[str, tuple[str, float]]` dict (keyed by `prompt_hash`) and pass it to service methods.
 
 ```python
 class GeminiBatchService:
-    """Gemini Batch API operations + DynamoDB table ops for batch orchestrators."""
+    """Gemini Batch API operations + DynamoDB table ops for batch orchestrators.
+    Stateless — does not hold cache state. Callers own the caches dict."""
 
     def __init__(self, dynamodb_client: DynamoDBClient):
         self._client = genai.Client(api_key=config.google_api_key)
         self._dynamodb_client = dynamodb_client
-        self._prompt_caches: dict[str, tuple[str, float]] = {}
 
     # --- Gemini API ---
 
-    def get_or_create_cache(self, system_prompt: str) -> str | None:
-        """Get or create a cached content entry for the system prompt."""
+    @staticmethod
+    def compute_prompt_hash(system_prompt: str) -> str:
+        """md5[:8] of whitespace-normalized prompt. Used as cache dict key and BatchEntry.prompt_hash."""
+        ...
+
+    def get_or_create_cache(
+        self, system_prompt: str, caches: dict[str, tuple[str, float]]
+    ) -> str | None:
+        """Get or create a cached content entry for the system prompt.
+        Mutates `caches` dict (keyed by prompt_hash) with (cache_name, expiry).
+        Returns cache name or None if caching disabled/failed."""
         ...
 
     def build_and_submit_batch(
         self,
         entries: list[BatchEntry],
-        reasoning_prompts: set[str] | None = None,
+        caches: dict[str, tuple[str, float]],
+        reasoning_media_ids: set[str] | None = None,
     ) -> tuple[str, str]:
-        """Build JSONL, upload to GCS, submit batch. Returns (job_name, gcs_file_name)."""
+        """Build JSONL, upload to GCS, submit batch. Returns (job_name, gcs_input_file).
+        Uses entry.prompt_hash to look up cache_name from caches dict.
+        If GEMINI_BATCH_WEBHOOK_URL configured, sets webhook_config on batch."""
         ...
 
-    def fetch_batch_results(self, batch_job_name: str) -> list[dict]:
-        """Fetch and parse results from completed batch job."""
+    def fetch_batch_results(self, output_file_uri: str) -> list[dict]:
+        """Download output JSONL from GCS via client.files.download(),
+        parse each line into {key, response, error} dicts."""
         ...
 
-    def delete_gcs_file(self, gcs_file_name: str) -> None:
+    def delete_gcs_file(self, gcs_input_file: str) -> None:
         """Delete input JSONL from GCS via Files API."""
         ...
 
     # --- JSONL ---
 
-    @staticmethod
-    def build_jsonl(entries: list[BatchEntry], cache_map: dict) -> str: ...
-
-    @staticmethod
-    def parse_result_jsonl(content: str) -> list[dict]: ...
+    def _build_jsonl(
+        entries: list[BatchEntry],
+        caches: dict[str, tuple[str, float]],
+        reasoning_media_ids: set[str] | None = None,
+    ) -> str:
+        """Build JSONL string. Looks up cache via entry.prompt_hash in caches dict."""
+        ...
 
     @staticmethod
     def split_by_words(content: str, max_words: int) -> list[str]: ...
@@ -249,14 +264,23 @@ class GeminiBatchService:
 
     # --- BATCH_JOBS_TABLE ---
 
-    def store_batch_job(self, batch_job_id: str, gcs_file_name: str) -> None: ...
-    def get_batch_job(self, batch_job_id: str) -> dict | None: ...
+    def store_batch_job(
+        self, batch_job_id: str, gcs_input_file: str,
+        caches: dict[str, tuple[str, float]],
+    ) -> None:
+        """Store batch job + serialized caches dict in BATCH_JOBS_TABLE."""
+        ...
+
+    def get_batch_job(self, batch_job_id: str) -> tuple[dict | None, dict[str, tuple[str, float]]]:
+        """Returns (job_record, deserialized caches dict)."""
+        ...
+
     def delete_batch_job(self, batch_job_id: str) -> None: ...
 
     # --- Cache Cleanup ---
 
-    def delete_prompt_caches(self) -> None:
-        """Delete all cached content created during this batch lifecycle via client.caches.delete()."""
+    def delete_prompt_caches(self, caches: dict[str, tuple[str, float]]) -> None:
+        """Delete all cached content via client.caches.delete(). Called only at finalization."""
         ...
 
     # --- Dead Letter ---
@@ -277,6 +301,8 @@ Gemini Batch API supports `cached_content` in JSONL entries ([docs](https://ai.g
 - If `GEMINI_CACHE_ENABLED=true` (config.cache_enabled): create cached content per unique system prompt before building JSONL. Set `cached_content` field in each JSONL entry.
 - If `GEMINI_CACHE_ENABLED=false`: set `system_instruction` inline per entry (no caching).
 - **Reasoning entries are never cached.** When a chunk is on its last retry, it uses `{stem}.template.reasoning.txt` — a different system prompt. These entries use `system_instruction` inline, not `cached_content`.
+- **Cache dict ownership:** Orchestrators own `caches: dict[str, tuple[str, float]]` (keyed by `prompt_hash` = md5[:8] of normalized prompt). `GeminiBatchService.get_or_create_cache()` mutates this dict. Dict is persisted in `BATCH_JOBS_TABLE` so retrigger orchestrator can restore it across Lambda invocations.
+- **Cache cleanup:** `delete_prompt_caches(caches)` called only by retrigger orchestrator at finalization (no more retries).
 
 **JSONL entry format (cached):**
 ```json
@@ -324,26 +350,89 @@ def word_count_diff(text: str, original_word_count: int) -> int:
 
 Two-Lambda design. Webhook Lambda must return fast to Gemini. Processing happens in existing reviewer Lambda.
 
-> **NOTE**: Do not implement the lightweight webhook Lambda now. It will be implemented later.
+Webhook URL is configured via `GEMINI_BATCH_WEBHOOK_URL` env var and passed to Gemini Batch API using `webhook_config` in `CreateBatchJobConfig`. Gemini calls this URL when batch job completes.
+
+**NOTE**: Do not implement the lightweight webhook Lambda now. It will be implemented later as a separate file (`webhook_handler.py`).
+
+### File Concepts: Input vs Output
+
+Two distinct GCS files exist in the batch flow — do not confuse them:
+
+| Concept | Field in BATCH_JOBS_TABLE | Origin | Cleanup |
+|---------|--------------------------|--------|---------|
+| **Input JSONL** | `gcs_input_file` | Created locally, uploaded via `client.files.upload()`. Contains request entries sent TO Gemini. | Deleted by retrigger orchestrator via `client.files.delete()` after processing. |
+| **Output result file** | `output_file_uri` | Created by Gemini when batch completes. GCS URI delivered via webhook envelope `data.output_file_uri`. | Managed by Gemini's lifecycle — not deleted by our code. |
+
+Results are fetched by downloading `output_file_uri` via `client.files.download()` and parsing the JSONL. Each line contains `{key, response, error}`.
+
+### Webhook Envelope Format
+
+When a batch job completes, Gemini sends a POST to the registered webhook URL:
+
+```json
+{
+  "type": "batch.succeeded",
+  "version": "v1",
+  "timestamp": "2026-01-22T12:00:00Z",
+  "data": {
+    "id": "batches/batch_123456",
+    "output_file_uri": "gs://my-bucket/results.jsonl"
+  }
+}
+```
+
+Other event types: `batch.failed` (has `error_code`, `error_message`), `batch.cancelled`, `batch.expired`.
+
+### Webhook Signature Verification
+
+Gemini webhook uses JWT in the `Webhook-Signature` header, signed with RS256:
+
+1. Extract JWT from `Webhook-Signature` header
+2. Fetch Google's public keys from `https://generativelanguage.googleapis.com/.well-known/jwks.json`
+3. Verify JWT using RS256 with matching `kid` (key ID)
+4. Validate audience claim
+
+Use `PyJWT` + `cryptography` for verification. Cache JWKS at module level for Lambda container reuse.
 
 ### Architecture
 
 ```
-Gemini Batch Complete (webhook callback)
+Gemini Batch Complete (webhook callback → GEMINI_BATCH_WEBHOOK_URL)
          ↓
-    Webhook Lambda (NEW, lightweight — TO BE IMPLEMENTED LATER)
-       - Extract batch_job_id from Gemini callback
-       - Look up batch_job_id in DynamoDB batch_jobs table
-       - If status == "finished" → return 200, do nothing
-       - Write result payload to S3 as result file
-       - Update batch_jobs table: result_file_s3 = key, status = "received"
-       - Invoke transcription-reviewer Lambda with { "batch_job_id": "..." }
+    Webhook Lambda (NEW, lightweight, separate file — TO BE IMPLEMENTED LATER)
+       - Verify JWT signature from Webhook-Signature header
+       - Parse webhook envelope JSON body
+       - Extract data.id (batch_job_id) and data.output_file_uri
+       - If type != "batch.succeeded" → return 200 (ignore other events)
+       - Look up batch_job_id in BATCH_JOBS_TABLE
+       - If not found or status == "received" → return 200 (idempotent)
+       - Update BATCH_JOBS_TABLE: output_file_uri = data.output_file_uri, status = "received"
+       - Invoke transcription-reviewer Lambda async with { "batch_job_id": "..." }
        - Return 200 immediately
          ↓
     Transcription Reviewer Lambda (EXISTING, new invocation mode)
        - Detect invocation type:
          ├── No event payload / CloudWatch alarm → INITIAL TRIGGER (normal)
          └── event has "batch_job_id"            → RESULT TRIGGER
+```
+
+### Webhook Registration
+
+`GeminiBatchService.build_and_submit_batch()` passes `webhook_config` when `GEMINI_BATCH_WEBHOOK_URL` is set:
+
+```python
+batch_config = types.CreateBatchJobConfig(
+    display_name=f"transcription_batch_{int(time.time())}",
+)
+if self._webhook_url:
+    batch_config.webhook_config = types.WebhookConfig(
+        uris=[self._webhook_url],
+    )
+batch = self._client.batches.create(
+    model=self._model_name,
+    src=gcs_input_file,
+    config=batch_config,
+)
 ```
 
 ---
@@ -374,32 +463,77 @@ def lambda_handler(event, context):
 
 ### Webhook Lambda (NEW — TO BE IMPLEMENTED LATER)
 
-> **NOTE**: This Lambda will be implemented in a future phase. Pseudocode below for reference only.
+> **NOTE**: This Lambda will be implemented in a future phase as a **separate file** (`webhook_handler.py`).
+> It is intentionally lightweight — does NOT import `GeminiBatchService` or the Gemini SDK.
+> Uses raw boto3 (DynamoDB + Lambda invoke) only.
 
 ```python
-# webhook_handler.py — lightweight, must return fast to Gemini
+# webhook_handler.py — lightweight, separate Lambda, must return fast to Gemini
+# Env vars: BATCH_JOBS_TABLE, REVIEWER_FUNCTION_ARN, GEMINI_WEBHOOK_JWKS_URL (optional)
+# Dependencies: PyJWT, cryptography, boto3, requests (or urllib3)
+
+import json, os, jwt, requests, boto3
+from functools import lru_cache
+
+JWKS_URL = os.getenv(
+    "GEMINI_WEBHOOK_JWKS_URL",
+    "https://generativelanguage.googleapis.com/.well-known/jwks.json",
+)
+
+@lru_cache(maxsize=1)
+def _get_jwks():
+    return requests.get(JWKS_URL).json()
+
+def _verify_signature(token: str) -> dict:
+    """Verify JWT from Webhook-Signature header against Google's JWKS."""
+    jwks = _get_jwks()
+    header = jwt.get_unverified_header(token)
+    key = next(k for k in jwks["keys"] if k["kid"] == header["kid"])
+    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+    return jwt.decode(token, public_key, algorithms=["RS256"])
 
 def lambda_handler(event, context):
-    # 1. Extract batch_job_id and result from Gemini webhook payload
-    batch_job_id = extract_job_id(event)
-    result_data = extract_result(event)
+    # 1. Verify webhook signature
+    signature = event["headers"].get("Webhook-Signature", "")
+    try:
+        _verify_signature(signature)
+    except Exception:
+        return {"statusCode": 401, "body": "Invalid signature"}
 
-    # 2. Check DynamoDB — if already finished, return 200 immediately (idempotent)
-    job = dynamo.get_item(batch_job_id)
-    if job and job["status"] == "finished":
+    # 2. Parse webhook envelope
+    body = json.loads(event.get("body", "{}"))
+    event_type = body.get("type", "")
+    data = body.get("data", {})
+    batch_job_id = data.get("id", "")
+    output_file_uri = data.get("output_file_uri", "")
+
+    if event_type != "batch.succeeded" or not batch_job_id:
         return {"statusCode": 200}
 
-    # 3. Write result to S3
-    result_key = f"batch-results/{batch_job_id}.json"
-    s3.put_object(Bucket=RESULTS_BUCKET, Key=result_key, Body=json.dumps(result_data))
+    # 3. Idempotency check
+    dynamo = boto3.client("dynamodb")
+    table = os.environ["BATCH_JOBS_TABLE"]
+    job = dynamo.get_item(TableName=table, Key={"batch_job_id": {"S": batch_job_id}})
+    item = job.get("Item")
+    if not item or item.get("status", {}).get("S") == "received":
+        return {"statusCode": 200}
 
-    # 4. Update DynamoDB batch_jobs: result_file_s3, status="received"
-    dynamo.update_item(batch_job_id, result_file_s3=result_key, status="received")
+    # 4. Update BATCH_JOBS_TABLE: store output_file_uri, set status="received"
+    dynamo.update_item(
+        TableName=table,
+        Key={"batch_job_id": {"S": batch_job_id}},
+        UpdateExpression="SET output_file_uri = :o, #s = :s",
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={
+            ":o": {"S": output_file_uri},
+            ":s": {"S": "received"},
+        },
+    )
 
     # 5. Invoke reviewer Lambda async with batch_job_id
-    lambda_client.invoke(
-        FunctionName=REVIEWER_FUNCTION_ARN,
-        InvocationType="Event",  # async
+    boto3.client("lambda").invoke(
+        FunctionName=os.environ["REVIEWER_FUNCTION_ARN"],
+        InvocationType="Event",
         Payload=json.dumps({"batch_job_id": batch_job_id}),
     )
 
@@ -415,17 +549,19 @@ GeminiBatchOrchestrator.start():
   1. List .txt files from S3
   2. DynamoDB gate on MEDIA_TABLE (status == "transcribed")
   3. Fetch system prompts
-  4. Split file > 5000 words into chunks → BatchEntry list
-  5. Store original chunk to TEMPORARY_FIX_BUCKET/{record_id}.original.txt
-  6. Register each entry in FIX_TRACKER_TABLE:
+  4. Compute prompt_hash = GeminiBatchService.compute_prompt_hash(system_prompt)
+  5. Split file > 5000 words into chunks → BatchEntry list (each entry carries prompt_hash)
+  6. Store original chunk to TEMPORARY_FIX_BUCKET/{record_id}.original.txt
+  7. Register each entry in FIX_TRACKER_TABLE:
      record_id (PK), retry_number=1, completed=false,
      diff_value=999999, original_word_count=len(chunk.split())
-  7. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
-  8. Build final JSONL from entries
-  9. Upload JSONL to GCS via Gemini Files API
-  10. Submit batch to Gemini Batch API → get batch_job_id
-  11. Store in BATCH_JOBS_TABLE:
-      batch_job_id (PK), gcs_file_name, result_file_s3=null, status="submitted"
+  8. Init caches: dict[str, tuple[str, float]] = {}
+  9. Create caches per unique system_prompt via svc.get_or_create_cache(prompt, caches)
+  10. Build JSONL from entries (uses entry.prompt_hash to look up cache in caches dict)
+  11. Upload JSONL to GCS via Gemini Files API
+  12. Submit batch to Gemini Batch API (with webhook_config if GEMINI_BATCH_WEBHOOK_URL set) → get batch_job_id
+  13. Store in BATCH_JOBS_TABLE via svc.store_batch_job(batch_job_id, gcs_input_file, caches):
+      batch_job_id (PK), gcs_input_file, prompt_caches, output_file_uri=null, status="submitted"
   Return StartResult(mode="async", job_ref=batch_job_name)
 ```
 
@@ -439,11 +575,11 @@ Reviewer Lambda receives { "batch_job_id": "..." }
     start():
 
       --- Retrieval Phase ---
-      1. Look up batch_job_id in BATCH_JOBS_TABLE → result_file_s3, gcs_file_name
-      2. Fetch results: from S3 (if cached by webhook) or Gemini API directly
-      3. Parse result JSONL → list of {key, response_text} entries
-      4. Delete old GCS input file (via Gemini Files API)
-      5. Delete result file from S3 (if exists)
+      1. Look up batch_job_id in BATCH_JOBS_TABLE → gcs_input_file, output_file_uri, caches
+         (caches: dict[str, tuple[str, float]] deserialized from prompt_caches)
+      2. Download output file from GCS via client.files.download(file=output_file_uri)
+      3. Parse output JSONL → list of {key, response, error} entries
+      4. Delete GCS input file (via Gemini Files API)
       6. Delete batch_job_id row from BATCH_JOBS_TABLE
 
       --- Error Handling Phase (per result entry) ---
@@ -485,11 +621,12 @@ Reviewer Lambda receives { "batch_job_id": "..." }
 
       --- Retry or Finalize ---
       11. If retry entries accumulated:
-           a. Create caches per unique system_prompt (if GEMINI_CACHE_ENABLED)
-           b. Build JSONL from retry entries
-           c. Upload to GCS via Files API
-           d. Submit new batch to Gemini → new batch_job_id
-           e. Store new batch_job_id in BATCH_JOBS_TABLE
+           a. Build retry BatchEntry list (each carries prompt_hash via compute_prompt_hash)
+           b. Create/refresh caches per unique prompt_hash via svc.get_or_create_cache(prompt, caches)
+           c. Build JSONL from retry entries (uses entry.prompt_hash for cache lookup)
+           d. Upload to GCS via Files API
+           e. Submit new batch to Gemini → new batch_job_id
+           f. Store new batch_job_id + caches via svc.store_batch_job(id, gcs_input_file, caches)
            Return StartResult(mode="async", job_ref=new_batch_job_name)
 
       12. If no retry entries (all chunks done):
@@ -499,7 +636,7 @@ Reviewer Lambda receives { "batch_job_id": "..." }
            d. Send SQS messages for all completed media_ids
            e. Update MEDIA_TABLE status to "fixed"
            f. Clean up: source files, temporary-fix-files, FIX_TRACKER_TABLE entries
-           g. Delete cached content: client.caches.delete(cache.name) 
+           g. Delete cached content via svc.delete_prompt_caches(caches)
            Return StartResult(mode="completed", fixed=N, failed=M)
 ```
 
@@ -540,9 +677,10 @@ Tracks active batch jobs. Row deleted after result processing.
 | Field | Type | Description |
 |-------|------|-------------|
 | `batch_job_id` | S (PK) | Gemini batch job identifier |
-| `gcs_file_name` | S | Input JSONL file name in GCS (via Files API) |
-| `result_file_s3` | S | S3 key of result file (set by webhook Lambda) |
+| `gcs_input_file` | S | Input JSONL file name uploaded via Files API (deleted by retrigger after processing) |
+| `output_file_uri` | S or NULL | GCS URI of output result file (set by webhook Lambda, used for debugging only — results fetched via SDK) |
 | `status` | S | `submitted` → `received` (row deleted after processing) |
+| `prompt_caches` | M | Serialized cache dict: `{prompt_hash: {"name": cache_name, "expiry": timestamp}}` |
 
 ---
 
@@ -619,7 +757,8 @@ Tracks active batch jobs. Row deleted after result processing.
 ### Phase 6: Webhook Lambda (LATER)
 1. Implement `webhook_handler.py` (lightweight Lambda)
 2. Deploy webhook Lambda + API Gateway endpoint
-3. Wire Gemini batch callback URL
+3. Set `GEMINI_BATCH_WEBHOOK_URL` to API Gateway endpoint URL
+4. Webhook registered automatically via `webhook_config` in batch submission
 
 ---
 
@@ -631,7 +770,7 @@ Tracks active batch jobs. Row deleted after result processing.
 - **Dead-letter on Gemini errors.** When Gemini batch returns errors (status object instead of GenerateContentResponse), the entire media (all chunks of that stem) is copied to `DEAD_LETTER_BUCKET` along with any fixed chunks. Tracker entries and temp files for that stem are cleaned up. Non-error chunks of other stems proceed normally.
 - **Reasoning prompt on last retry.** When a chunk reaches its last retry, use `{stem}.template.reasoning.txt` from `context_files_bucket_s3`.
 - **Chunk merge on finalize.** Split chunks (`{stem}_{1..N}.txt`) concatenated in order → single `{stem}.txt` → uploaded.
-- **Cleanup per result trigger.** Each invocation deletes: BATCH_JOBS row, result file from S3, input JSONL from GCS.
+- **Cleanup per result trigger.** Each invocation deletes: BATCH_JOBS row, GCS input file (via Files API). Output result file managed by Gemini's lifecycle.
 - **JSONL always sends original chunk.** Never a previous LLM result. Goal is best single-pass fix.
 
 ## Open Questions

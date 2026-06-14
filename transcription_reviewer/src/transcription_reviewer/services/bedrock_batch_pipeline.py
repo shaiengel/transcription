@@ -54,10 +54,10 @@ class BedrockBatchPipeline(LLMPipeline):
                 logger.info(f"Split {f.stem} into {len(chunks)} chunks")
 
             for i, (chunk_content, chunk_tokens) in enumerate(chunks, start=1):
-                record_id = f.stem if len(chunks) == 1 else f"{f.stem}_{i}"
+                media_id = f.stem if len(chunks) == 1 else f"{f.stem}_{i}"
                 entries.append(
                     BatchEntry(
-                        record_id=record_id,
+                        media_id=media_id,
                         system_prompt=f.system_prompt,
                         content=chunk_content,
                         token_count=chunk_tokens,
@@ -68,7 +68,7 @@ class BedrockBatchPipeline(LLMPipeline):
         for i in range(len(entries), self._min_entries):
             entries.append(
                 BatchEntry(
-                    record_id=f"dummy_{i}",
+                    media_id=f"dummy_{i}",
                     system_prompt="ok",
                     content="ok",
                     token_count=2,
@@ -158,7 +158,7 @@ class BedrockBatchPipeline(LLMPipeline):
         with open(output_path, "w", encoding="utf-8") as f:
             for entry in entries:
                 record = {
-                    "recordId": entry.record_id,
+                    "recordId": entry.media_id,
                     "modelInput": {
                         "anthropic_version": "bedrock-2023-05-31",
                         "max_tokens": self._max_tokens,
