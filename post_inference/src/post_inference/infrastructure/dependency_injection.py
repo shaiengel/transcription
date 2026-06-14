@@ -86,16 +86,16 @@ class DependenciesContainer(DeclarativeContainer):
     )
 
     # --- Active implementation (uncomment one) ---
-    post_processor = providers.Singleton(
-        BedrockPostProcessing,
-        s3_client=s3_client,
-        sqs_client=sqs_client,
-        bedrock_client=bedrock_boto_client,
-        batch_result_processor=batch_result_processor,
-    )
     # post_processor = providers.Singleton(
-    #     GeminiPostProcessing,
-    #     jwt_verifier=jwt_verifier,
-    #     dynamodb_client=dynamodb_client,
-    #     lambda_client=lambda_boto_client,
+    #     BedrockPostProcessing,
+    #     s3_client=s3_client,
+    #     sqs_client=sqs_client,
+    #     bedrock_client=bedrock_boto_client,
+    #     batch_result_processor=batch_result_processor,
     # )
+    post_processor = providers.Singleton(
+        GeminiPostProcessing,
+        jwt_verifier=jwt_verifier,
+        dynamodb_client=dynamodb_client,
+        lambda_client=lambda_boto_client,
+    )
