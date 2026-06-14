@@ -17,7 +17,8 @@
     "profile_reviewer": "reviewer",
     "profile_post_reviewer": "post_reviewer",
     "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role",
-    "region": "us-east-1"
+    "region": "us-east-1",
+    "reviewer_function_name": "portal-transcription-reviewer"
   },
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",
@@ -63,7 +64,8 @@
     "cache_enabled": "true",
     "cache_ttl_seconds": "4800",
     "cache_guard_seconds": "480",
-    "batch_webhook_url": "your-webhook-url"
+    "batch_webhook_url": "your-webhook-url",
+    "webhook_audience": "302773698264"
   },
   "batch": {
     "min_entries": "100",

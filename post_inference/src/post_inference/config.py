@@ -22,5 +22,14 @@ class Config:
     audio_bucket: str = os.getenv("AUDIO_BUCKET", "portal-daf-yomi-audio")
     sqs_queue_url: str = os.getenv("SQS_QUEUE_URL", "")
 
+    # Gemini webhook (used when GeminiPostProcessing is active)
+    google_webhook_audience: str = os.getenv("GOOGLE_WEBHOOK_AUDIENCE", "")
+    google_jwks_url: str = os.getenv(
+        "GOOGLE_JWKS_URL",
+        "https://generativelanguage.googleapis.com/.well-known/jwks.json",
+    )
+    batch_jobs_table: str = os.getenv("BATCH_JOBS_TABLE", "transcription-batch-jobs")
+    reviewer_function_name: str = os.getenv("REVIEWER_FUNCTION_NAME", "")
+
 
 config = Config()

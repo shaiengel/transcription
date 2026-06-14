@@ -1,13 +1,17 @@
-"""Dependency injection container for the application."""
-
 import os
 
 import boto3
 from dependency_injector import providers
 from dependency_injector.containers import DeclarativeContainer
 
+from post_inference.config import config
+from post_inference.handlers.bedrock_post_processing import BedrockPostProcessing
+from post_inference.handlers.gemini_post_processing import GeminiPostProcessing
+from post_inference.infrastructure.dynamodb_client import DynamoDBClient
 from post_inference.infrastructure.s3_client import S3Client
 from post_inference.infrastructure.sqs_client import SQSClient
+from post_inference.services.batch_result_processor import BatchResultProcessor
+from post_inference.services.jwt_verifier import JWTVerifier
 
 
 def _create_session() -> boto3.Session:
@@ -26,7 +30,6 @@ def _create_session() -> boto3.Session:
 
 
 class DependenciesContainer(DeclarativeContainer):
-    """DI container for the application."""
 
     session = providers.Singleton(_create_session)
 
@@ -40,13 +43,11 @@ class DependenciesContainer(DeclarativeContainer):
         client=s3_boto_client,
     )
 
-    # Bedrock client (not bedrock-runtime) for get_model_invocation_job
     bedrock_boto_client = providers.Singleton(
         lambda session: session.client("bedrock"),
         session=session,
     )
 
-    # SQS dependency chain
     sqs_boto_client = providers.Singleton(
         lambda session: session.client("sqs"),
         session=session,
@@ -56,3 +57,45 @@ class DependenciesContainer(DeclarativeContainer):
         SQSClient,
         client=sqs_boto_client,
     )
+
+    batch_result_processor = providers.Singleton(
+        BatchResultProcessor,
+        s3_client=s3_client,
+    )
+
+    # --- Gemini webhook providers ---
+    dynamodb_boto_client = providers.Singleton(
+        lambda session: session.client("dynamodb"),
+        session=session,
+    )
+
+    dynamodb_client = providers.Singleton(
+        DynamoDBClient,
+        client=dynamodb_boto_client,
+    )
+
+    lambda_boto_client = providers.Singleton(
+        lambda session: session.client("lambda"),
+        session=session,
+    )
+
+    jwt_verifier = providers.Singleton(
+        JWTVerifier,
+        jwks_url=config.google_jwks_url,
+        audience=config.google_webhook_audience,
+    )
+
+    # --- Active implementation (uncomment one) ---
+    post_processor = providers.Singleton(
+        BedrockPostProcessing,
+        s3_client=s3_client,
+        sqs_client=sqs_client,
+        bedrock_client=bedrock_boto_client,
+        batch_result_processor=batch_result_processor,
+    )
+    # post_processor = providers.Singleton(
+    #     GeminiPostProcessing,
+    #     jwt_verifier=jwt_verifier,
+    #     dynamodb_client=dynamodb_client,
+    #     lambda_client=lambda_boto_client,
+    # )
