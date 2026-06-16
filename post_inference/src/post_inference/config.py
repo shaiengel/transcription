@@ -28,8 +28,9 @@ class Config:
         "GOOGLE_JWKS_URL",
         "https://generativelanguage.googleapis.com/.well-known/jwks.json",
     )
+    gemini_webhook_sign_secret: str = os.getenv("GEMINI_WEBHOOK_SIGN_SECRET", "")
     batch_jobs_table: str = os.getenv("BATCH_JOBS_TABLE", "transcription-batch-jobs")
-    reviewer_function_name: str = os.getenv("REVIEWER_FUNCTION_NAME", "")
+    reviewer_function_name: str = os.getenv("REVIEWER_FUNCTION_NAME", "transcription-reviewer")
 
 
 config = Config()

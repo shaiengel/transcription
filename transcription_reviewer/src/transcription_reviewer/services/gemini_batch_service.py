@@ -104,14 +104,34 @@ class GeminiBatchService:
             logger.warning("Failed to create cache: %s, falling back to uncached", e)
             return None
 
-    def build_and_submit_batch(
+    def _ensure_webhook_enabled(self) -> None:
+        """Check if the static webhook is disabled and re-enable it if needed."""
+        if not self._webhook_url:
+            return
+
+        try:
+            result = self._client.webhooks.list()
+            webhooks = list(result.webhooks) if result.webhooks else []
+            for wh in webhooks:
+                if wh.uri == self._webhook_url:
+                    if wh.state and "disabled" in wh.state.lower():
+                        logger.warning(
+                            "Webhook %s is disabled (%s), re-enabling...", wh.id, wh.state
+                        )
+                        self._client.webhooks.update(id=wh.id, uri=wh.uri, state="enabled")
+                        logger.info("Webhook %s re-enabled", wh.id)
+                    return
+        except Exception as e:
+            logger.warning("Failed to check/enable webhook: %s", e)
+
+    def build_and_upload_jsonl(
         self,
         entries: list[BatchEntry],
         caches: dict[str, tuple[str, float]],
         reasoning_media_ids: set[str] | None = None,
-    ) -> tuple[str, str]:
-        """Build JSONL, upload to GCS, submit batch.
-        Returns (batch_job_name, gcs_input_file)."""
+    ) -> str:
+        """Build JSONL from entries and upload to GCS.
+        Returns gcs_input_file URI."""
         jsonl_content = self._build_jsonl(entries, caches, reasoning_media_ids)
 
         with tempfile.NamedTemporaryFile(
@@ -121,40 +141,61 @@ class GeminiBatchService:
             temp_path = f.name
 
         try:
-            upload_result = self._client.files.upload(path=temp_path)
+            file_size = Path(temp_path).stat().st_size
+            logger.info("Uploading JSONL to GCS: %s (size: %d bytes)", temp_path, file_size)
+            upload_result = self._client.files.upload(
+                file=temp_path,
+                config=types.UploadFileConfig(
+                    display_name=f"input_{int(time.time())}",
+                    mime_type="jsonl",
+                ),
+            )
             gcs_input_file = upload_result.name
             logger.info("Uploaded JSONL to GCS: %s", gcs_input_file)
-        except Exception:
-            logger.exception("Failed to upload JSONL to GCS")
+            return gcs_input_file
+        except Exception as e:
+            logger.exception("Failed to upload JSONL to GCS: %s", e)
             raise
         finally:
             Path(temp_path).unlink(missing_ok=True)
 
+    def submit_batch(self, gcs_input_file: str) -> str:
+        """Submit a batch job to Gemini using a previously uploaded GCS file.
+        Returns batch_job_name. Cleans up GCS file on failure."""
         try:
+            # Ensure static webhook is enabled before submitting batch
+            self._ensure_webhook_enabled()
+
+            # Note: Static webhooks are used (created via create_webhook.py)
+            # They fire for all batch jobs automatically - no per-job config needed
+            # Note: dest parameter is not supported in Developer API mode (only Enterprise).
+            # Gemini auto-generates output filenames >40 chars which can't be deleted via API,
+            # but they expire automatically after their retention period.
             batch_config = types.CreateBatchJobConfig(
-                display_name=f"transcription_batch_{int(time.time())}",
+                display_name=f"batch_{int(time.time())}",
             )
-            if self._webhook_url:
-                batch_config.webhook_config = types.WebhookConfig(
-                    uris=[self._webhook_url],
-                )
             batch = self._client.batches.create(
                 model=self._model_name,
                 src=gcs_input_file,
                 config=batch_config,
             )
-        except Exception:
-            logger.exception("Failed to submit batch job, cleaning up GCS file")
+        except Exception as e:
+            logger.exception("Failed to submit batch job, cleaning up GCS file: %s", e)
             self.delete_gcs_file(gcs_input_file)
             raise
         logger.info("Submitted batch job: %s", batch.name)
-        return batch.name, gcs_input_file
+        return batch.name
 
     def fetch_batch_results(self, output_file_uri: str) -> list[dict]:
         """Download output JSONL from GCS and parse into result dicts."""
         try:
             raw = self._client.files.download(file=output_file_uri)
-            content = raw.read().decode("utf-8") if hasattr(raw, "read") else str(raw)
+            if isinstance(raw, bytes):
+                content = raw.decode("utf-8")
+            elif hasattr(raw, "read"):
+                content = raw.read().decode("utf-8")
+            else:
+                content = str(raw)
         except Exception:
             logger.exception("Failed to download output file: %s", output_file_uri)
             raise
@@ -174,12 +215,12 @@ class GeminiBatchService:
                 logger.warning("Failed to parse result line: %s", line[:200])
         return results
 
-    def delete_gcs_file(self, gcs_input_file: str) -> None:
+    def delete_gcs_file(self, gcs_file: str) -> None:
         try:
-            self._client.files.delete(name=gcs_input_file)
-            logger.info("Deleted GCS input file: %s", gcs_input_file)
+            self._client.files.delete(name=gcs_file)
+            logger.info("Deleted GCS file: %s", gcs_file)
         except Exception as e:
-            logger.warning("Failed to delete GCS input file %s: %s", gcs_input_file, e)
+            logger.warning("Failed to delete GCS file %s: %s", gcs_file, e)
 
     def delete_prompt_caches(self, caches: dict[str, tuple[str, float]]) -> None:
         """Delete all cached content. Called only at finalization."""
@@ -358,31 +399,43 @@ class GeminiBatchService:
             },
         )
 
-    def get_batch_job(
-        self, batch_job_id: str
-    ) -> tuple[dict | None, dict[str, tuple[str, float]]]:
-        """Returns (job_record, deserialized caches dict)."""
-        item = self._dynamodb.get_item(
+    def get_batch_job(self, batch_job_id: str) -> dict | None:
+        """Returns job_record or None if not found."""
+        return self._dynamodb.get_item(
             table_name=self._batch_jobs_table,
             key={"batch_job_id": {"S": batch_job_id}},
         )
-        if not item:
-            return None, {}
+
+    def extract_caches(self, batch_job: dict) -> dict[str, tuple[str, float]]:
+        """Extract deserialized caches dict from a batch_job record."""
         caches: dict[str, tuple[str, float]] = {}
-        caches_raw = item.get("prompt_caches", {}).get("M", {})
+        caches_raw = batch_job.get("prompt_caches", {}).get("M", {})
         for prompt_hash, entry in caches_raw.items():
             inner = entry.get("M", {})
             name = inner.get("name", {}).get("S", "")
             expiry = float(inner.get("expiry", {}).get("N", "0"))
             if name:
                 caches[prompt_hash] = (name, expiry)
-        return item, caches
+        return caches
 
-    def delete_batch_job(self, batch_job_id: str) -> None:
-        self._dynamodb.delete_item(
-            table_name=self._batch_jobs_table,
-            key={"batch_job_id": {"S": batch_job_id}},
-        )
+    def delete_gemini_batch(self, batch_job_id: str) -> None:
+        """Delete batch job from Gemini API."""
+        try:
+            self._client.batches.delete(name=batch_job_id)
+            logger.info("Deleted Gemini batch job: %s", batch_job_id)
+        except Exception:
+            logger.warning("Failed to delete Gemini batch job: %s (may already be deleted)", batch_job_id)
+
+    def delete_batch_job_record(self, batch_job_id: str) -> None:
+        """Delete batch job record from DynamoDB."""
+        try:
+            self._dynamodb.delete_item(
+                table_name=self._batch_jobs_table,
+                key={"batch_job_id": {"S": batch_job_id}},
+            )
+            logger.info("Deleted batch job record: %s", batch_job_id)
+        except Exception:
+            logger.warning("Failed to delete batch job record: %s", batch_job_id)
 
     # ---- Dead Letter ----
 

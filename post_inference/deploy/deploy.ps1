@@ -5,7 +5,7 @@ $LAMBDA_FUNCTION_NAME = "post-inference"
 $AWS_REGION = "us-east-1"
 
 # Keys excluded from Lambda environment (secrets or local-dev-only)
-$EXCLUDE_KEYS = @("GOOGLE_API_KEY", "AWS_PROFILE_POST_REVIEWER", "AWS_REGION")
+$EXCLUDE_KEYS = @("GOOGLE_API_KEY", "GEMINI_WEBHOOK_SIGN_SECRET", "AWS_PROFILE_POST_REVIEWER", "AWS_REGION")
 
 # Navigate to project root
 Push-Location (Split-Path $PSScriptRoot -Parent)

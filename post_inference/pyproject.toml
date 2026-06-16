@@ -11,6 +11,7 @@ dependencies = [
     "PyJWT>=2.8.0",
     "cryptography>=41.0.0",
     "requests>=2.31.0",
+    "standardwebhooks>=1.0.1",
 ]
 
 [build-system]
@@ -19,3 +20,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/post_inference"]
+
+[dependency-groups]
+dev = [
+    "flask>=3.1.3",
+]

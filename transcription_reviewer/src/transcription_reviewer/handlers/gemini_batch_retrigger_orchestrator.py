@@ -40,11 +40,12 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         # --- Retrieval ---
 
         # 1. Look up batch job (includes persisted caches)
-        batch_job, self._caches = self._svc.get_batch_job(self._batch_job_id)
+        batch_job = self._svc.get_batch_job(self._batch_job_id)
         if not batch_job:
             logger.error("Batch job not found: %s", self._batch_job_id)
             return StartResult(mode="completed", failed=1)
 
+        caches = self._svc.extract_caches(batch_job)
         gcs_input_file = batch_job.get("gcs_input_file", {}).get("S", "")
         output_file_uri = batch_job.get("output_file_uri", {}).get("S", "")
         if not output_file_uri:
@@ -54,11 +55,6 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         # 2. Download and parse results from output file
         results = self._svc.fetch_batch_results(output_file_uri)
         logger.info("Fetched %d results from output file: %s", len(results), output_file_uri)
-
-        # 3-4. Cleanup: GCS input file, batch jobs row
-        if gcs_input_file:
-            self._svc.delete_gcs_file(gcs_input_file)
-        self._svc.delete_batch_job(self._batch_job_id)
 
         # --- Evaluation ---
 
@@ -157,9 +153,20 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         # --- Retry or Finalize ---
 
         if retry_entries:
-            return self._submit_retry_batch(retry_entries, reasoning_media_ids, fixed_count, failed_count)
+            result = self._submit_retry_batch(retry_entries, reasoning_media_ids, fixed_count, failed_count, caches)
+        else:
+            result = self._finalize(fixed_count, failed_count, dead_lettered_stems, caches)
 
-        return self._finalize(fixed_count, failed_count, dead_lettered_stems)
+        # Cleanup: GCS input file, output file, Gemini batch, DynamoDB record
+        if gcs_input_file:
+            self._svc.delete_gcs_file(gcs_input_file)
+        # can't be removed as the file is longer than 40 chars. it will be removed with the gemini batch cleanup.
+        # if output_file_uri:
+        #     self._svc.delete_gcs_file(output_file_uri)
+        self._svc.delete_gemini_batch(self._batch_job_id)
+        self._svc.delete_batch_job_record(self._batch_job_id)
+
+        return result
 
     def _submit_retry_batch(
         self,
@@ -167,18 +174,20 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         reasoning_media_ids: set[str],
         fixed_count: int,
         failed_count: int,
+        caches: dict,
     ) -> StartResult:
         """Submit retry batch with remaining entries."""
         seen_hashes: set[str] = set()
         for entry in retry_entries:
             if entry.prompt_hash not in seen_hashes and entry.media_id not in reasoning_media_ids:
-                self._svc.get_or_create_cache(entry.system_prompt, self._caches)
+                self._svc.get_or_create_cache(entry.system_prompt, caches)
                 seen_hashes.add(entry.prompt_hash)
 
-        batch_job_name, gcs_input_file = self._svc.build_and_submit_batch(
-            retry_entries, self._caches, reasoning_media_ids
+        gcs_input_file = self._svc.build_and_upload_jsonl(
+            retry_entries, caches, reasoning_media_ids
         )
-        self._svc.store_batch_job(batch_job_name, gcs_input_file, self._caches)
+        batch_job_name = self._svc.submit_batch(gcs_input_file)
+        self._svc.store_batch_job(batch_job_name, gcs_input_file, caches)
 
         logger.info("Submitted retry batch: job=%s, entries=%d", batch_job_name, len(retry_entries))
 
@@ -190,7 +199,7 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         )
 
     def _finalize(
-        self, fixed_count: int, failed_count: int, dead_lettered_stems: set[str]
+        self, fixed_count: int, failed_count: int, dead_lettered_stems: set[str], caches: dict
     ) -> StartResult:
         """All chunks done — merge, upload, notify, clean up."""
         completed = self._svc.collect_completed_stems()
@@ -249,7 +258,7 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 logger.exception("Failed to finalize stem %s", stem)
                 failed_count += 1
 
-        self._svc.delete_prompt_caches(self._caches)
+        self._svc.delete_prompt_caches(caches)
 
         return StartResult(
             mode="completed",

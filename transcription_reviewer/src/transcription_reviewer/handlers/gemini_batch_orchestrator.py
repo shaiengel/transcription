@@ -130,10 +130,11 @@ class GeminiBatchOrchestrator(ReviewOrchestrator):
         for prompt in unique_prompts:
             self._svc.get_or_create_cache(prompt, caches)
 
-        # 8-10. Build JSONL, upload to GCS, submit batch
-        batch_job_name, gcs_input_file = self._svc.build_and_submit_batch(
-            entries, caches
-        )
+        # 8-9. Build JSONL and upload to GCS
+        gcs_input_file = self._svc.build_and_upload_jsonl(entries, caches)
+
+        # 10. Submit batch job
+        batch_job_name = self._svc.submit_batch(gcs_input_file)
 
         # 11. Store in BATCH_JOBS_TABLE (with caches for retrigger)
         self._svc.store_batch_job(batch_job_name, gcs_input_file, caches)

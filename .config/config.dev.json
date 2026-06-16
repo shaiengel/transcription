@@ -1,5 +1,5 @@
 {
-  "llm_backend": "GEMINI2.5",
+  "llm_backend": "GEMINI_BATCH",
   "gemini_model": "gemini-2.5-flash",
   "local_dev": true,
   "db": {
@@ -18,7 +18,7 @@
     "profile_post_reviewer": "post_reviewer",
     "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role",
     "region": "us-east-1",
-    "reviewer_function_name": "portal-transcription-reviewer"
+    "reviewer_function_name": "transcription-reviewer"
   },
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",

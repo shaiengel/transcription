@@ -1,10 +1,13 @@
 import json
 import logging
 
+from standardwebhooks.webhooks import Webhook, WebhookVerificationError
+
 from post_inference.config import config
 from post_inference.infrastructure.dynamodb_client import DynamoDBClient
 from post_inference.models.post_processing import AuthenticationError, PostProcessing
-from post_inference.services.jwt_verifier import JWTVerifier
+# Commented out: dynamic webhook authentication (JWT/JWKS)
+# from post_inference.services.jwt_verifier import JWTVerifier
 
 logger = logging.getLogger(__name__)
 
@@ -13,24 +16,44 @@ class GeminiPostProcessing(PostProcessing):
 
     def __init__(
         self,
-        jwt_verifier: JWTVerifier,
+        # Commented out: dynamic webhook authentication (JWT/JWKS)
+        # jwt_verifier: JWTVerifier,
         dynamodb_client: DynamoDBClient,
         lambda_client,
     ):
-        self._jwt_verifier = jwt_verifier
+        # Commented out: dynamic webhook authentication (JWT/JWKS)
+        # self._jwt_verifier = jwt_verifier
+        self._gemini_webhook_sign_secret = config.gemini_webhook_sign_secret
         self._dynamodb_client = dynamodb_client
         self._lambda_client = lambda_client
 
     def authenticate(self, event: dict) -> None:
+        # --- Static webhook authentication (Standard Webhooks) ---
+        # Uses symmetric signing secret to verify payload signature
+        # See: https://ai.google.dev/gemini-api/docs/webhooks#handle-webhook-requests
         headers = event.get("headers", {})
-        token = headers.get("webhook-signature") or headers.get("Webhook-Signature")
-        if not token:
-            raise AuthenticationError("Missing Webhook-Signature header")
+        payload = event.get("body", "")
+        if isinstance(payload, dict):
+            payload = json.dumps(payload)
 
         try:
-            self._jwt_verifier.verify(token)
+            wh = Webhook(self._gemini_webhook_sign_secret)
+            wh.verify(payload, headers)
+        except WebhookVerificationError as e:
+            raise AuthenticationError(f"Webhook signature verification failed: {e}") from e
         except Exception as e:
-            raise AuthenticationError(f"JWT verification failed: {e}") from e
+            raise AuthenticationError(f"Unexpected error during webhook authentication: {e}") from e
+
+        # Commented out: dynamic webhook authentication (JWT/JWKS)
+        # headers = event.get("headers", {})
+        # token = headers.get("webhook-signature") or headers.get("Webhook-Signature")
+        # if not token:
+        #     raise AuthenticationError("Missing Webhook-Signature header")
+        #
+        # try:
+        #     self._jwt_verifier.verify(token)
+        # except Exception as e:
+        #     raise AuthenticationError(f"JWT verification failed: {e}") from e
 
     def process(self, event: dict) -> dict:
         body = event.get("body", "{}")

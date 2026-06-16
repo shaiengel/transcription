@@ -11,7 +11,8 @@ from post_inference.infrastructure.dynamodb_client import DynamoDBClient
 from post_inference.infrastructure.s3_client import S3Client
 from post_inference.infrastructure.sqs_client import SQSClient
 from post_inference.services.batch_result_processor import BatchResultProcessor
-from post_inference.services.jwt_verifier import JWTVerifier
+# Commented out: dynamic webhook authentication (JWT/JWKS)
+# from post_inference.services.jwt_verifier import JWTVerifier
 
 
 def _create_session() -> boto3.Session:
@@ -79,11 +80,12 @@ class DependenciesContainer(DeclarativeContainer):
         session=session,
     )
 
-    jwt_verifier = providers.Singleton(
-        JWTVerifier,
-        jwks_url=config.google_jwks_url,
-        audience=config.google_webhook_audience,
-    )
+    # Commented out: dynamic webhook authentication (JWT/JWKS)
+    # jwt_verifier = providers.Singleton(
+    #     JWTVerifier,
+    #     jwks_url=config.google_jwks_url,
+    #     audience=config.google_webhook_audience,
+    # )
 
     # --- Active implementation (uncomment one) ---
     # post_processor = providers.Singleton(
@@ -95,7 +97,8 @@ class DependenciesContainer(DeclarativeContainer):
     # )
     post_processor = providers.Singleton(
         GeminiPostProcessing,
-        jwt_verifier=jwt_verifier,
+        # Commented out: dynamic webhook authentication (JWT/JWKS)
+        # jwt_verifier=jwt_verifier,
         dynamodb_client=dynamodb_client,
         lambda_client=lambda_boto_client,
     )
