@@ -114,6 +114,7 @@ class GeminiBatchService:
             webhooks = list(result.webhooks) if result.webhooks else []
             for wh in webhooks:
                 if wh.uri == self._webhook_url:
+                    logger.info("Found webhook for URL %s: id=%s, state=%s", self._webhook_url, wh.id, wh.state)
                     if wh.state and "disabled" in wh.state.lower():
                         logger.warning(
                             "Webhook %s is disabled (%s), re-enabling...", wh.id, wh.state
@@ -121,6 +122,7 @@ class GeminiBatchService:
                         self._client.webhooks.update(id=wh.id, uri=wh.uri, state="enabled")
                         logger.info("Webhook %s re-enabled", wh.id)
                     return
+            logger.warning("No webhook found for URI %s — it may be stale or deleted", self._webhook_url)
         except Exception as e:
             logger.warning("Failed to check/enable webhook: %s", e)
 
