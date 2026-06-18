@@ -11,6 +11,7 @@ from transcription_reviewer.services.gemini_batch_service import GeminiBatchServ
 from transcription_reviewer.services.transcription_fixer import TranscriptionFixer
 from transcription_reviewer.utils.batch_jsonl import BatchEntry
 from transcription_reviewer.utils.text_utils import word_count_diff
+from transcription_reviewer.utils.wer_utils import compute_wer, log_wer_result
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,6 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
 
         retry_entries: list[BatchEntry] = []
         reasoning_media_ids: set[str] = set()
-        dead_lettered_stems: set[str] = set()
         fixed_count = 0
         failed_count = 0
 
@@ -70,9 +70,6 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 continue
 
             stem = self._extract_stem(media_id)
-
-            if stem in dead_lettered_stems:
-                continue
 
             # 5. Get tracker entry
             tracker = self._svc.get_fix_tracker(media_id)
@@ -89,19 +86,37 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
             error = result.get("error")
             response = result.get("response")
             response_text = self._extract_response_text(response) if response else None
+            is_last_retry = retry_number >= self._svc.max_retries
 
             if error or response_text is None:
                 logger.error(
                     "Error for %s: %s", media_id, error or "empty response"
                 )
-                self._svc.dead_letter_media(tracker_stem, config.transcription_bucket)
-                dead_lettered_stems.add(tracker_stem)
-                failed_count += 1
+                # Don't dead-letter immediately - retry or check at finalization
+                if is_last_retry:
+                    # Last retry failed - mark completed, check at finalization if previous result exists
+                    logger.info("Chunk %s: error on last retry, will check at finalization", media_id)
+                    self._svc.update_fix_tracker(media_id, completed=True)
+                else:
+                    # Retry - a transient error might succeed next time
+                    self._svc.update_fix_tracker(media_id, retry_number=retry_number + 1)
+                    retry_entry = self._build_retry_entry(media_id, tracker_stem, retry_number + 1)
+                    if retry_entry:
+                        retry_entries.append(retry_entry)
+                        if retry_number + 1 >= self._svc.max_retries:
+                            reasoning_media_ids.add(media_id)
                 continue
 
             # Calculate diff
             new_diff = word_count_diff(response_text, original_word_count)
-            is_last_retry = retry_number >= self._svc.max_retries
+
+            # Special case: if diff < 5, check WER to detect if changes are meaningful
+            if new_diff <= 5 and original_word_count > 30:
+                if self._handle_unchanged_response(
+                    media_id, new_diff, response_text, tracker_stem, retry_number,
+                    is_last_retry, retry_entries, reasoning_media_ids
+                ):
+                    continue
 
             if new_diff <= self._svc.max_word_diff:
                 # GOOD — write result, mark completed
@@ -155,7 +170,7 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         if retry_entries:
             result = self._submit_retry_batch(retry_entries, reasoning_media_ids, fixed_count, failed_count, caches)
         else:
-            result = self._finalize(fixed_count, failed_count, dead_lettered_stems, caches)
+            result = self._finalize(fixed_count, failed_count, caches)
 
         # Cleanup: GCS input file, output file, Gemini batch, DynamoDB record
         if gcs_input_file:
@@ -199,16 +214,13 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         )
 
     def _finalize(
-        self, fixed_count: int, failed_count: int, dead_lettered_stems: set[str], caches: dict
+        self, fixed_count: int, failed_count: int, caches: dict
     ) -> StartResult:
         """All chunks done — merge, upload, notify, clean up."""
         completed = self._svc.collect_completed_stems()
         logger.info("Finalizing %d stems", len(completed))
 
         for stem, media_ids in completed.items():
-            if stem in dead_lettered_stems:
-                continue
-
             dynamo_entry = self._dynamo_reader.get_entry(stem)
             if not dynamo_entry:
                 logger.error("No DynamoDB entry for stem=%s during finalize", stem)
@@ -219,7 +231,8 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 # Merge chunks
                 merged = self._merge_chunks(stem, media_ids)
                 if not merged:
-                    logger.error("Failed to merge chunks for %s", stem)
+                    logger.error("Failed to merge chunks for %s, dead-lettering", stem)
+                    self._svc.dead_letter_media(stem, config.transcription_bucket)
                     failed_count += 1
                     continue
 
@@ -228,6 +241,19 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 if not self._s3_client.put_object_content(output_bucket, f"{stem}.txt", merged):
                     failed_count += 1
                     continue
+
+                # Calculate and log word count diff between original and fixed
+                original = self._s3_client.get_object_content(
+                    config.transcription_bucket, f"{stem}.txt"
+                )
+                if original:
+                    original_words = len(original.split())
+                    fixed_words = len(merged.split())
+                    word_diff = fixed_words - original_words
+                    logger.info(
+                        "Stem %s: original=%d words, fixed=%d words, diff=%+d",
+                        stem, original_words, fixed_words, word_diff
+                    )
 
                 # Copy .time → .pre-fix.time
                 transcription_bucket = dynamo_entry.media_transcribed_bucket
@@ -265,6 +291,59 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
             fixed=fixed_count,
             failed=failed_count,
         )
+
+    def _has_meaningful_changes(self, media_id: str, response_text: str) -> bool:
+        """
+        Check if response has meaningful changes compared to original using WER.
+
+        Returns True if changes are meaningful (total S+D+I >= 5), False otherwise.
+        Returns True if original chunk cannot be found (assume changes are meaningful).
+        """
+        original_chunk = self._s3_client.get_object_content(
+            self._svc.temporary_fix_bucket, f"{media_id}.original.txt"
+        )
+        if not original_chunk:
+            return True
+
+        wer_result = compute_wer(original_chunk, response_text, threshold=5)
+        log_wer_result(media_id, wer_result)
+
+        return wer_result.has_meaningful_changes
+
+    def _handle_unchanged_response(
+        self,
+        media_id: str,
+        new_diff: int,
+        response_text: str,
+        tracker_stem: str,
+        retry_number: int,
+        is_last_retry: bool,
+        retry_entries: list[BatchEntry],
+        reasoning_media_ids: set[str],
+    ) -> bool:
+        """
+        Handle case where WER shows no meaningful changes.
+
+        Returns True if handled (caller should continue to next item), False otherwise.
+        """
+        if self._has_meaningful_changes(media_id, response_text):
+            return False
+
+        # No meaningful changes detected - retry
+        logger.info("Chunk %s: no meaningful changes, retrying", media_id)
+        self._svc.update_fix_tracker(media_id, retry_number=retry_number + 1)
+
+        if is_last_retry:
+            logger.info("Chunk %s: no meaningful changes on last retry, accepting", media_id)
+            self._svc.update_fix_tracker(media_id, completed=True)
+        else:
+            retry_entry = self._build_retry_entry(media_id, tracker_stem, retry_number + 1)
+            if retry_entry:
+                retry_entries.append(retry_entry)
+                if retry_number + 1 >= self._svc.max_retries:
+                    reasoning_media_ids.add(media_id)
+
+        return True
 
     def _merge_chunks(self, stem: str, media_ids: list[str]) -> str | None:
         """Merge split chunks into single text. Returns merged content or None."""

@@ -20,6 +20,7 @@ class DynamoDBMediaEntry:
     maggid_description: str | None = None
     media_duration: int | None = None
     source: str | None = None
+    max_word_split: int | None = None
 
     @classmethod
     def from_dynamo_item(cls, item: dict) -> "DynamoDBMediaEntry":
@@ -41,6 +42,7 @@ class DynamoDBMediaEntry:
             maggid_description=item.get("maggid_description", {}).get("S"),
             media_duration=int(item["media_duration"]["N"]) if "media_duration" in item else None,
             source=item.get("source", {}).get("S"),
+            max_word_split=int(item["max_word_split"]["N"]) if "max_word_split" in item else None,
         )
 
     def to_dynamo_item(self) -> dict:
@@ -74,4 +76,6 @@ class DynamoDBMediaEntry:
             item["media_duration"] = {"N": str(self.media_duration)}
         if self.source is not None:
             item["source"] = {"S": self.source}
+        if self.max_word_split is not None:
+            item["max_word_split"] = {"N": str(self.max_word_split)}
         return item

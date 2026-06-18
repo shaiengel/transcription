@@ -2,7 +2,7 @@ import logging
 import tempfile
 from pathlib import Path
 
-from audio_manager.handlers.media import enrich_with_steinsaltz_by_daf, print_media_links
+from audio_manager.handlers.media import apply_max_word_split, enrich_with_steinsaltz_by_daf, print_media_links
 from audio_manager.models.daf_text_fetcher import DafTextFetcher
 from audio_manager.models.media_fetcher import MediaFetcher
 from audio_manager.models.schemas import MediaEntry
@@ -54,6 +54,7 @@ class PortalMediaByDaf(MediaFetcher):
 
                 logger.info("Fetching media for %s daf %d", massechet_english, daf_id)
                 media_links = get_media_links(conn, massechet_id, daf_id)
+                apply_max_word_split(media_links)
 
                 for m in media_links:
                     m.source = "portal"

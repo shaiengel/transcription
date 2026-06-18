@@ -161,13 +161,14 @@ def get_massechet_bounds(massechet_id: int) -> tuple[int, int] | None:
 def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[MediaEntry]:
     """Get media links for a specific massechet and daf."""
     query = text("""
-        SELECT media_id, media_link, maggid_description, massechet_name,
+        SELECT media_id, media_link, maggid_id, maggid_description, massechet_name,
                daf_name, language_en, media_duration, file_type
         FROM [vps_daf-yomi].[dbo].[View_Media]
         WHERE massechet_id = :massechet_id AND daf_id = :daf_id
           AND file_type IN ('mp3', 'mp4')
           AND language_en = 'hebrew'
           AND media_is_active = 1
+          AND maggid_id != 184
     """)
     result = conn.execute(
         query, {"massechet_id": massechet_id, "daf_id": daf_id}
@@ -177,6 +178,7 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[Me
         MediaEntry(
             media_id=row.media_id,
             media_link=row.media_link,
+            maggid_id=row.maggid_id,
             maggid_description=row.maggid_description,
             massechet_name=row.massechet_name,
             daf_name=row.daf_name,

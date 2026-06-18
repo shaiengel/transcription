@@ -40,6 +40,7 @@ class MediaRegistry:
                 maggid_description=media.maggid_description,
                 media_duration=media.media_duration,
                 source=media.source,
+                max_word_split=media.max_word_split,
             )
 
             if self._client.put_item(self._table_name, entry.to_dynamo_item()):

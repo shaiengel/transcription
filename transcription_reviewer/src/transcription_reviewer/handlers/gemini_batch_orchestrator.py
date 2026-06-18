@@ -88,11 +88,9 @@ class GeminiBatchOrchestrator(ReviewOrchestrator):
             unique_prompts.add(system_prompt)
 
             # 4. Split into chunks
-            chunks = split_by_words(
-                content, max_words=self._svc.split_by_words_max
-            )
-            total_chunks = len(chunks)
-            original_word_count = len(content.split())
+            max_words = dynamo_entry.max_word_split if dynamo_entry.max_word_split is not None else self._svc.split_by_words_max
+            chunks = split_by_words(content, max_words=max_words)
+            total_chunks = len(chunks)            
 
             for i, chunk in enumerate(chunks, start=1):
                 chunk_media_id = f"{stem}_{i}" if total_chunks > 1 else stem

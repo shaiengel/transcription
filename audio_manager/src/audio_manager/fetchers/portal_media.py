@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from audio_manager.handlers.media import (
+    apply_max_word_split,
     enrich_with_steinsaltz,
     get_calendar_window,
     print_media_links,
@@ -48,6 +49,7 @@ class PortalMedia(MediaFetcher):
             media_links: list[MediaEntry] = self._media_source.get_media_entries(
                 days_ago=days_ago
             )
+            apply_max_word_split(media_links)
 
             for m in media_links:
                 m.source = "portal"
