@@ -798,7 +798,7 @@
     "massechet_end": 157
   },
   {
-    "chapter_name": "[אמר] רבי עקיבא",
+    "chapter_name": "אמר רבי עקיבא",
     "masechet_name": "שבת",
     "chapter_number": 9,
     "chapter_start_daf": 82,
@@ -1134,7 +1134,7 @@
     "massechet_end": 121
   },
   {
-    "chapter_name": "(ו)אלו עוברין",
+    "chapter_name": "אלו עוברין",
     "masechet_name": "פסחים",
     "chapter_number": 3,
     "chapter_start_daf": 42,
@@ -1430,7 +1430,7 @@
     "massechet_end": 88
   },
   {
-    "chapter_name": "בא לו (כהן גדול)",
+    "chapter_name": "בא לו כהן גדול",
     "masechet_name": "יומא",
     "chapter_number": 7,
     "chapter_start_daf": 68,

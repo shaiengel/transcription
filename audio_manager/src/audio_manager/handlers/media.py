@@ -57,7 +57,7 @@ def _render_system_prompt(details: str, steinsaltz: str, filename: str) -> str:
 
 
 # Maggid IDs that require max_word_split setting
-_MAX_WORD_SPLIT_MAGGID_IDS = {129, 20, 39, 43, 123, 163}
+_MAX_WORD_SPLIT_MAGGID_IDS = {129, 20, 39, 43, 123, 163, 16, 134, 54}
 _MAX_WORD_SPLIT_VALUE = 3000
 
 

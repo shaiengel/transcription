@@ -29,6 +29,12 @@ def main():
         },
     }
 
+    # Event from post_inference Lambda (gemini_post_processing.py)
+    # Invoked when a Gemini batch job completes successfully
+    # event = {
+    #     "batch_job_id": "batches/7euvns3d0q2fwip95ggiigu1npujj8qnmwtn"
+    # }
+
     # Mock context (Lambda context object)
     context = None
 

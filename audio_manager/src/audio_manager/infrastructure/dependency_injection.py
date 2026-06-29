@@ -32,7 +32,22 @@ def _create_portal_media_by_daf_fetcher(media_source, text_fetcher):
     from audio_manager.fetchers.portal_media_by_daf import PortalMediaByDaf
 
     daf_list: list[tuple[str, int]] = [
-        ("Berakhot", 43),  # massechet_english from massechet_data.json, numeric daf_id
+        #("Berakhot", 43),  # massechet_english from massechet_data.json, numeric daf_id
+        #("Shabbat", 102),
+        # ("Eruvin", 61),
+        # ("Pesachim", 5),
+        ("Rosh_Hashanah", 10),
+        ("Yoma", 26),
+        ("Sukkah", 2),
+        ("Beitzah", 19),
+        ("Taanit", 15),
+        ("Megillah", 13),
+        ("Moed_Katan", 24),
+        ("Chagigah", 22),
+        ("Yevamot", 109),
+        ("Ketubot", 68),
+        ("Nedarim", 91),
+
     ]
     return PortalMediaByDaf(media_source, text_fetcher, daf_list)
 

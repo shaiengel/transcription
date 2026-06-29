@@ -62,8 +62,8 @@
     "max_word_diff": "65",
     "thinking_budget": "8192",
     "cache_enabled": "true",
-    "cache_ttl_seconds": "4800",
-    "cache_guard_seconds": "480",
+    "cache_ttl_seconds": "172800",
+    "cache_guard_seconds": "21600",
     "batch_webhook_url": "https://2p6ms4whwumaxsca4duyx2hvty0qzill.lambda-url.us-east-1.on.aws/",
     "webhook_audience": "302773698264"
   },
