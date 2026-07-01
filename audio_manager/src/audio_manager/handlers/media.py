@@ -56,6 +56,18 @@ def _render_system_prompt(details: str, steinsaltz: str, filename: str) -> str:
     return template.format(details, steinsaltz)
 
 
+# Maggid IDs that require max_word_split setting
+_MAX_WORD_SPLIT_MAGGID_IDS = {129, 20, 39, 43, 123, 163, 16, 134, 54}
+_MAX_WORD_SPLIT_VALUE = 3000
+
+
+def apply_max_word_split(media_list: list[MediaEntry]) -> None:
+    """Set max_word_split for media entries from specific maggidim."""
+    for media in media_list:
+        if media.maggid_id in _MAX_WORD_SPLIT_MAGGID_IDS:
+            media.max_word_split = _MAX_WORD_SPLIT_VALUE
+
+
 def get_allowed_languages() -> set[str]:
     """Get allowed languages from environment."""
     languages = os.getenv("ALLOWED_LANGUAGES", "hebrew")

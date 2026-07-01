@@ -19,6 +19,7 @@ class CalendarWindow:
 class MediaEntry(BaseModel):
     media_id: int | str
     media_link: str
+    maggid_id: int | None = None
     maggid_description: str | None = None
     massechet_name: str | None = None
     daf_name: str | None = None
@@ -34,3 +35,4 @@ class MediaEntry(BaseModel):
     fixed_transcription_bucket: str | None = None
     subtitles_bucket: str | None = None
     source: str | None = None
+    max_word_split: int | None = None

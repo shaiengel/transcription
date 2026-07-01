@@ -17,6 +17,7 @@ from transcription_reviewer.models.schemas import ReviewResult, TranscriptionFil
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
 from transcription_reviewer.services.fix_tracker import FixTrackerEntry, FixTrackerService
 from transcription_reviewer.utils.batch_jsonl import BatchEntry
+from transcription_reviewer.utils.text_utils import split_by_words
 
 logger = logging.getLogger(__name__)
 
@@ -29,36 +30,24 @@ class GeminiPipeline(LLMPipeline):
         self,
         s3_client: S3Client,
         sqs_client: SQSClient,
-        api_key: str,
-        sqs_queue_url: str,
-        temporary_fix_bucket: str,
-        model_name: str = "gemini-2.5-flash",
-        temperature: float = 0.1,
-        max_tokens: int = 60000,
-        split_by_words_max: int = 5000,
-        max_word_diff: int = 100,
-        thinking_budget: int = 1024,
         fix_tracker: FixTrackerService | None = None,
-        cache_enabled: bool = True,
-        cache_ttl_seconds: int = 3600,
-        cache_guard_seconds: int = 480,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
-        self._sqs_queue_url = sqs_queue_url
-        self._temporary_fix_bucket = temporary_fix_bucket
-        self._model_name = model_name
-        self._temperature = temperature
-        self._max_tokens = max_tokens
-        self._split_by_words_max = split_by_words_max
-        self._max_word_diff = max_word_diff
-        self._thinking_budget = thinking_budget
+        self._sqs_queue_url = global_config.sqs_queue_url
+        self._temporary_fix_bucket = global_config.temporary_fix_bucket
+        self._model_name = global_config.gemini_model
+        self._temperature = global_config.temperature
+        self._max_tokens = global_config.max_tokens
+        self._split_by_words_max = global_config.split_by_words_max
+        self._max_word_diff = global_config.max_word_diff
+        self._thinking_budget = global_config.thinking_budget
         self._fix_tracker = fix_tracker
-        self._cache_enabled = cache_enabled
-        self._cache_ttl_seconds = cache_ttl_seconds
-        self._cache_guard_seconds = cache_guard_seconds
+        self._cache_enabled = global_config.gemini_cache_enabled
+        self._cache_ttl_seconds = global_config.gemini_cache_ttl_seconds
+        self._cache_guard_seconds = global_config.gemini_cache_guard_seconds
 
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=global_config.google_api_key)
 
         # Captured once at instantiation — used as lambda_started_at for all files this invocation
         self._invocation_started_at: str = self._now_iso()
@@ -100,7 +89,7 @@ class GeminiPipeline(LLMPipeline):
 
             entries.append(
                 BatchEntry(
-                    record_id=f.stem,
+                    media_id=f.stem,
                     system_prompt=f.system_prompt,
                     content=f.content,
                     token_count=total_tokens,
@@ -127,13 +116,13 @@ class GeminiPipeline(LLMPipeline):
             try:
                 cache_name = self._get_or_create_cache(entry.system_prompt) if self._cache_enabled else None
                 config = self._build_config(cache_name, entry.system_prompt)
-                record_id, fixed_text, success = self._invoke_entry(entry, config, self._tracker_entry)
-                results.append((record_id, fixed_text, success))
+                media_id, fixed_text, success = self._invoke_entry(entry, config, self._tracker_entry)
+                results.append((media_id, fixed_text, success))
             except TimeoutError:
                 raise
             except Exception as e:
-                logger.error(f"Failed to process {entry.record_id}: {e}")
-                results.append((entry.record_id, "", False))
+                logger.error(f"Failed to process {entry.media_id}: {e}")
+                results.append((entry.media_id, "", False))
 
         return results
 
@@ -160,10 +149,10 @@ class GeminiPipeline(LLMPipeline):
         tracker_entry: FixTrackerEntry | None = None,
     ) -> tuple[str, str, bool]:
         """Process a single entry, splitting into word chunks and persisting progress to S3/DynamoDB."""
-        logger.info(f"Processing {entry.record_id} with Gemini")
-        stem = entry.record_id
+        logger.info(f"Processing {entry.media_id} with Gemini")
+        stem = entry.media_id
 
-        chunks = self._split_by_words_static(entry.content, max_words=self._split_by_words_max)
+        chunks = split_by_words(entry.content, max_words=self._split_by_words_max)
         if len(chunks) > 1:
             logger.info(f"Split {stem} into {len(chunks)} word-chunks")
 
@@ -353,42 +342,13 @@ class GeminiPipeline(LLMPipeline):
             )
         return response.text
 
-    @staticmethod
-    def _split_by_words_static(content: str, max_words: int = 5000) -> list[str]:
-        """Split content into chunks of ~max_words, breaking at line boundaries."""
-        lines = content.strip().split("\n")
-        if not lines:
-            return [content]
-
-        total_words = len(content.split())
-        if total_words <= max_words:
-            return [content.strip()]
-
-        chunks = []
-        current_lines: list[str] = []
-        current_word_count = 0
-
-        for line in lines:
-            line_words = len(line.split())
-            if current_word_count + line_words > max_words and current_lines:
-                chunks.append("\n".join(current_lines))
-                current_lines = [line]
-                current_word_count = line_words
-            else:
-                current_lines.append(line)
-                current_word_count += line_words
-
-        if current_lines:
-            chunks.append("\n".join(current_lines))
-
-        return chunks
 
     def post_process(self, llm_response: list[tuple[str, str, bool]], original_files: list[BatchEntry]) -> ReviewResult:
         """Upload fixed text to S3, send SQS notification, clean up temp files and tracker."""
         fixed_count = 0
         failed_count = 0
 
-        entry_by_stem = {entry.record_id: entry for entry in original_files}
+        entry_by_stem = {entry.media_id: entry for entry in original_files}
 
         for stem, fixed_text, success in llm_response:
             if not success:

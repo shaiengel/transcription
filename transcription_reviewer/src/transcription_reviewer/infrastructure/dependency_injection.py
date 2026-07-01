@@ -13,6 +13,7 @@ from transcription_reviewer.infrastructure.sqs_client import SQSClient
 from transcription_reviewer.infrastructure.bedrock_client import BedrockClient
 from transcription_reviewer.infrastructure.bedrock_batch_client import BedrockBatchClient
 from transcription_reviewer.models.llm_pipeline import LLMPipeline
+from transcription_reviewer.models.review_orchestrator import ReviewOrchestrator
 from transcription_reviewer.services.gemini_pipeline import GeminiPipeline
 from transcription_reviewer.services.fix_tracker import FixTrackerService
 
@@ -98,23 +99,71 @@ def _create_gemini_pipeline(
     fix_tracker: FixTrackerService,
 ) -> LLMPipeline:
     """Create Gemini pipeline."""
-    config = Config()
     return GeminiPipeline(
         s3_client=s3_client,
         sqs_client=sqs_client,
-        api_key=config.google_api_key,
-        sqs_queue_url=config.sqs_queue_url,
-        temporary_fix_bucket=config.temporary_fix_bucket,
-        model_name=config.gemini_model,
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
-        split_by_words_max=config.split_by_words_max,
-        max_word_diff=config.max_word_diff,
-        thinking_budget=config.thinking_budget,
         fix_tracker=fix_tracker,
-        cache_enabled=config.gemini_cache_enabled,
-        cache_ttl_seconds=config.gemini_cache_ttl_seconds,
-        cache_guard_seconds=config.gemini_cache_guard_seconds,
+    )
+
+
+def _create_on_demand_orchestrator(s3_reader, pipeline, transcription_fixer, dynamo_reader):
+    """Factory for OnDemandOrchestrator."""
+    from transcription_reviewer.handlers.on_demand_orchestrator import OnDemandOrchestrator
+
+    config = Config()
+    return OnDemandOrchestrator(
+        s3_reader=s3_reader,
+        pipeline=pipeline,
+        transcription_fixer=transcription_fixer,
+        dynamo_reader=dynamo_reader,
+        bucket=config.transcription_bucket,
+    )
+
+
+def _create_gemini_batch_service(dynamodb_client, s3_client):
+    """Factory for GeminiBatchService."""
+    from transcription_reviewer.services.gemini_batch_service import GeminiBatchService
+
+    return GeminiBatchService(
+        dynamodb_client=dynamodb_client,
+        s3_client=s3_client,
+    )
+
+
+def _create_gemini_batch_orchestrator(
+    s3_reader, s3_client, dynamo_reader, transcription_fixer, batch_service
+):
+    """Factory for GeminiBatchOrchestrator."""
+    from transcription_reviewer.handlers.gemini_batch_orchestrator import (
+        GeminiBatchOrchestrator,
+    )
+
+    config = Config()
+    return GeminiBatchOrchestrator(
+        s3_reader=s3_reader,
+        s3_client=s3_client,
+        dynamo_reader=dynamo_reader,
+        transcription_fixer=transcription_fixer,
+        batch_service=batch_service,
+        bucket=config.transcription_bucket,
+    )
+
+
+def _create_gemini_batch_retrigger_orchestrator(
+    s3_client, sqs_client, dynamo_reader, transcription_fixer, batch_service, batch_job_id
+):
+    """Factory for GeminiBatchRetriggerOrchestrator."""
+    from transcription_reviewer.handlers.gemini_batch_retrigger_orchestrator import (
+        GeminiBatchRetriggerOrchestrator,
+    )
+
+    return GeminiBatchRetriggerOrchestrator(
+        s3_client=s3_client,
+        sqs_client=sqs_client,
+        dynamo_reader=dynamo_reader,
+        transcription_fixer=transcription_fixer,
+        batch_service=batch_service,
+        batch_job_id=batch_job_id,
     )
 
 
@@ -222,4 +271,49 @@ class DependenciesContainer(DeclarativeContainer):
         s3_client=s3_client,
         sqs_client=sqs_client,
         fix_tracker=fix_tracker,
+    )
+
+    # --- Orchestrators ---
+
+    on_demand_orchestrator = providers.Factory(
+        _create_on_demand_orchestrator,
+        s3_reader=s3_reader,
+        pipeline=llm_pipeline,
+        transcription_fixer=transcription_fixer,
+        dynamo_reader=dynamo_reader,
+    )
+
+    gemini_batch_service = providers.Singleton(
+        _create_gemini_batch_service,
+        dynamodb_client=dynamodb_client,
+        s3_client=s3_client,
+    )
+
+    gemini_batch_orchestrator = providers.Factory(
+        _create_gemini_batch_orchestrator,
+        s3_reader=s3_reader,
+        s3_client=s3_client,
+        dynamo_reader=dynamo_reader,
+        transcription_fixer=transcription_fixer,
+        batch_service=gemini_batch_service,
+    )
+
+    gemini_batch_retrigger_orchestrator = providers.Factory(
+        _create_gemini_batch_retrigger_orchestrator,
+        s3_client=s3_client,
+        sqs_client=sqs_client,
+        dynamo_reader=dynamo_reader,
+        transcription_fixer=transcription_fixer,
+        batch_service=gemini_batch_service,
+        batch_job_id="",  # overridden at call site
+    )
+
+    # Config-based orchestrator selection (initial trigger)
+    orchestrator = providers.Selector(
+        providers.Callable(lambda: Config().llm_backend),
+        GEMINI_BATCH=gemini_batch_orchestrator,
+        **{
+            "AWS_OPUS4.5": on_demand_orchestrator,
+            "GEMINI2.5": on_demand_orchestrator,
+        },
     )

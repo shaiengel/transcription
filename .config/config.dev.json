@@ -1,5 +1,5 @@
 {
-  "llm_backend": "GEMINI2.5",
+  "llm_backend": "GEMINI_BATCH",
   "gemini_model": "gemini-2.5-flash",
   "local_dev": true,
   "db": {
@@ -17,7 +17,8 @@
     "profile_reviewer": "reviewer",
     "profile_post_reviewer": "post_reviewer",
     "role_arn": "arn:aws:iam::707072965202:role/gpu-transcription-role",
-    "region": "us-east-1"
+    "region": "us-east-1",
+    "reviewer_function_name": "transcription-reviewer"
   },
   "s3": {
     "audio_bucket": "portal-daf-yomi-audio",
@@ -28,7 +29,8 @@
     "output_prefix": ""
   },
   "dynamodb": {
-    "table_name": "transcription-tracker"
+    "table_name": "transcription-tracker",
+    "batch_jobs_table": "transcription-batch-jobs"
   },
   "sqs": {
     "queue_url": "https://sqs.us-east-1.amazonaws.com/707072965202/sqs-transcription",
@@ -60,8 +62,10 @@
     "max_word_diff": "65",
     "thinking_budget": "8192",
     "cache_enabled": "true",
-    "cache_ttl_seconds": "4800",
-    "cache_guard_seconds": "480"
+    "cache_ttl_seconds": "172800",
+    "cache_guard_seconds": "21600",
+    "batch_webhook_url": "https://2p6ms4whwumaxsca4duyx2hvty0qzill.lambda-url.us-east-1.on.aws/",
+    "webhook_audience": "302773698264"
   },
   "batch": {
     "min_entries": "100",

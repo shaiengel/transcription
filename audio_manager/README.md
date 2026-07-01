@@ -81,6 +81,7 @@ Set `LOCAL_MEDIA_DIR` to a directory containing MP3 files. Set `LOCAL_DETAILS` f
 - `uv` package manager
 - ODBC Driver 17 for SQL Server
 - `ffmpeg` (for mp4 → mp3 conversion)
+- `mp3val` (for MP3 validation) — download from https://mp3val.sourceforge.net/
 
 ## Setup
 

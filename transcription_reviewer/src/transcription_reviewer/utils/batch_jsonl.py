@@ -27,9 +27,10 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
 class BatchEntry:
     """A single entry for batch processing."""
 
-    record_id: str
+    media_id: str
     system_prompt: str
     content: str
+    prompt_hash: str = ""
     token_count: int = 0
     transcription_bucket: str = ""
     output_bucket: str = ""
@@ -91,7 +92,7 @@ def _split_content_by_tokens(
 def _create_dummy_entry(index: int) -> BatchEntry:
     """Create a minimal dummy entry to pad the batch."""
     return BatchEntry(
-        record_id=f"dummy_{index}",
+        media_id=f"dummy_{index}",
         system_prompt="ok",
         content="ok",
         token_count=2,
@@ -135,11 +136,11 @@ def prepare_batch_entries(
             logger.info("Split %s into %d chunks", f.stem, len(chunks))
 
         for i, (chunk_content, chunk_tokens) in enumerate(chunks, start=1):
-            record_id = f.stem if len(chunks) == 1 else f"{f.stem}_{i}"
+            media_id = f.stem if len(chunks) == 1 else f"{f.stem}_{i}"
 
             entries.append(
                 BatchEntry(
-                    record_id=record_id,
+                    media_id=media_id,
                     system_prompt=f.system_prompt,
                     content=chunk_content,
                     token_count=chunk_tokens,
@@ -161,13 +162,13 @@ def create_jsonl(entries: list[BatchEntry], output_path: Path) -> dict:
 
     Returns stats about the created batch.
     """
-    real_entries = [e for e in entries if not e.record_id.startswith("dummy_")]
-    dummy_entries = [e for e in entries if e.record_id.startswith("dummy_")]
+    real_entries = [e for e in entries if not e.media_id.startswith("dummy_")]
+    dummy_entries = [e for e in entries if e.media_id.startswith("dummy_")]
 
     with open(output_path, "w", encoding="utf-8") as f:
         for entry in entries:
             record = {
-                "recordId": entry.record_id,
+                "recordId": entry.media_id,
                 "modelInput": {
                     "anthropic_version": "bedrock-2023-05-31",
                     "max_tokens": MAX_TOKENS,

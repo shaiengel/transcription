@@ -78,6 +78,36 @@
             "env": {
                 "PYTHONPATH": "C:\\portal\\transcription\\gpu_timestamp\\src"
             }
+        },
+        {
+            "name": "post_inference gemini webhook",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\post_inference\\local_test_gemini_webhook.py",
+            "console": "integratedTerminal",
+            "cwd": "C:\\portal\\transcription\\post_inference",
+            "env": {
+                "PYTHONPATH": "C:\\portal\\transcription\\post_inference\\src",
+                "SKIP_SIGNATURE_VERIFICATION": "true",
+                "PORT": "8000"
+            }
+        },
+        {
+            "name": "Cleanup Gemini Resources",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\transcription_reviewer\\cleanup_gemini.py",
+            "console": "integratedTerminal",
+            "cwd": "C:\\portal\\transcription\\transcription_reviewer"
+        },
+        {
+            "name": "Create Gemini Webhook",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "C:\\portal\\transcription\\transcription_reviewer\\create_webhook.py",
+            "console": "integratedTerminal",
+            "cwd": "C:\\portal\\transcription\\transcription_reviewer"
         }
+        
     ]
 }

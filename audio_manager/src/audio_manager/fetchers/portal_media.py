@@ -1,9 +1,11 @@
 import logging
+import subprocess
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
 from audio_manager.handlers.media import (
+    apply_max_word_split,
     enrich_with_steinsaltz,
     get_calendar_window,
     print_media_links,
@@ -15,6 +17,60 @@ from audio_manager.models.schemas import MediaEntry
 from audio_manager.models.daf_text_fetcher import DafTextFetcher
 
 logger = logging.getLogger(__name__)
+
+
+def _mp3_has_issues(mp3_path: Path) -> bool:
+    """Run mp3val.exe and return True if there are errors or warnings."""
+    try:
+        result = subprocess.run(
+            ["mp3val.exe", str(mp3_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        output = result.stdout + result.stderr
+        # mp3val reports issues with WARNING or ERROR in output
+        return "WARNING" in output or "ERROR" in output
+    except FileNotFoundError as e:
+        logger.error("not found in PATH: %s", e)
+        return False
+
+
+def _validate_and_fix_mp3(mp3_path: Path) -> bool:
+    """Validate MP3 file and re-encode with ffmpeg if needed. Returns False if unfixable."""
+    if not _mp3_has_issues(mp3_path):
+        return True
+
+    logger.warning("MP3 validation issues detected for %s, attempting re-encode", mp3_path)
+    temp_path = mp3_path.parent / "temp_reencoded.mp3"
+
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(mp3_path), str(temp_path)],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            logger.error("ffmpeg re-encode failed for %s", mp3_path)
+            temp_path.unlink(missing_ok=True)
+            return False
+
+        if _mp3_has_issues(temp_path):
+            logger.error("Re-encoded MP3 still has issues, dropping %s", mp3_path)
+            temp_path.unlink(missing_ok=True)
+            mp3_path.unlink(missing_ok=True)
+            return False
+
+        # Replace original with fixed file
+        mp3_path.unlink(missing_ok=True)
+        temp_path.rename(mp3_path)
+        logger.info("Successfully re-encoded %s", mp3_path)
+        return True
+
+    except FileNotFoundError as e:
+        logger.error("ffmpeg not found in PATH: %s", e)
+        temp_path.unlink(missing_ok=True)
+        return False
 
 
 class PortalMedia(MediaFetcher):
@@ -48,6 +104,7 @@ class PortalMedia(MediaFetcher):
             media_links: list[MediaEntry] = self._media_source.get_media_entries(
                 days_ago=days_ago
             )
+            apply_max_word_split(media_links)
 
             for m in media_links:
                 m.source = "portal"
@@ -66,7 +123,7 @@ class PortalMedia(MediaFetcher):
             if not download_file(media.media_link, path):
                 logger.warning("Download failed for media_id=%s", media.media_id)
                 return False
-            return True
+            return _validate_and_fix_mp3(path)
 
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp4:
             mp4_path = Path(tmp4.name)
@@ -77,6 +134,6 @@ class PortalMedia(MediaFetcher):
             if not extract_audio_from_mp4(mp4_path, path):
                 logger.warning("Audio extraction failed for media_id=%s", media.media_id)
                 return False
-            return True
+            return _validate_and_fix_mp3(path)
         finally:
             mp4_path.unlink(missing_ok=True)
