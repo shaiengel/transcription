@@ -15,5 +15,42 @@ runcmd:
   # download and load docker image from S3
   - aws s3 cp s3://portal-docker-images/whisper-transcribe.tar.gz - | docker load
 
+  # create CloudWatch Agent config
+  - |
+    mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+
+    cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF'
+    {
+      "logs": {
+        "logs_collected": {
+          "files": {
+            "collect_list": [
+              {
+                "file_path": "/var/lib/docker/containers/*/*-json.log",
+                "log_group_name": "/docker/whisper-transcribe",
+                "log_stream_name": "{instance_id}",
+                "timestamp_format": "%Y-%m-%dT%H:%M:%S"
+              }
+            ]
+          }
+        }
+      }
+    }
+    EOF
+
+  # start CloudWatch Agent
+  - |
+    /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+      -a fetch-config \
+      -m ec2 \
+      -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+      -s
+
   # run container
-  - docker run -d --gpus all --restart unless-stopped -v /opt/dlami/nvme/models/ivrit-ai--whisper-large-v3-ct2:/opt/models/ivrit-ai--whisper-large-v3-ct2:ro whisper-transcribe:1
+  - |
+    docker run -d \
+      --name whisper-transcribe \
+      --gpus all \
+      --restart unless-stopped \
+      -v /opt/dlami/nvme/models/ivrit-ai--whisper-large-v3-ct2:/opt/models/ivrit-ai--whisper-large-v3-ct2:ro \
+      whisper-transcribe:1
