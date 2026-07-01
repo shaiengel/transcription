@@ -4,8 +4,8 @@ import logging
 from post_inference.infrastructure.dependency_injection import DependenciesContainer
 from post_inference.models.post_processing import AuthenticationError
 
+logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event: dict, context) -> dict:
