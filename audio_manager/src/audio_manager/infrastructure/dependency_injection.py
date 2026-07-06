@@ -67,7 +67,9 @@ def _create_portal_media_by_daf_fetcher(media_source, text_fetcher):
         # ("Keritot", 3),
         # ("Meilah", 21),
         # ("Tamid", 33),
-        # ("Niddah", 72)       
+        # ("Niddah", 72),
+        # ("kanim", 23),
+        # ("Middot", 34)
         
 
     ]

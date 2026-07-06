@@ -4355,28 +4355,37 @@
     "chapter_name": "חטאת העוף",
     "masechet_name": "קנים",
     "chapter_number": 1,
-    "chapter_start_daf": null,
-    "chapter_start_amud": null,
-    "massechet_id": null,
-    "chapter_count": "ראשון"
+    "chapter_start_daf": 22,
+    "chapter_start_amud": 2,
+    "massechet_id": 319,
+    "chapter_count": "ראשון",
+    "massechet_english": "kanim",
+    "massechet_start": 22,
+    "massechet_end": 25
   },
   {
     "chapter_name": "קן סתומה",
     "masechet_name": "קנים",
     "chapter_number": 2,
-    "chapter_start_daf": null,
-    "chapter_start_amud": null,
-    "massechet_id": null,
-    "chapter_count": "שני"
+    "chapter_start_daf": 23,
+    "chapter_start_amud": 1,
+    "massechet_id": 319,
+    "chapter_count": "שני",
+    "massechet_english": "kanim",
+    "massechet_start": 22,
+    "massechet_end": 25
   },
   {
     "chapter_name": "במה דברים אמורים",
     "masechet_name": "קנים",
     "chapter_number": 3,
-    "chapter_start_daf": null,
-    "chapter_start_amud": null,
-    "massechet_id": null,
-    "chapter_count": "שלישי"
+    "chapter_start_daf": 23,
+    "chapter_start_amud": 2,
+    "massechet_id": 319,
+    "chapter_count": "שלישי",
+    "massechet_english": "kanim",
+    "massechet_start": 22,
+    "massechet_end": 25
   },
   {
     "chapter_name": "בשלשה מקומות",
@@ -4467,45 +4476,60 @@
     "masechet_name": "מדות",
     "chapter_number": 1,
     "chapter_start_daf": 34,
-    "chapter_start_amud": 37,
+    "chapter_start_amud": 1,
     "massechet_id": 321,
-    "chapter_count": "ראשון"
+    "chapter_count": "ראשון",
+    "massechet_english": "Middot",
+    "massechet_start": 34,
+    "massechet_end": 37
   },
   {
     "chapter_name": "הר הבית",
     "masechet_name": "מדות",
     "chapter_number": 2,
     "chapter_start_daf": 34,
-    "chapter_start_amud": 37,
+    "chapter_start_amud": 2,
     "massechet_id": 321,
-    "chapter_count": "שני"
+    "chapter_count": "שני",
+    "massechet_english": "Middot",
+    "massechet_start": 34,
+    "massechet_end": 37
   },
   {
     "chapter_name": "המזבח",
     "masechet_name": "מדות",
     "chapter_number": 3,
-    "chapter_start_daf": 34,
-    "chapter_start_amud": 37,
+    "chapter_start_daf": 35,
+    "chapter_start_amud": 2,
     "massechet_id": 321,
-    "chapter_count": "שלישי"
+    "chapter_count": "שלישי",
+    "massechet_english": "Middot",
+    "massechet_start": 34,
+    "massechet_end": 37
   },
   {
     "chapter_name": "פתחו של היכל",
     "masechet_name": "מדות",
     "chapter_number": 4,
-    "chapter_start_daf": 34,
-    "chapter_start_amud": 37,
+    "chapter_start_daf": 36,
+    "chapter_start_amud": 2,
     "massechet_id": 321,
-    "chapter_count": "רביעי"
+    "chapter_count": "רביעי",
+    "massechet_english": "Middot",
+    "massechet_start": 34,
+    "massechet_end": 37
   },
   {
     "chapter_name": "כל העזרה",
     "masechet_name": "מדות",
     "chapter_number": 5,
-    "chapter_start_daf": 34,
-    "chapter_start_amud": 37,
+    "chapter_start_daf": 37,
+    "chapter_start_amud": 2,
     "massechet_id": 321,
-    "chapter_count": "חמישי"
+    "chapter_count": "חמישי",
+    "massechet_english": "Middot",
+    "massechet_start": 34,
+    "massechet_end": 37
   },
   {
     "chapter_name": "שמאי",
