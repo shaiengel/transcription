@@ -230,7 +230,8 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         for stem, media_ids in completed.items():
             dynamo_entry = self._dynamo_reader.get_entry(stem)
             if not dynamo_entry:
-                logger.error("No DynamoDB entry for stem=%s during finalize", stem)
+                logger.error("No DynamoDB entry for stem=%s during finalize, dead-lettering", stem)
+                self._svc.dead_letter_media(stem, config.transcription_bucket)
                 failed_count += 1
                 continue
 
@@ -239,13 +240,15 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 merged = self._merge_chunks(stem, media_ids)
                 if not merged:
                     logger.error("Failed to merge chunks for %s, dead-lettering", stem)
-                    self._svc.dead_letter_media(stem, config.transcription_bucket)
+                    self._svc.dead_letter_media(stem, config.transcription_bucket)                    
                     failed_count += 1
                     continue
 
                 # Upload to output bucket
                 output_bucket = dynamo_entry.media_fixed_transcribed_bucket
                 if not self._s3_client.put_object_content(output_bucket, f"{stem}.txt", merged):
+                    logger.error("Failed to upload fixed text for %s, dead-lettering", stem)
+                    self._svc.dead_letter_media(stem, config.transcription_bucket)
                     failed_count += 1
                     continue
 
@@ -288,7 +291,8 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 logger.info("Finalized %s", stem)
 
             except Exception:
-                logger.exception("Failed to finalize stem %s", stem)
+                logger.exception("Failed to finalize stem %s, dead-lettering", stem)
+                self._svc.dead_letter_media(stem, config.transcription_bucket)
                 failed_count += 1
 
         self._svc.delete_prompt_caches(caches)
