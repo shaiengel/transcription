@@ -28,6 +28,7 @@ class S3Reader:
         bucket: str,
         prefix: str = "",
         suffix: str = "",
+        max_items: int | None = None,
     ) -> list[TimedTranscription]:
         """
         List all transcription files in S3.
@@ -36,6 +37,7 @@ class S3Reader:
             bucket: S3 bucket name.
             prefix: Optional prefix to filter objects.
             suffix: Optional suffix to filter objects.
+            max_items: Optional max number of transcriptions to return.
 
         Returns:
             List of TimedTranscription objects.
@@ -44,6 +46,7 @@ class S3Reader:
             bucket=bucket,
             prefix=prefix,
             suffix=suffix,
+            max_items=max_items,
         )
 
         transcriptions = []

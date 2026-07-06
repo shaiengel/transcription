@@ -41,7 +41,8 @@ def lambda_handler(event: dict, context) -> dict:
 
         if batch_job_id:
             orchestrator = container.gemini_batch_retrigger_orchestrator(
-                batch_job_id=batch_job_id
+                batch_job_id=batch_job_id,
+                lambda_context=context,
             )
             logger.info("Result trigger: processing batch_job_id=%s", batch_job_id)
         else:
@@ -53,7 +54,9 @@ def lambda_handler(event: dict, context) -> dict:
         logger.info("Review completed: %s", response_body)
 
         if result.timed_out:
-            _reinvoke_self(context, event)
+            # After retrigger finalize, invoke fresh (no batch_job_id) to pick up next batch
+            reinvoke_event = {} if batch_job_id else event
+            _reinvoke_self(context, reinvoke_event)
 
         return {
             "statusCode": 200,

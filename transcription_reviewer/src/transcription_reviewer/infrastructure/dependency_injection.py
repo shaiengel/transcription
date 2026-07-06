@@ -150,7 +150,8 @@ def _create_gemini_batch_orchestrator(
 
 
 def _create_gemini_batch_retrigger_orchestrator(
-    s3_client, sqs_client, dynamo_reader, transcription_fixer, batch_service, batch_job_id
+    s3_client, sqs_client, dynamo_reader, transcription_fixer, batch_service, batch_job_id,
+    lambda_context=None,
 ):
     """Factory for GeminiBatchRetriggerOrchestrator."""
     from transcription_reviewer.handlers.gemini_batch_retrigger_orchestrator import (
@@ -164,6 +165,7 @@ def _create_gemini_batch_retrigger_orchestrator(
         transcription_fixer=transcription_fixer,
         batch_service=batch_service,
         batch_job_id=batch_job_id,
+        lambda_context=lambda_context,
     )
 
 
@@ -306,6 +308,7 @@ class DependenciesContainer(DeclarativeContainer):
         transcription_fixer=transcription_fixer,
         batch_service=gemini_batch_service,
         batch_job_id="",  # overridden at call site
+        lambda_context=None,  # overridden at call site
     )
 
     # Config-based orchestrator selection (initial trigger)
