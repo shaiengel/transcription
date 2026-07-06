@@ -43,11 +43,8 @@ class S3Client:
         try:
             objects = []
             paginator = self._client.get_paginator("list_objects_v2")
-            pagination_config = {}
-            if max_items is not None:
-                pagination_config["MaxItems"] = max_items
 
-            for page in paginator.paginate(Bucket=bucket, Prefix=prefix, PaginationConfig=pagination_config):
+            for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
                 for obj in page.get("Contents", []):
                     key = obj["Key"]
                     if key.endswith(suffix):
