@@ -16,6 +16,9 @@ from transcription_reviewer.utils.text_utils import split_by_words
 logger = logging.getLogger(__name__)
 
 
+MAX_BATCH_FILES = 80
+
+
 class GeminiBatchOrchestrator(ReviewOrchestrator):
     """Collect transcription files → split → submit Gemini batch."""
 
@@ -40,7 +43,8 @@ class GeminiBatchOrchestrator(ReviewOrchestrator):
 
         # 1. List .txt files
         transcriptions = self._s3_reader.list_transcriptions(
-            bucket=self._bucket, prefix="", suffix=".txt"
+            bucket=self._bucket, prefix="", suffix=".txt",
+            max_items=MAX_BATCH_FILES,
         )
         if not transcriptions:
             logger.info("No transcription files found")

@@ -26,6 +26,7 @@ class S3Client:
         bucket: str,
         prefix: str = "",
         suffix: str = "",
+        max_items: int | None = None,
     ) -> list[dict]:
         """
         List objects in S3 bucket with optional prefix and suffix filter.
@@ -34,6 +35,7 @@ class S3Client:
             bucket: S3 bucket name.
             prefix: Optional prefix to filter objects.
             suffix: Optional suffix to filter objects (e.g., '.timed.txt').
+            max_items: Optional max number of matching objects to return.
 
         Returns:
             List of object metadata dictionaries.
@@ -47,6 +49,10 @@ class S3Client:
                     key = obj["Key"]
                     if key.endswith(suffix):
                         objects.append(obj)
+                        if max_items is not None and len(objects) >= max_items:
+                            break
+                if max_items is not None and len(objects) >= max_items:
+                    break
 
             logger.info(
                 "Found %d objects in s3://%s/%s with suffix '%s'",

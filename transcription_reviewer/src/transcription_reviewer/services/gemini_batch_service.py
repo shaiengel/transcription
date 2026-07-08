@@ -461,13 +461,16 @@ class GeminiBatchService:
                 self._temporary_fix_bucket, key, self._dead_letter_bucket, f"temp/{key}"
             )
 
+        # Delete source files from transcription bucket
+        self._s3.delete_objects_by_prefix(transcription_bucket, f"{stem}.")
+
         # Clean up temp files
         self._s3.delete_objects_by_prefix(self._temporary_fix_bucket, f"{stem}")
 
         # Clean up tracker entries
         self.delete_fix_tracker_by_stem(stem)
 
-        logger.info("Dead-lettered %s: cleaned up temp files and tracker entries", stem)
+        logger.info("Dead-lettered %s: cleaned up source, temp files and tracker entries", stem)
 
     # ---- Properties ----
 

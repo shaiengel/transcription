@@ -11,7 +11,7 @@ class DynamoReader:
         self._client = dynamodb_client
         self._table_name = table_name
 
-    def set_status(self, media_id: int, status: str) -> bool:
+    def set_status(self, media_id: str, status: str) -> bool:
         return self._client.update_item(
             table_name=self._table_name,
             key={"media_id": {"S": str(media_id)}},
@@ -20,7 +20,7 @@ class DynamoReader:
             expression_values={":s": {"S": status}},
         )
 
-    def get_entry(self, media_id: int) -> DynamoDBMediaEntry | None:
+    def get_entry(self, media_id: str) -> DynamoDBMediaEntry | None:
         item = self._client.get_item(
             table_name=self._table_name,
             key={"media_id": {"S": str(media_id)}},

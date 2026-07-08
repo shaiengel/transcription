@@ -1,6 +1,7 @@
 """Result-trigger orchestrator: fetch batch results, evaluate diffs, retry or finalize."""
 
 import logging
+import time
 
 from transcription_reviewer.config import config
 from transcription_reviewer.infrastructure.s3_client import S3Client
@@ -15,6 +16,10 @@ from transcription_reviewer.utils.wer_utils import compute_wer, log_wer_result
 
 logger = logging.getLogger(__name__)
 
+LAMBDA_TIMEOUT_MS = 15 * 60 * 1000
+RATE_LIMIT_ELAPSED_MS = 8 * 60 * 1000
+REMAINING_AFTER_WAIT_MS = LAMBDA_TIMEOUT_MS - RATE_LIMIT_ELAPSED_MS
+
 
 class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
     """Fetch Gemini batch results → diff eval → retry or finalize."""
@@ -27,6 +32,7 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         transcription_fixer: TranscriptionFixer,
         batch_service: GeminiBatchService,
         batch_job_id: str,
+        lambda_context=None,
     ):
         self._s3_client = s3_client
         self._sqs_client = sqs_client
@@ -34,6 +40,7 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         self._transcription_fixer = transcription_fixer
         self._svc = batch_service
         self._batch_job_id = batch_job_id
+        self._lambda_context = lambda_context
 
     def start(self) -> StartResult:
         logger.info("Retrigger: processing batch_job_id=%s", self._batch_job_id)
@@ -223,7 +230,8 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
         for stem, media_ids in completed.items():
             dynamo_entry = self._dynamo_reader.get_entry(stem)
             if not dynamo_entry:
-                logger.error("No DynamoDB entry for stem=%s during finalize", stem)
+                logger.error("No DynamoDB entry for stem=%s during finalize, dead-lettering", stem)
+                self._svc.dead_letter_media(stem, config.transcription_bucket)
                 failed_count += 1
                 continue
 
@@ -232,13 +240,15 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 merged = self._merge_chunks(stem, media_ids)
                 if not merged:
                     logger.error("Failed to merge chunks for %s, dead-lettering", stem)
-                    self._svc.dead_letter_media(stem, config.transcription_bucket)
+                    self._svc.dead_letter_media(stem, config.transcription_bucket)                    
                     failed_count += 1
                     continue
 
                 # Upload to output bucket
                 output_bucket = dynamo_entry.media_fixed_transcribed_bucket
                 if not self._s3_client.put_object_content(output_bucket, f"{stem}.txt", merged):
+                    logger.error("Failed to upload fixed text for %s, dead-lettering", stem)
+                    self._svc.dead_letter_media(stem, config.transcription_bucket)
                     failed_count += 1
                     continue
 
@@ -281,15 +291,27 @@ class GeminiBatchRetriggerOrchestrator(ReviewOrchestrator):
                 logger.info("Finalized %s", stem)
 
             except Exception:
-                logger.exception("Failed to finalize stem %s", stem)
+                logger.exception("Failed to finalize stem %s, dead-lettering", stem)
+                self._svc.dead_letter_media(stem, config.transcription_bucket)
                 failed_count += 1
 
         self._svc.delete_prompt_caches(caches)
+
+        # Rate-limit: wait until 8 min elapsed before retriggering for next batch suport for gemini batch rate limit tier1
+        timed_out = False
+        if self._lambda_context:
+            remaining_ms = self._lambda_context.get_remaining_time_in_millis()
+            sleep_ms = remaining_ms - REMAINING_AFTER_WAIT_MS
+            if sleep_ms > 0:
+                logger.info("Rate-limit: sleeping %.1f s before retrigger", sleep_ms / 1000)
+                time.sleep(sleep_ms / 1000)
+            timed_out = True
 
         return StartResult(
             mode="completed",
             fixed=fixed_count,
             failed=failed_count,
+            timed_out=timed_out,
         )
 
     def _has_meaningful_changes(self, media_id: str, response_text: str) -> bool:
