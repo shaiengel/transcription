@@ -24,7 +24,9 @@ def _create_portal_media_fetcher(media_source, text_fetcher):
 def _create_youtube_media_fetcher(text_fetcher):
     from audio_manager.fetchers.youtube_media import YouTubeMedia
 
-    json_path = Path(os.getenv("YOUTUBE_LINKS_JSON", "youtube_links.json"))
+    # Resolve relative to project root (audio_manager/) rather than CWD
+    default_path = Path(__file__).resolve().parents[3] / "youtube_links.json"
+    json_path = Path(os.getenv("YOUTUBE_LINKS_JSON", str(default_path)))
     return YouTubeMedia(json_path, text_fetcher)
 
 
