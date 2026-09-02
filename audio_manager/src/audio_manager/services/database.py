@@ -189,3 +189,33 @@ def get_media_links(conn: Connection, massechet_id: int, daf_id: int) -> list[Me
         )
         for row in result
     ]
+
+
+def get_media_links_by_maggid(conn: Connection, maggid_id: int) -> list[MediaEntry]:
+    """Get all media links for a specific maggid."""
+    query = text("""
+        SELECT media_id, media_link, maggid_id, maggid_description, massechet_name,
+               daf_name, language_en, media_duration, file_type
+        FROM [vps_daf-yomi].[dbo].[View_Media]
+        WHERE maggid_id = :maggid_id
+          AND file_type IN ('mp3', 'mp4')
+          AND language_en = 'hebrew'
+          AND media_is_active = 1
+    """)
+    result = conn.execute(query, {"maggid_id": maggid_id}).fetchall()
+
+    return [
+        MediaEntry(
+            media_id=row.media_id,
+            media_link=row.media_link,
+            maggid_id=row.maggid_id,
+            maggid_description=row.maggid_description,
+            massechet_name=row.massechet_name,
+            daf_name=row.daf_name,
+            details="",
+            language=row.language_en,
+            media_duration=row.media_duration,
+            file_type=row.file_type,
+        )
+        for row in result
+    ]

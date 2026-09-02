@@ -78,6 +78,13 @@ def _create_portal_media_by_daf_fetcher(media_source, text_fetcher):
     return PortalMediaByDaf(media_source, text_fetcher, daf_list)
 
 
+def _create_portal_media_by_maggid_fetcher(media_source, text_fetcher):
+    from audio_manager.fetchers.portal_media_by_maggid import PortalMediaByMaggid
+
+    maggid_id = 37
+    return PortalMediaByMaggid(media_source, text_fetcher, maggid_id)
+
+
 def _create_folder_media_fetcher():
     from audio_manager.fetchers.folder_media import FolderMedia
 
@@ -228,5 +235,6 @@ class DependenciesContainer(DeclarativeContainer):
     # =========================================================================
     # media_fetcher = providers.Singleton(_create_portal_media_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
     media_fetcher = providers.Singleton(_create_portal_media_by_daf_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
+    # media_fetcher = providers.Singleton(_create_portal_media_by_maggid_fetcher, media_source=media_source, text_fetcher=daf_text_fetcher)
     # media_fetcher = providers.Singleton(_create_youtube_media_fetcher, text_fetcher=daf_text_fetcher)
     # media_fetcher = providers.Singleton(_create_folder_media_fetcher)
